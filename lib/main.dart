@@ -1677,41 +1677,294 @@ class TeamCard extends StatelessWidget {
   }
 }
 
-class PlayerCrudPage extends StatelessWidget {
+
+/* === v8.3 full CRUD/content constants === */
+const fc24PlayStylesList = ["Finesse shot", "Chip shot", "Power shot", "Dead ball", "Precision header", "Acrobatic", "Low driven shot", "Gamechanger", "Incisive pass", "Pinged pass", "Long ball pass", "Tiki taka", "Whipped pass", "Inventive", "Jockey", "Block", "Intercept", "Anticipate", "Slide tackle", "Aerial fortress", "Technical", "Rapid", "First touch", "Trickster", "Press proven", "Quick step", "Relentless", "Long throw", "Bruiser", "Enforcer", "Far throw", "Footwork", "Cross claimer", "Rush out", "Far reach", "Deflector", "Solid player", "Team player", "One club player", "Injury prone", "Leadership"];
+const fc24PlayStylesPlusList = ["Finesse shot +", "Chip shot +", "Power shot +", "Dead ball +", "Precision header +", "Acrobatic +", "Low driven shot +", "Gamechanger +", "Incisive pass +", "Pinged pass +", "Long ball pass +", "Tiki taka +", "Whipped pass +", "Inventive +", "Jockey +", "Block +", "Intercept +", "Anticipate +", "Slide tackle +", "Aerial fortress +", "Technical +", "Rapid +", "First touch +", "Trickster +", "Press proven +", "Quick step +", "Relentless +", "Long throw +", "Bruiser +", "Enforcer +", "Far throw +", "Footwork +", "Cross claimer +", "Rush out +", "Far reach +", "Deflector +", "Solid player +", "Team player +", "One club player +", "Injury prone +", "Leadership +"];
+const fc24SpecialitiesList = ["Poacher", "Speedster", "Aerial threat", "Dribbler", "Playmaker", "Engine", "Distance shooter", "Crosser", "FK Specialist", "Tackling", "Tactician", "Acrobat", "Strength", "Clinical finisher", "Complete defender", "Complete midfielder", "Complete forward"];
+
+class ChipMultiSelect extends StatelessWidget {
+  final String title;
+  final List<String> options;
+  final Set<String> values;
+  final ValueChanged<Set<String>> onChanged;
+  const ChipMultiSelect({super.key, required this.title, required this.options, required this.values, required this.onChanged});
+
+  @override
+  Widget build(BuildContext context) => Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+    Text(title, style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w900)),
+    const SizedBox(height: 8),
+    Wrap(spacing: 8, runSpacing: 8, children: options.map((x) {
+      final selected = values.contains(x);
+      return FilterChip(
+        selected: selected,
+        label: Text(x),
+        onSelected: (v) {
+          final next = Set<String>.from(values);
+          if (v) next.add(x); else next.remove(x);
+          onChanged(next);
+        },
+      );
+    }).toList()),
+  ]);
+}
+
+class ProStatEditor extends StatelessWidget {
+  final Map<String, TextEditingController> ctrls;
+  const ProStatEditor({super.key, required this.ctrls});
+  @override
+  Widget build(BuildContext context) {
+    final groups = {
+      'Pace / Dribble': ['acc','sprint','agi','bal','react','ball','drib'],
+      'Physical / Defense': ['str','agg','stam','jump','defaw','tackle','slide','inter'],
+      'Attack / Passing': ['finish','shot','longshot','comp','head','cross','shortp','longp','vision','curve','fk'],
+    };
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: groups.entries.map((g) => ExpansionTile(
+      initiallyExpanded: g.key == 'Pace / Dribble',
+      title: Text(g.key, style: const TextStyle(fontWeight: FontWeight.w900)),
+      children: [
+        Wrap(spacing: 8, runSpacing: 8, children: g.value.map((k) => SizedBox(
+          width: 96,
+          child: TextField(
+            controller: ctrls[k],
+            keyboardType: TextInputType.number,
+            decoration: InputDecoration(labelText: labelStat(k)),
+          ),
+        )).toList()),
+        const SizedBox(height: 8),
+      ],
+    )).toList());
+  }
+}
+
+
+class PlayerCrudPage extends StatefulWidget {
   final List<Player> players;
   final ValueChanged<Player> onSave;
   const PlayerCrudPage({super.key, required this.players, required this.onSave});
+  @override State<PlayerCrudPage> createState()=>_PlayerCrudPageState();
+}
+class _PlayerCrudPageState extends State<PlayerCrudPage> {
+  Player? editing;
+  String q = '';
+
   @override
-  Widget build(BuildContext context) => ListView(
-    padding: const EdgeInsets.all(14),
-    children: [
-      Header('CRUD Players', 'Version build-safe'),
-      const Card(child: Padding(padding: EdgeInsets.all(14), child: Text('CRUD détaillé disponible dans les prochaines versions. Cette page est stabilisée pour le build APK.'))),
-      ...players.take(50).map((p) => PlayerTile(p: p, onTap: () => showPlayerDetails(context, p))),
-    ],
-  );
+  Widget build(BuildContext context) {
+    final query = q.toLowerCase().trim();
+    final rows = widget.players.where((p)=>query.isEmpty || ('${p.name} ${p.team} ${p.pos}').toLowerCase().contains(query)).take(80).toList();
+    return ListView(padding: const EdgeInsets.all(14), children:[
+      Header('CRUD Players Pro', 'Édition complète : identité, stats, PlayStyles, PlayStyles+, spécialités'),
+      TextField(decoration: const InputDecoration(prefixIcon: Icon(Icons.search), hintText:'Rechercher joueur à modifier...'), onChanged:(v)=>setState(()=>q=v)),
+      const SizedBox(height: 10),
+      PlayerFormPro(initial: editing, onSave: (p){
+        widget.onSave(p);
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Joueur sauvegardé localement')));
+      }),
+      const SizedBox(height: 14),
+      ProBox(title:'Sélection rapide DB', subtitle:'Clique pour charger dans le formulaire', icon: Icons.manage_search_rounded, child: Column(children: rows.map((p)=>PlayerTile(p:p, onTap:()=>setState(()=>editing=p))).toList())),
+    ]);
+  }
 }
 
-class TeamCrudPage extends StatelessWidget {
+class PlayerFormPro extends StatefulWidget {
+  final Player? initial;
+  final ValueChanged<Player> onSave;
+  const PlayerFormPro({super.key, required this.initial, required this.onSave});
+  @override State<PlayerFormPro> createState()=>_PlayerFormProState();
+}
+class _PlayerFormProState extends State<PlayerFormPro> {
+  final name=TextEditingController(), team=TextEditingController(), pos=TextEditingController(), pos2=TextEditingController(), image=TextEditingController();
+  final ovr=TextEditingController(), pot=TextEditingController(), h=TextEditingController(), w=TextEditingController(), skill=TextEditingController(), wf=TextEditingController();
+  final Map<String, TextEditingController> statCtrls = {};
+  String body='Average', accel='Controlled', foot='Right', attWr='Medium', defWr='Medium';
+  Set<String> playstyles = {};
+  Set<String> playstylesPlus = {};
+  Set<String> specialities = {};
+
+  @override void initState(){super.initState(); for(final k in ['acc','sprint','str','agg','bal','agi','react','ball','drib','defaw','tackle','slide','inter','finish','shot','longshot','comp','stam','jump','head','cross','shortp','longp','vision','curve','fk']){statCtrls[k]=TextEditingController();} fill();}
+  @override void didUpdateWidget(covariant PlayerFormPro oldWidget){super.didUpdateWidget(oldWidget); fill();}
+
+  void fill(){
+    final p=widget.initial;
+    name.text=p?.name??''; team.text=p?.team??''; pos.text=p?.pos??'ST'; pos2.text=p?.pos2??''; image.text=p?.image??'';
+    ovr.text='${p?.ovr??80}'; pot.text='${p?.pot??80}'; h.text='${p?.height??180}'; w.text='${p?.weight??75}'; skill.text='${p?.skill??3}'; wf.text='${p?.weakFoot??3}';
+    body=p?.body??'Average'; accel=p?.accel??'Controlled'; foot=p?.foot??'Right'; attWr=p?.attWr??'Medium'; defWr=p?.defWr??'Medium';
+    for(final e in statCtrls.entries){e.value.text='${p?.s[e.key]??75}';}
+    final ps = p?.playstyles ?? [];
+    playstyles = ps.where((x)=>fc24PlayStylesList.contains(x)).toSet();
+    playstylesPlus = ps.where((x)=>fc24PlayStylesPlusList.contains(x)).toSet();
+    specialities = ps.where((x)=>fc24SpecialitiesList.contains(x)).toSet();
+    // keep unknown custom styles in PlayStyles normal list visually impossible; they remain in DB if not edited
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return ProBox(title: widget.initial == null ? 'Nouveau joueur' : 'Édition : ${widget.initial!.name}', subtitle:'Formulaire complet mobile', icon: Icons.person_add_alt_1_rounded, child: Column(children:[
+      Row(children:[
+        Expanded(child: TextField(controller:name, decoration: const InputDecoration(labelText:'Nom joueur'))),
+        const SizedBox(width:8),
+        SizedBox(width:98, child: TextField(controller:ovr, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText:'OVR'))),
+        const SizedBox(width:8),
+        SizedBox(width:98, child: TextField(controller:pot, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText:'POT'))),
+      ]),
+      const SizedBox(height:8),
+      Row(children:[
+        Expanded(child: TextField(controller:team, decoration: const InputDecoration(labelText:'Équipe'))),
+        const SizedBox(width:8),
+        Expanded(child: TextField(controller:pos, decoration: const InputDecoration(labelText:'Poste principal'))),
+        const SizedBox(width:8),
+        Expanded(child: TextField(controller:pos2, decoration: const InputDecoration(labelText:'Postes secondaires'))),
+      ]),
+      const SizedBox(height:8),
+      TextField(controller:image, decoration: const InputDecoration(labelText:'Image URL / asset')),
+      const SizedBox(height:8),
+      Row(children:[
+        Expanded(child: TextField(controller:h, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText:'Taille cm'))),
+        const SizedBox(width:8),
+        Expanded(child: TextField(controller:w, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText:'Poids kg'))),
+        const SizedBox(width:8),
+        Expanded(child: TextField(controller:skill, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText:'Skill Moves'))),
+        const SizedBox(width:8),
+        Expanded(child: TextField(controller:wf, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText:'Weak Foot'))),
+      ]),
+      const SizedBox(height:8),
+      Row(children:[
+        Expanded(child: DropdownButtonFormField<String>(value:body, isExpanded:true, items:['Lean','Average','Stocky','High & Lean','High & Average','High & Stocky','Unique'].map((x)=>DropdownMenuItem(value:x, child:Text(x))).toList(), onChanged:(v)=>setState(()=>body=v!), decoration: const InputDecoration(labelText:'Body Type'))),
+        const SizedBox(width:8),
+        Expanded(child: DropdownButtonFormField<String>(value:accel, isExpanded:true, items:['Explosive','Mostly Explosive','Controlled','Controlled Lengthy','Lengthy','Mostly Lengthy'].map((x)=>DropdownMenuItem(value:x, child:Text(x))).toList(), onChanged:(v)=>setState(()=>accel=v!), decoration: const InputDecoration(labelText:'AcceleRATE'))),
+      ]),
+      const SizedBox(height:8),
+      Row(children:[
+        Expanded(child: DropdownButtonFormField<String>(value:foot, items:['Right','Left'].map((x)=>DropdownMenuItem(value:x, child:Text(x))).toList(), onChanged:(v)=>setState(()=>foot=v!), decoration: const InputDecoration(labelText:'Foot'))),
+        const SizedBox(width:8),
+        Expanded(child: DropdownButtonFormField<String>(value:attWr, items:['Low','Medium','High'].map((x)=>DropdownMenuItem(value:x, child:Text(x))).toList(), onChanged:(v)=>setState(()=>attWr=v!), decoration: const InputDecoration(labelText:'Att WR'))),
+        const SizedBox(width:8),
+        Expanded(child: DropdownButtonFormField<String>(value:defWr, items:['Low','Medium','High'].map((x)=>DropdownMenuItem(value:x, child:Text(x))).toList(), onChanged:(v)=>setState(()=>defWr=v!), decoration: const InputDecoration(labelText:'Def WR'))),
+      ]),
+      const SizedBox(height:12),
+      ExpansionTile(title: const Text('Stats détaillées', style: TextStyle(fontWeight: FontWeight.w900)), initiallyExpanded:false, children:[ProStatEditor(ctrls: statCtrls)]),
+      const SizedBox(height:10),
+      ExpansionTile(title: const Text('PlayStyles', style: TextStyle(fontWeight: FontWeight.w900)), children:[ChipMultiSelect(title:'PlayStyles FC24', options:fc24PlayStylesList, values:playstyles, onChanged:(v)=>setState(()=>playstyles=v))]),
+      ExpansionTile(title: const Text('PlayStyles+', style: TextStyle(fontWeight: FontWeight.w900)), children:[ChipMultiSelect(title:'PlayStyles+ FC24', options:fc24PlayStylesPlusList, values:playstylesPlus, onChanged:(v)=>setState(()=>playstylesPlus=v))]),
+      ExpansionTile(title: const Text('Player Specialities', style: TextStyle(fontWeight: FontWeight.w900)), children:[ChipMultiSelect(title:'Specialities', options:fc24SpecialitiesList, values:specialities, onChanged:(v)=>setState(()=>specialities=v))]),
+      const SizedBox(height:12),
+      FilledButton.icon(onPressed:save, icon: const Icon(Icons.save), label: const Text('Sauvegarder joueur complet')),
+    ]));
+  }
+
+  void save(){
+    final base=widget.initial;
+    final stats=<String,int>{};
+    for(final e in statCtrls.entries){stats[e.key]=int.tryParse(e.value.text)??75;}
+    widget.onSave(Player(
+      id: base?.id ?? 'custom_${DateTime.now().millisecondsSinceEpoch}',
+      name: name.text.trim().isEmpty?'Custom Player':name.text.trim(),
+      team: team.text.trim().isEmpty?'Custom':team.text.trim(),
+      pos: pos.text.trim().isEmpty?'ST':pos.text.trim(),
+      pos2: pos2.text.trim(),
+      image: image.text.trim(),
+      ovr: int.tryParse(ovr.text)??80,
+      pot: int.tryParse(pot.text)??int.tryParse(ovr.text)??80,
+      height: int.tryParse(h.text)??180,
+      weight: int.tryParse(w.text)??75,
+      body: body,
+      accel: accel,
+      foot: foot,
+      attWr: attWr,
+      defWr: defWr,
+      skill: int.tryParse(skill.text)??3,
+      weakFoot: int.tryParse(wf.text)??3,
+      playstyles: [...playstyles, ...playstylesPlus, ...specialities],
+      s: stats,
+    ));
+  }
+}
+
+
+class TeamCrudPage extends StatefulWidget {
   final List<TeamInfo> teams;
   final ValueChanged<TeamInfo> onSave;
   const TeamCrudPage({super.key, required this.teams, required this.onSave});
-  @override
-  Widget build(BuildContext context) => ListView(
-    padding: const EdgeInsets.all(14),
-    children: [
-      Header('CRUD Teams', 'Version build-safe'),
-      ...teams.take(80).map((t) => TeamCard(team: t, players: const [], onEdit: () {})),
-    ],
-  );
+  @override State<TeamCrudPage> createState()=>_TeamCrudPageState();
 }
+class _TeamCrudPageState extends State<TeamCrudPage> {
+  TeamInfo? editing;
+  String q='';
+  @override
+  Widget build(BuildContext context) {
+    final query=q.toLowerCase().trim();
+    final rows=widget.teams.where((t)=>query.isEmpty||('${t.name} ${t.manager}').toLowerCase().contains(query)).take(80).toList();
+    return ListView(padding: const EdgeInsets.all(14), children:[
+      Header('CRUD Teams Pro', 'Édition équipe : notes, forces/faiblesses, XI, valeurs globales'),
+      TextField(decoration: const InputDecoration(prefixIcon:Icon(Icons.search), hintText:'Rechercher équipe...'), onChanged:(v)=>setState(()=>q=v)),
+      const SizedBox(height:10),
+      TeamFormPro(initial:editing, onSave:(t){widget.onSave(t); ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content:Text('Team sauvegardée localement')));}),
+      const SizedBox(height:14),
+      ProBox(title:'Sélection équipes DB', subtitle:'Clique pour charger dans le formulaire', icon:Icons.shield_rounded, child:Column(children:rows.map((t)=>Card(child:ListTile(title:Text(t.name), subtitle:Text('OVR ${t.overall} • ${t.manager}'), trailing: const Icon(Icons.edit), onTap:()=>setState(()=>editing=t)))).toList())),
+    ]);
+  }
+}
+
+class TeamFormPro extends StatefulWidget {
+  final TeamInfo? initial;
+  final ValueChanged<TeamInfo> onSave;
+  const TeamFormPro({super.key, required this.initial, required this.onSave});
+  @override State<TeamFormPro> createState()=>_TeamFormProState();
+}
+class _TeamFormProState extends State<TeamFormPro> {
+  final name=TextEditingController(), manager=TextEditingController(), ovr=TextEditingController(), att=TextEditingController(), mid=TextEditingController(), def=TextEditingController(), strong=TextEditingController(), weak=TextEditingController(), equal=TextEditingController(), xi=TextEditingController(), notes=TextEditingController();
+  @override void initState(){super.initState(); fill();}
+  @override void didUpdateWidget(covariant TeamFormPro oldWidget){super.didUpdateWidget(oldWidget); fill();}
+  void fill(){final t=widget.initial; name.text=t?.name??''; manager.text=t?.manager??''; ovr.text='${t?.overall??80}'; att.text='${t?.attack??80}'; mid.text='${t?.midfield??80}'; def.text='${t?.defense??80}'; strong.text=(t?.strongTraits??[]).join(', '); weak.text=(t?.weakTraits??[]).join(', '); equal.text=(t?.equalTraits??[]).join(', '); xi.text=(t?.xi??[]).join(', '); notes.text='';}
+  @override
+  Widget build(BuildContext context)=>ProBox(title:widget.initial==null?'Nouvelle équipe':'Édition : ${widget.initial!.name}', subtitle:'Formulaire team complet', icon:Icons.add_business_rounded, child:Column(children:[
+    Row(children:[Expanded(child:TextField(controller:name, decoration: const InputDecoration(labelText:'Nom équipe'))), const SizedBox(width:8), Expanded(child:TextField(controller:manager, decoration: const InputDecoration(labelText:'Manager')))]),
+    const SizedBox(height:8),
+    Row(children:[
+      Expanded(child:TextField(controller:ovr, keyboardType:TextInputType.number, decoration: const InputDecoration(labelText:'OVR'))),
+      const SizedBox(width:8), Expanded(child:TextField(controller:att, keyboardType:TextInputType.number, decoration: const InputDecoration(labelText:'Attack'))),
+      const SizedBox(width:8), Expanded(child:TextField(controller:mid, keyboardType:TextInputType.number, decoration: const InputDecoration(labelText:'Midfield'))),
+      const SizedBox(width:8), Expanded(child:TextField(controller:def, keyboardType:TextInputType.number, decoration: const InputDecoration(labelText:'Defense'))),
+    ]),
+    const SizedBox(height:8),
+    TextField(controller:strong, decoration: const InputDecoration(labelText:'Forces / strong traits séparés par virgule')),
+    const SizedBox(height:8),
+    TextField(controller:weak, decoration: const InputDecoration(labelText:'Faiblesses / weak traits séparés par virgule')),
+    const SizedBox(height:8),
+    TextField(controller:equal, decoration: const InputDecoration(labelText:'Traits équilibrés séparés par virgule')),
+    const SizedBox(height:8),
+    TextField(controller:xi, decoration: const InputDecoration(labelText:'XI / joueurs clés séparés par virgule')),
+    const SizedBox(height:8),
+    TextField(controller:notes, minLines:3, maxLines:5, decoration: const InputDecoration(labelText:'Notes coach / tactique')),
+    const SizedBox(height:12),
+    FilledButton.icon(onPressed:save, icon: const Icon(Icons.save), label: const Text('Sauvegarder équipe complète')),
+  ]));
+
+  void save(){
+    widget.onSave(TeamInfo(
+      id: widget.initial?.id ?? 'custom_team_${DateTime.now().millisecondsSinceEpoch}',
+      name: name.text.trim().isEmpty?'Custom Team':name.text.trim(),
+      manager: manager.text.trim().isEmpty?'—':manager.text.trim(),
+      overall:int.tryParse(ovr.text)??80,
+      attack:int.tryParse(att.text)??80,
+      midfield:int.tryParse(mid.text)??80,
+      defense:int.tryParse(def.text)??80,
+      citylikeScore: widget.initial?.citylikeScore??0,
+      weakTraits: weak.text.split(',').map((e)=>e.trim()).where((e)=>e.isNotEmpty).toList(),
+      equalTraits: equal.text.split(',').map((e)=>e.trim()).where((e)=>e.isNotEmpty).toList(),
+      strongTraits: strong.text.split(',').map((e)=>e.trim()).where((e)=>e.isNotEmpty).toList(),
+      xi: xi.text.split(',').map((e)=>e.trim()).where((e)=>e.isNotEmpty).toList(),
+    ));
+  }
+}
+
 
 Future<void> showTeamEditor(BuildContext context, TeamInfo team) async {
   await showDialog(
     context: context,
     builder: (_) => AlertDialog(
       title: Text(team.name),
-      content: Text('Manager: ${team.manager}\nOVR ${team.overall} • ATT ${team.attack} • MID ${team.midfield} • DEF ${team.defense}'),
+      content: SizedBox(width: 680, child: SingleChildScrollView(child: TeamFormPro(initial: team, onSave: (_) => Navigator.pop(context)))),
       actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('Fermer'))],
     ),
   );
