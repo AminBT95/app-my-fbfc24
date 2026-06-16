@@ -17,7 +17,7 @@ class Fc24CoachApp extends StatelessWidget {
         scaffoldBackgroundColor: const Color(0xFF06101D),
         colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF22C55E), brightness: Brightness.dark),
         useMaterial3: true,
-        cardTheme: CardThemeData(color: const Color(0xFF0B1728), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(22))),
+        cardTheme: CardTheme(color: const Color(0xFF0B1728), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(22))),
       ),
       home: const Bootstrap(),
     );
