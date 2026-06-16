@@ -912,6 +912,8 @@ class DashboardPage extends StatelessWidget {
         Expanded(child: Kpi('Équipes', '${db.teamCount}', Icons.shield_rounded)),
       ]),
       const SizedBox(height: 14),
+      const ProContentHub(),
+      const SizedBox(height: 14),
       Text('Top joueurs DB', style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w900)),
       const SizedBox(height: 8),
       ...top.map((p)=>PlayerTile(p: p)),
@@ -941,6 +943,8 @@ class ComparePage extends StatelessWidget {
       ModePicker(mode: mode, onChanged: onMode),
       ScoreSummary(a:a,b:b,sa:sa,sb:sb),
       FilledButton.icon(onPressed: () => onSaveHistory({'date': DateTime.now().toIso8601String(), 'a': a.name, 'b': b.name, 'mode': mode.label, 'scoreA': sa.total, 'scoreB': sb.total, 'winner': win.name}), icon: const Icon(Icons.save), label: const Text('Sauvegarder dans historique')),
+      const SizedBox(height: 10),
+      ProDuelBreakdown(a:a,b:b,mode:mode),
       const SizedBox(height: 10),
       DetailCard(a:a,b:b,sa:sa,sb:sb,mode:mode),
     ]);
@@ -1255,6 +1259,7 @@ class _TeamAnalyzerPageState extends State<TeamAnalyzerPage> {
       ),
       const SizedBox(height: 12),
       TeamCard(team: t, players: widget.players, onEdit: (){}),
+      ProTeamWeaknessReport(team:t, players:widget.players),
       ProBox(title:'Joueurs clés', subtitle:'Top OVR de l’équipe', icon: Icons.stars_rounded, child: Column(children: squad.take(12).map((p)=>PlayerTile(p:p, onTap:()=>showPlayerDetails(context,p))).toList())),
     ]);
   }
@@ -1542,6 +1547,154 @@ class _CoachNotebookPageState extends State<CoachNotebookPage> {
       ...notes.map((n)=>ProBox(title:n['title']!, subtitle:n['category']!, icon:Icons.sticky_note_2_rounded, child:Text(n['content']!))),
     ]);
   }
+}
+
+
+/* === v9 Pro modules: deeper analysis helpers === */
+class ProDuelBreakdown extends StatelessWidget {
+  final Player a;
+  final Player b;
+  final Mode mode;
+  const ProDuelBreakdown({super.key, required this.a, required this.b, required this.mode});
+
+  @override
+  Widget build(BuildContext context) {
+    final sa = score(a, mode);
+    final sb = score(b, mode);
+    final win = sa.total >= sb.total ? a : b;
+    final lose = sa.total >= sb.total ? b : a;
+    final gap = (sa.total - sb.total).abs();
+    final reasons = _reasons(a, b, sa, sb);
+    return ProBox(
+      title: 'Duel Engine Pro',
+      subtitle: '${mode.label} • gagnant prévu : ${win.name}',
+      icon: Icons.psychology_alt_rounded,
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(children: [
+          Expanded(child: MiniScore(a.name, sa.total, 'Total')),
+          const SizedBox(width: 8),
+          Expanded(child: MiniScore(b.name, sb.total, 'Total')),
+        ]),
+        const SizedBox(height: 12),
+        Text('Lecture coach', style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w900)),
+        Text(gap <= 3
+            ? 'Duel très serré. Le résultat peut changer selon angle, fatigue, première touche et soutien proche.'
+            : '${win.name} a un avantage clair contre ${lose.name} dans cette situation.'),
+        const SizedBox(height: 10),
+        ...reasons.map((r) => ListTile(
+          dense: true,
+          contentPadding: EdgeInsets.zero,
+          leading: const Icon(Icons.check_circle, color: Color(0xFF86EFAC)),
+          title: Text(r),
+        )),
+        const Divider(),
+        Text('Plan avec ${win.name}', style: const TextStyle(fontWeight: FontWeight.w900)),
+        Text(_withAdvice(mode)),
+        const SizedBox(height: 8),
+        Text('Plan contre ${win.name}', style: const TextStyle(fontWeight: FontWeight.w900)),
+        Text(_againstAdvice(mode)),
+      ]),
+    );
+  }
+
+  List<String> _reasons(Player a, Player b, DuelScore sa, DuelScore sb) {
+    final rows = <String>[];
+    for (int i = 0; i < sa.factors.length && i < sb.factors.length; i++) {
+      final fa = sa.factors[i], fb = sb.factors[i];
+      final d = fa.points - fb.points;
+      if (d.abs() >= 4) rows.add('${labelStat(fa.key)} : ${d > 0 ? a.name : b.name} +${d.abs()}');
+    }
+    final psA = mergedPlayStyles(a).where((x)=>x.contains('+')).take(3).join(', ');
+    final psB = mergedPlayStyles(b).where((x)=>x.contains('+')).take(3).join(', ');
+    if (psA.isNotEmpty) rows.add('PlayStyles+ ${a.name}: $psA');
+    if (psB.isNotEmpty) rows.add('PlayStyles+ ${b.name}: $psB');
+    if (rows.isEmpty) rows.add('Écart faible : aucune stat ne domine fortement.');
+    return rows.take(7).toList();
+  }
+
+  String _withAdvice(Mode m) {
+    if (m.key.contains('speed')) return 'Cherche l’espace dans le dos, joue tôt, évite les contacts inutiles.';
+    if (m.key.contains('dribble')) return 'Isole le défenseur, attaque son mauvais appui et utilise changements de rythme.';
+    if (m.key.contains('aerial')) return 'Centre tôt, attaque deuxième poteau et utilise son avantage taille/jumping.';
+    if (m.key.contains('press')) return 'Déclenche pressing après contrôle orienté adverse ou passe latérale.';
+    if (m.key.contains('pass')) return 'Cherche troisième homme, passe verticale et changement de côté.';
+    return 'Provoque ce duel quand le joueur est isolé et avec soutien proche.';
+  }
+
+  String _againstAdvice(Mode m) {
+    if (m.key.contains('speed')) return 'Recule avant le sprint, défends l’espace plutôt que le joueur.';
+    if (m.key.contains('dribble')) return 'Contiens avec jockey, force côté faible et attends l’aide.';
+    if (m.key.contains('aerial')) return 'Empêche le centre avant qu’il parte, ou place un défenseur devant + couverture.';
+    if (m.key.contains('press')) return 'Joue en une touche, utilise le gardien ou le troisième homme.';
+    if (m.key.contains('pass')) return 'Ferme la ligne verticale et force la passe latérale.';
+    return 'Évite le duel direct, crée surnombre et ralentis le tempo.';
+  }
+}
+
+class ProTeamWeaknessReport extends StatelessWidget {
+  final TeamInfo team;
+  final List<Player> players;
+  const ProTeamWeaknessReport({super.key, required this.team, required this.players});
+
+  @override
+  Widget build(BuildContext context) {
+    final squad = players.where((p)=>p.team == team.name).toList()..sort((a,b)=>b.ovr.compareTo(a.ovr));
+    final slowDef = squad.where((p)=>(p.pos.contains('CB') || p.pos.contains('LB') || p.pos.contains('RB')) && ((p.s['sprint']??0) < 75)).take(5).toList();
+    final weakPhys = squad.where((p)=>((p.s['str']??0) < 70) && !p.pos.contains('GK')).take(5).toList();
+    final lowStam = squad.where((p)=>((p.s['stam']??0) < 75) && !p.pos.contains('GK')).take(5).toList();
+    return ProBox(
+      title: 'Rapport failles équipe',
+      subtitle: team.name,
+      icon: Icons.analytics_rounded,
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        _block('Défense lente à attaquer', slowDef, 'Utilise appels profondeur, passes dans le dos et ailiers rapides.'),
+        _block('Joueurs faibles physiquement', weakPhys, 'Cherche épaule contre épaule, pressing agressif et duels au sol.'),
+        _block('Endurance basse', lowStam, 'Accélère après 60e minute, pressing et changements de rythme.'),
+        const Divider(),
+        Text('Plan coach rapide', style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w900)),
+        Text(_plan()),
+      ]),
+    );
+  }
+
+  Widget _block(String title, List<Player> list, String advice) => Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+    Text(title, style: const TextStyle(fontWeight: FontWeight.w900)),
+    if (list.isEmpty) const Text('Aucune faiblesse claire détectée.'),
+    ...list.map((p)=>ListTile(
+      dense: true,
+      contentPadding: EdgeInsets.zero,
+      leading: PlayerAvatar(p: p, size: 34),
+      title: Text(p.name),
+      subtitle: Text('${p.pos} • PAC ${p.s['pac']??0} • STR ${p.s['str']??0} • STA ${p.s['stam']??0}'),
+    )),
+    Text(advice, style: const TextStyle(color: Color(0xFFB7C9E8))),
+    const SizedBox(height: 10),
+  ]);
+
+  String _plan() {
+    if (team.defense < 78) return 'Attaque vite dans l’axe et provoque les 1v1 autour de la surface.';
+    if (team.midfield < 78) return 'Surcharge le milieu, joue triangles courts et récupère les deuxièmes ballons.';
+    if (team.attack < 78) return 'Laisse moins d’espace derrière, force l’adversaire à construire lentement.';
+    return 'Équipe équilibrée : cherche surtout les mismatchs individuels et les côtés faibles.';
+  }
+}
+
+class ProContentHub extends StatelessWidget {
+  const ProContentHub({super.key});
+
+  @override
+  Widget build(BuildContext context) => ProBox(
+    title: 'Workflow Coach Pro',
+    subtitle: 'Méthode simple pour utiliser l’app',
+    icon: Icons.auto_awesome_rounded,
+    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: const [
+      ListTile(leading: Icon(Icons.person_search_rounded), title: Text('1. Choisir joueur'), subtitle: Text('Passe par CRUD Players ou Base joueurs.')),
+      ListTile(leading: Icon(Icons.compare_arrows_rounded), title: Text('2. Comparer duel'), subtitle: Text('Utilise Comparateur + Duel Engine Pro.')),
+      ListTile(leading: Icon(Icons.hub_rounded), title: Text('3. Trouver meilleur profil'), subtitle: Text('Utilise Matchup Finder / Détection meilleurs joueurs.')),
+      ListTile(leading: Icon(Icons.analytics_rounded), title: Text('4. Analyser équipe'), subtitle: Text('Team Analyzer + Team vs Team.')),
+      ListTile(leading: Icon(Icons.edit_note_rounded), title: Text('5. Sauvegarder idée'), subtitle: Text('Carnet entraîneur + Banque tactique.')),
+    ]),
+  );
 }
 
 class ExportImportPage extends StatefulWidget {
