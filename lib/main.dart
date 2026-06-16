@@ -32,8 +32,29 @@ class _BootstrapState extends State<Bootstrap> {
     return FutureBuilder<List<Player>>(
       future: _future,
       builder: (_, snap){
+        if (snap.hasError) {
+          return Scaffold(
+            body: SafeArea(
+              child: Padding(
+                padding: const EdgeInsets.all(18),
+                child: Center(
+                  child: SingleChildScrollView(
+                    child: Text(
+                      'Erreur au démarrage:\n\n${snap.error}',
+                      style: const TextStyle(color: Colors.white, fontSize: 16),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          );
+        }
         if(!snap.hasData) return const Scaffold(body: Center(child: CircularProgressIndicator()));
-        return HomeScreen(players: snap.data!);
+        final players = snap.data!;
+        if (players.isEmpty) {
+          return const Scaffold(body: Center(child: Text('Aucun joueur chargé. Vérifie assets/data/fc24-real-data.json')));
+        }
+        return HomeScreen(players: players);
       },
     );
   }
