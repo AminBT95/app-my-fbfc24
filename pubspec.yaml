@@ -1,16 +1,14 @@
 name: fc24_coach_ai
-version: 1.0.0+1
-publish_to: 'none'
-description: FC24 Coach AI mobile app - duel engine, players DB, tactical animation.
+description: FC24 Coach AI mobile app safe start
+publish_to: "none"
+version: 1.0.4+4
+
 environment:
-  sdk: '>=3.2.0 <4.0.0'
+  sdk: ">=3.5.0 <4.0.0"
 
 dependencies:
   flutter:
     sdk: flutter
-  shared_preferences: ^2.2.3
 
 flutter:
   uses-material-design: true
-  assets:
-    - assets/data/fc24-real-data.json

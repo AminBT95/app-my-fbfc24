@@ -9,76 +9,37 @@ on:
 
 jobs:
   build-apk:
-    name: Build Android APK
     runs-on: ubuntu-latest
-
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Setup Java 17
-        uses: actions/setup-java@v4
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: "17"
-
-      - name: Setup Flutter stable
-        uses: subosito/flutter-action@v2
+      - uses: subosito/flutter-action@v2
         with:
           flutter-version: "3.24.5"
           channel: stable
           cache: true
-
-      - name: Flutter doctor
-        run: flutter doctor -v
-
-      - name: Create clean Flutter project
+      - name: Create clean Android project
         run: |
           rm -rf /tmp/fc24_build_app
           flutter create --platforms=android --org com.fc24coachai fc24_build_app
           rm -rf /tmp/fc24_build_app
           mv fc24_build_app /tmp/fc24_build_app
-
-      - name: Copy app source into clean project
+      - name: Copy source
         run: |
           rm -rf /tmp/fc24_build_app/lib
           cp -R lib /tmp/fc24_build_app/lib
-
-          if [ -d "assets" ]; then
-            rm -rf /tmp/fc24_build_app/assets
-            cp -R assets /tmp/fc24_build_app/assets
-          fi
-
-          if [ -f "pubspec.yaml" ]; then
-            cp pubspec.yaml /tmp/fc24_build_app/pubspec.yaml
-          fi
-
-          if [ -f "analysis_options.yaml" ]; then
-            cp analysis_options.yaml /tmp/fc24_build_app/analysis_options.yaml
-          fi
-
-      - name: Patch Android application id and app name
-        working-directory: /tmp/fc24_build_app
-        run: |
-          sed -i 's/namespace = "com.fc24coachai.fc24_build_app"/namespace = "com.fc24coachai.app"/g' android/app/build.gradle || true
-          sed -i 's/applicationId = "com.fc24coachai.fc24_build_app"/applicationId = "com.fc24coachai.app"/g' android/app/build.gradle || true
-          sed -i 's/android:label="fc24_build_app"/android:label="FC24 Coach AI"/g' android/app/src/main/AndroidManifest.xml || true
-
-      - name: Install dependencies
+          cp pubspec.yaml /tmp/fc24_build_app/pubspec.yaml
+      - name: Pub get
         working-directory: /tmp/fc24_build_app
         run: flutter pub get
-
-      - name: Analyze
-        working-directory: /tmp/fc24_build_app
-        run: flutter analyze
-        continue-on-error: true
-
-      - name: Build APK release
+      - name: Build release APK
         working-directory: /tmp/fc24_build_app
         run: flutter build apk --release
-
-      - name: Upload release APK
+      - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: fc24-coach-ai-release-apk
+          name: fc24-coach-ai-safe-start-apk
           path: /tmp/fc24_build_app/build/app/outputs/flutter-apk/app-release.apk
