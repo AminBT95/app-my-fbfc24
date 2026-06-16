@@ -710,20 +710,27 @@ class _AppShellState extends State<AppShell> {
   Future<void> _load() async {
     try {
       final loaded = await GameDb.load();
+      final savedPlayers = await LocalStore.loadCustomPlayers();
+      final savedTeams = await LocalStore.loadCustomTeams();
+      final savedIdeas = await LocalStore.loadIdeas();
+      final savedHistory = await LocalStore.loadHistory();
+
+      final mergedPlayers = List<Player>.from(loaded.players);
+      final mergedTeams = List<TeamInfo>.from(loaded.teams);
+
+      for (final p in savedPlayers) {
+        if (!mergedPlayers.any((x)=>x.id == p.id)) mergedPlayers.insert(0, p);
+      }
+      for (final t in savedTeams) {
+        if (!mergedTeams.any((x)=>x.id == t.id)) mergedTeams.insert(0, t);
+      }
+
       setState(() {
         db = loaded;
-        customPlayers = List<Player>.from(loaded.players);
-        customTeams = List<TeamInfo>.from(loaded.teams);
-        final savedPlayers = await LocalStore.loadCustomPlayers();
-        final savedTeams = await LocalStore.loadCustomTeams();
-        tacticalIdeas = await LocalStore.loadIdeas();
-        history = await LocalStore.loadHistory();
-        for (final p in savedPlayers) {
-          if (!customPlayers.any((x)=>x.id == p.id)) customPlayers.insert(0, p);
-        }
-        for (final t in savedTeams) {
-          if (!customTeams.any((x)=>x.id == t.id)) customTeams.insert(0, t);
-        }
+        customPlayers = mergedPlayers;
+        customTeams = mergedTeams;
+        tacticalIdeas = savedIdeas;
+        history = savedHistory;
         a = customPlayers.firstWhere((p)=>p.name.toLowerCase().contains('mbapp'), orElse: ()=>customPlayers.first);
         b = customPlayers.firstWhere((p)=>p.name.toLowerCase().contains('walker'), orElse: ()=>customPlayers.skip(1).first);
       });
@@ -1613,4 +1620,121 @@ class PitchPainter extends CustomPainter {
   }
   void drawP(Canvas c, Offset o, String t, bool win, Color col){c.drawCircle(o,win?27:23,Paint()..color=col); if(win)c.drawCircle(o,36,Paint()..color=const Color(0xFF22C55E).withOpacity(.25)); final tp=TextPainter(text:TextSpan(text:t,style:const TextStyle(color:Colors.white,fontWeight:FontWeight.w900)),textDirection:TextDirection.ltr)..layout(); tp.paint(c,o-Offset(tp.width/2,tp.height/2));}
   @override bool shouldRepaint(covariant CustomPainter oldDelegate)=>true;
+}
+
+/* === v8.2 build-fix minimal fallback classes === */
+class TeamsPage extends StatelessWidget {
+  final List<TeamInfo> teams;
+  final List<Player> players;
+  final ValueChanged<TeamInfo> onEditTeam;
+  const TeamsPage({super.key, required this.teams, required this.players, required this.onEditTeam});
+  @override
+  Widget build(BuildContext context) => ListView(
+    padding: const EdgeInsets.all(14),
+    children: [
+      Header('Teams Database', '${teams.length} équipes'),
+      ...teams.take(120).map((t) => TeamCard(team: t, players: players, onEdit: () => onEditTeam(t))),
+    ],
+  );
+}
+
+class TeamCard extends StatelessWidget {
+  final TeamInfo team;
+  final List<Player> players;
+  final VoidCallback onEdit;
+  const TeamCard({super.key, required this.team, required this.players, required this.onEdit});
+  @override
+  Widget build(BuildContext context) {
+    final squad = players.where((p) => p.team == team.name).take(5).toList();
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(14),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Row(children: [
+            Expanded(child: Text(team.name, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w900))),
+            IconButton.filledTonal(onPressed: onEdit, icon: const Icon(Icons.edit)),
+          ]),
+          Text('Manager: ${team.manager}'),
+          const SizedBox(height: 8),
+          Row(children: [
+            Expanded(child: MiniScore('OVR', team.overall, 'team')),
+            const SizedBox(width: 8),
+            Expanded(child: MiniScore('ATT', team.attack, 'attack')),
+            const SizedBox(width: 8),
+            Expanded(child: MiniScore('DEF', team.defense, 'def')),
+          ]),
+          if (squad.isNotEmpty) const Divider(),
+          ...squad.map((p) => ListTile(
+            dense: true,
+            contentPadding: EdgeInsets.zero,
+            leading: PlayerAvatar(p: p, size: 36),
+            title: Text(p.name),
+            subtitle: Text('${p.pos} • OVR ${p.ovr}'),
+          )),
+        ]),
+      ),
+    );
+  }
+}
+
+class PlayerCrudPage extends StatelessWidget {
+  final List<Player> players;
+  final ValueChanged<Player> onSave;
+  const PlayerCrudPage({super.key, required this.players, required this.onSave});
+  @override
+  Widget build(BuildContext context) => ListView(
+    padding: const EdgeInsets.all(14),
+    children: [
+      Header('CRUD Players', 'Version build-safe'),
+      const Card(child: Padding(padding: EdgeInsets.all(14), child: Text('CRUD détaillé disponible dans les prochaines versions. Cette page est stabilisée pour le build APK.'))),
+      ...players.take(50).map((p) => PlayerTile(p: p, onTap: () => showPlayerDetails(context, p))),
+    ],
+  );
+}
+
+class TeamCrudPage extends StatelessWidget {
+  final List<TeamInfo> teams;
+  final ValueChanged<TeamInfo> onSave;
+  const TeamCrudPage({super.key, required this.teams, required this.onSave});
+  @override
+  Widget build(BuildContext context) => ListView(
+    padding: const EdgeInsets.all(14),
+    children: [
+      Header('CRUD Teams', 'Version build-safe'),
+      ...teams.take(80).map((t) => TeamCard(team: t, players: const [], onEdit: () {})),
+    ],
+  );
+}
+
+Future<void> showTeamEditor(BuildContext context, TeamInfo team) async {
+  await showDialog(
+    context: context,
+    builder: (_) => AlertDialog(
+      title: Text(team.name),
+      content: Text('Manager: ${team.manager}\nOVR ${team.overall} • ATT ${team.attack} • MID ${team.midfield} • DEF ${team.defense}'),
+      actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('Fermer'))],
+    ),
+  );
+}
+
+class ModesGuidePage extends StatelessWidget {
+  const ModesGuidePage({super.key});
+  @override
+  Widget build(BuildContext context) => ListView(
+    padding: const EdgeInsets.all(14),
+    children: [
+      Header('Guide modes & matchups', 'Explication des situations'),
+      ...modes.map((m) => Card(
+        child: Padding(
+          padding: const EdgeInsets.all(14),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text(m.label, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900)),
+            Text(m.desc),
+            const SizedBox(height: 8),
+            Wrap(spacing: 6, runSpacing: 6, children: m.w.entries.map((e) => Chip(label: Text('${labelStat(e.key)} ${(e.value * 100).round()}%'))).toList()),
+          ]),
+        ),
+      )),
+    ],
+  );
 }
