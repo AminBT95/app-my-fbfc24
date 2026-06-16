@@ -3,9 +3,7 @@ name: Build Flutter APK
 on:
   workflow_dispatch:
   push:
-    branches:
-      - main
-      - master
+    branches: [main, master]
 
 jobs:
   build-apk:
@@ -21,25 +19,26 @@ jobs:
           flutter-version: "3.24.5"
           channel: stable
           cache: true
-      - name: Create clean Android project
+      - name: Create clean Flutter Android project
         run: |
           rm -rf /tmp/fc24_build_app
           flutter create --platforms=android --org com.fc24coachai fc24_build_app
           rm -rf /tmp/fc24_build_app
           mv fc24_build_app /tmp/fc24_build_app
-      - name: Copy source
+      - name: Copy app source
         run: |
           rm -rf /tmp/fc24_build_app/lib
           cp -R lib /tmp/fc24_build_app/lib
+          if [ -d "assets" ]; then cp -R assets /tmp/fc24_build_app/assets; fi
           cp pubspec.yaml /tmp/fc24_build_app/pubspec.yaml
-      - name: Pub get
+      - name: Flutter pub get
         working-directory: /tmp/fc24_build_app
         run: flutter pub get
-      - name: Build release APK
+      - name: Build APK release
         working-directory: /tmp/fc24_build_app
         run: flutter build apk --release
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: fc24-coach-ai-safe-start-apk
+          name: fc24-coach-ai-pro-v5-apk
           path: /tmp/fc24_build_app/build/app/outputs/flutter-apk/app-release.apk
