@@ -146,23 +146,80 @@ class Player {
   }
 }
 
+
+class TeamInfo {
+  final String id, name, manager;
+  final int overall, attack, midfield, defense, citylikeScore;
+  final List<String> weakTraits, equalTraits, strongTraits;
+  final List<String> xi;
+
+  const TeamInfo({
+    required this.id,
+    required this.name,
+    required this.manager,
+    required this.overall,
+    required this.attack,
+    required this.midfield,
+    required this.defense,
+    required this.citylikeScore,
+    required this.weakTraits,
+    required this.equalTraits,
+    required this.strongTraits,
+    required this.xi,
+  });
+
+  factory TeamInfo.fromJson(Map<String, dynamic> j) {
+    List<String> split(dynamic v) {
+      final t = Player.str(v);
+      if (t.isEmpty || t == '0') return [];
+      return t.split(RegExp(r'[,|;/]')).map((e)=>e.trim()).where((e)=>e.isNotEmpty).toList();
+    }
+    return TeamInfo(
+      id: Player.str(j['teamid']),
+      name: Player.str(j['teamname'], 'Team'),
+      manager: Player.str(j['manager'], '—'),
+      overall: Player.n(j['overall']),
+      attack: Player.n(j['attack']),
+      midfield: Player.n(j['midfield']),
+      defense: Player.n(j['defense']),
+      citylikeScore: Player.n(j['citylikeScore']),
+      weakTraits: split(j['weakTraits']),
+      equalTraits: split(j['equalTraits']),
+      strongTraits: split(j['strongTraits']),
+      xi: split(j['xi']),
+    );
+  }
+}
+
 class GameDb {
   final List<Player> players;
-  final int teamCount;
-  const GameDb(this.players, this.teamCount);
+  final List<TeamInfo> teams;
+  const GameDb(this.players, this.teams);
+
+  int get teamCount => teams.length;
 
   static Future<GameDb> load() async {
     final raw = await rootBundle.loadString('assets/data/fc24-real-data.json');
     final decoded = jsonDecode(raw) as Map<String, dynamic>;
-    final list = (decoded['players'] as List).cast<dynamic>();
+
+    final playerList = (decoded['players'] as List? ?? const []).cast<dynamic>();
     final players = <Player>[];
-    for (final item in list) {
+    for (final item in playerList) {
       try {
         players.add(Player.fromJson(Map<String, dynamic>.from(item)));
       } catch (_) {}
     }
     players.sort((a, b) => b.ovr.compareTo(a.ovr));
-    return GameDb(players, (decoded['teams'] as List?)?.length ?? 0);
+
+    final teamList = (decoded['teams'] as List? ?? const []).cast<dynamic>();
+    final teams = <TeamInfo>[];
+    for (final item in teamList) {
+      try {
+        teams.add(TeamInfo.fromJson(Map<String, dynamic>.from(item)));
+      } catch (_) {}
+    }
+    teams.sort((a,b)=>b.overall.compareTo(a.overall));
+    return GameDb(players, teams);
   }
 }
 
@@ -320,12 +377,15 @@ class _AppShellState extends State<AppShell> {
   GameDb? db;
   Object? error;
   int tab = 0;
+  late List<Player> customPlayers;
+  late List<TeamInfo> customTeams;
   Player? a,b;
   Mode mode = modes[3];
-  String q = '';
 
   @override void initState() {
     super.initState();
+    customPlayers = [];
+    customTeams = [];
     Future.delayed(const Duration(milliseconds: 350), _load);
   }
 
@@ -334,43 +394,108 @@ class _AppShellState extends State<AppShell> {
       final loaded = await GameDb.load();
       setState(() {
         db = loaded;
-        a = loaded.players.firstWhere((p)=>p.name.toLowerCase().contains('mbapp'), orElse: ()=>loaded.players.first);
-        b = loaded.players.firstWhere((p)=>p.name.toLowerCase().contains('walker'), orElse: ()=>loaded.players.skip(1).first);
+        customPlayers = List<Player>.from(loaded.players);
+        customTeams = List<TeamInfo>.from(loaded.teams);
+        a = customPlayers.firstWhere((p)=>p.name.toLowerCase().contains('mbapp'), orElse: ()=>customPlayers.first);
+        b = customPlayers.firstWhere((p)=>p.name.toLowerCase().contains('walker'), orElse: ()=>customPlayers.skip(1).first);
       });
     } catch (e) { setState(()=>error=e); }
   }
 
+  void go(int i) {
+    setState(()=>tab=i);
+    Navigator.maybePop(context);
+  }
+
   @override Widget build(BuildContext context) {
     final loaded = db;
+    final pages = loaded == null ? <Widget>[] : [
+      DashboardPage(db: GameDb(customPlayers, customTeams), onStart: ()=>setState(()=>tab=1)),
+      ComparePage(players: customPlayers, a: a!, b: b!, mode: mode, onA:(p)=>setState(()=>a=p), onB:(p)=>setState(()=>b=p), onMode:(m)=>setState(()=>mode=m)),
+      DetectorPage(players: customPlayers, ref: a!, mode: mode),
+      DatabasePage(players: customPlayers),
+      TeamsPage(teams: customTeams, players: customPlayers, onEditTeam: (t)=>showTeamEditor(context, t)),
+      PlayerCrudPage(players: customPlayers, onSave: (p){
+        setState(() {
+          final i = customPlayers.indexWhere((x)=>x.id==p.id);
+          if (i >= 0) customPlayers[i] = p; else customPlayers.insert(0,p);
+          a ??= p;
+        });
+      }),
+      TeamCrudPage(teams: customTeams, onSave: (t){
+        setState(() {
+          final i = customTeams.indexWhere((x)=>x.id==t.id);
+          if (i >= 0) customTeams[i]=t; else customTeams.insert(0,t);
+        });
+      }),
+      TacticalPage(a: a!, b: b!, mode: mode),
+      ModesGuidePage(),
+    ];
+
     return Scaffold(
+      drawer: loaded == null ? null : AppDrawer(current: tab, onGo: go),
       appBar: AppBar(
         title: const Text('FC24 Coach AI Pro'),
+        leading: loaded == null ? null : Builder(builder: (context)=>IconButton(icon: const Icon(Icons.menu_rounded), onPressed: ()=>Scaffold.of(context).openDrawer())),
         actions: [
-          if (loaded != null) Padding(padding: const EdgeInsets.only(right: 14), child: Center(child: Text('${loaded.players.length} joueurs', style: const TextStyle(color: Color(0xFF86EFAC), fontWeight: FontWeight.w900)))),
+          if (loaded != null) Padding(padding: const EdgeInsets.only(right: 14), child: Center(child: Text('${customPlayers.length} joueurs', style: const TextStyle(color: Color(0xFF86EFAC), fontWeight: FontWeight.w900)))),
         ],
       ),
       body: SafeArea(
         child: loaded == null
           ? StartLoader(error: error, onRetry: _load)
-          : IndexedStack(index: tab, children: [
-              DashboardPage(db: loaded, onStart: ()=>setState(()=>tab=1)),
-              ComparePage(players: loaded.players, a: a!, b: b!, mode: mode, onA:(p)=>setState(()=>a=p), onB:(p)=>setState(()=>b=p), onMode:(m)=>setState(()=>mode=m)),
-              DetectorPage(players: loaded.players, ref: a!, mode: mode),
-              DatabasePage(players: loaded.players),
-              TacticalPage(a: a!, b: b!, mode: mode),
-            ]),
+          : AnimatedSwitcher(duration: const Duration(milliseconds: 260), child: pages[tab]),
       ),
       bottomNavigationBar: loaded == null ? null : NavigationBar(
-        selectedIndex: tab,
+        selectedIndex: tab > 4 ? 4 : tab,
         onDestinationSelected: (i)=>setState(()=>tab=i),
         destinations: const [
           NavigationDestination(icon: Icon(Icons.dashboard_rounded), label: 'Home'),
           NavigationDestination(icon: Icon(Icons.compare_arrows_rounded), label: 'Comparer'),
           NavigationDestination(icon: Icon(Icons.search_rounded), label: 'Détecter'),
-          NavigationDestination(icon: Icon(Icons.storage_rounded), label: 'DB'),
+          NavigationDestination(icon: Icon(Icons.storage_rounded), label: 'Joueurs'),
           NavigationDestination(icon: Icon(Icons.sports_soccer_rounded), label: 'Terrain'),
         ],
       ),
+    );
+  }
+}
+
+class AppDrawer extends StatelessWidget {
+  final int current;
+  final ValueChanged<int> onGo;
+  const AppDrawer({super.key, required this.current, required this.onGo});
+  @override Widget build(BuildContext context) {
+    final items = [
+      (0, Icons.dashboard_rounded, 'Dashboard'),
+      (1, Icons.compare_arrows_rounded, 'Comparateur'),
+      (2, Icons.search_rounded, 'Détection meilleurs'),
+      (3, Icons.people_alt_rounded, 'Base joueurs'),
+      (4, Icons.shield_rounded, 'Teams'),
+      (5, Icons.person_add_alt_1_rounded, 'CRUD Players'),
+      (6, Icons.add_business_rounded, 'CRUD Teams'),
+      (7, Icons.sports_soccer_rounded, 'Tactical Lab'),
+      (8, Icons.menu_book_rounded, 'Guide modes'),
+    ];
+    return Drawer(
+      child: SafeArea(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Container(
+          margin: const EdgeInsets.all(14),
+          padding: const EdgeInsets.all(18),
+          decoration: BoxDecoration(borderRadius: BorderRadius.circular(24), gradient: const LinearGradient(colors:[Color(0xFF123626), Color(0xFF0B1728)])),
+          child: const Row(children: [
+            Icon(Icons.sports_soccer, color: Color(0xFF86EFAC), size: 36),
+            SizedBox(width: 10),
+            Expanded(child: Text('FC24 Coach AI\nMobile Pro', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 18))),
+          ]),
+        ),
+        Expanded(child: ListView(children: items.map((it)=>ListTile(
+          selected: current == it.$1,
+          leading: Icon(it.$2),
+          title: Text(it.$3),
+          onTap: ()=>onGo(it.$1),
+        )).toList())),
+      ])),
     );
   }
 }
@@ -661,15 +786,225 @@ class _DatabasePageState extends State<DatabasePage> {
         Expanded(child: DropdownButtonFormField<String>(value: team, isExpanded:true, items: teams.map((x)=>DropdownMenuItem(value:x, child: Text(x, overflow: TextOverflow.ellipsis))).toList(), onChanged:(v)=>setState(()=>team=v!), decoration: const InputDecoration(labelText:'Équipe'))),
       ]),
       const SizedBox(height: 8),
-      ...rows.map((p)=>PlayerTile(p:p)),
+      ...rows.map((p)=>PlayerTile(p:p, onTap:()=>showPlayerDetails(context,p))),
     ]);
   }
+}
+
+
+void showPlayerDetails(BuildContext context, Player p) {
+  showModalBottomSheet(context: context, isScrollControlled: true, backgroundColor: const Color(0xFF06111F), builder: (_) {
+    final stats = ['acc','sprint','str','agg','bal','agi','react','ball','drib','defaw','tackle','inter','finish','shot','comp','stam','jump','head','cross','shortp','longp','vision'];
+    return DraggableScrollableSheet(initialChildSize: .88, maxChildSize: .95, minChildSize: .45, expand: false, builder: (_, controller) => ListView(controller: controller, padding: const EdgeInsets.all(16), children: [
+      Text(p.name, style: const TextStyle(fontSize: 28, fontWeight: FontWeight.w900)),
+      Text('${p.team} • ${p.pos} • OVR ${p.ovr} • POT ${p.pot}'),
+      const SizedBox(height: 12),
+      Wrap(spacing: 8, runSpacing: 8, children: [
+        Chip(label: Text('${p.height}cm')), Chip(label: Text('${p.weight}kg')), Chip(label: Text(p.body)), Chip(label: Text(p.accel)),
+        Chip(label: Text('Foot ${p.foot}')), Chip(label: Text('SM ${p.skill}')), Chip(label: Text('WF ${p.weakFoot}')), Chip(label: Text('WR ${p.attWr}/${p.defWr}')),
+      ]),
+      const Divider(),
+      Text('PlayStyles', style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w900)),
+      Wrap(spacing: 8, runSpacing: 8, children: p.playstyles.isEmpty ? [const Chip(label: Text('Aucun'))] : p.playstyles.map((x)=>Chip(label: Text(x))).toList()),
+      const Divider(),
+      Text('Stats détaillées', style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w900)),
+      ...stats.map((k)=>ListTile(dense:true, title: Text(labelStat(k)), trailing: Text('${p.s[k]??0}', style: const TextStyle(fontWeight: FontWeight.w900)))),
+    ]);
+  });
 }
 
 class PlayerTile extends StatelessWidget {
   final Player p; final VoidCallback? onTap;
   const PlayerTile({super.key, required this.p, this.onTap});
   @override Widget build(BuildContext context)=>Card(child: ListTile(onTap:onTap, title: Text(p.name, maxLines:1, overflow:TextOverflow.ellipsis), subtitle: Text('${p.team} • ${p.pos} • ${p.height}cm ${p.weight}kg'), trailing: Column(mainAxisAlignment:MainAxisAlignment.center, children:[Text('OVR ${p.ovr}', style: const TextStyle(fontWeight:FontWeight.w900, color: Color(0xFF86EFAC))), Text(p.accel, style: const TextStyle(fontSize:11))])));
+}
+
+
+class TeamsPage extends StatefulWidget {
+  final List<TeamInfo> teams;
+  final List<Player> players;
+  final ValueChanged<TeamInfo> onEditTeam;
+  const TeamsPage({super.key, required this.teams, required this.players, required this.onEditTeam});
+  @override State<TeamsPage> createState()=>_TeamsPageState();
+}
+class _TeamsPageState extends State<TeamsPage> {
+  String q='';
+  @override Widget build(BuildContext context) {
+    final query=q.toLowerCase().trim();
+    final rows=widget.teams.where((t)=>query.isEmpty || ('${t.name} ${t.manager}').toLowerCase().contains(query)).take(200).toList();
+    return ListView(padding: const EdgeInsets.all(14), children: [
+      Header('Teams Database', '${widget.teams.length} équipes • détails tactiques'),
+      TextField(decoration: const InputDecoration(prefixIcon: Icon(Icons.search), hintText:'Recherche équipe...'), onChanged:(v)=>setState(()=>q=v)),
+      const SizedBox(height: 10),
+      ...rows.map((t)=>TeamCard(team:t, players: widget.players, onEdit: ()=>widget.onEditTeam(t))),
+    ]);
+  }
+}
+
+class TeamCard extends StatelessWidget {
+  final TeamInfo team;
+  final List<Player> players;
+  final VoidCallback onEdit;
+  const TeamCard({super.key, required this.team, required this.players, required this.onEdit});
+  @override Widget build(BuildContext context) {
+    final squad = players.where((p)=>p.team==team.name).take(8).toList();
+    return Card(child: Padding(padding: const EdgeInsets.all(14), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Row(children: [
+        Expanded(child: Text(team.name, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w900))),
+        IconButton.filledTonal(onPressed:onEdit, icon: const Icon(Icons.edit)),
+      ]),
+      Text('Manager: ${team.manager}'),
+      const SizedBox(height: 10),
+      Row(children: [
+        Expanded(child: MiniScore('OVR', team.overall, 'team')),
+        const SizedBox(width: 8), Expanded(child: MiniScore('ATT', team.attack, 'attack')),
+        const SizedBox(width: 8), Expanded(child: MiniScore('MID', team.midfield, 'mid')),
+        const SizedBox(width: 8), Expanded(child: MiniScore('DEF', team.defense, 'def')),
+      ]),
+      const SizedBox(height: 10),
+      Wrap(spacing: 6, runSpacing: 6, children: [
+        ...team.strongTraits.take(4).map((x)=>Chip(label: Text('Strong: $x'))),
+        ...team.weakTraits.take(3).map((x)=>Chip(label: Text('Weak: $x'))),
+      ]),
+      if(squad.isNotEmpty) ...[
+        const Divider(),
+        Text('Joueurs clés', style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w900)),
+        ...squad.map((p)=>ListTile(contentPadding: EdgeInsets.zero, dense:true, title: Text(p.name), subtitle: Text('${p.pos} • OVR ${p.ovr}')))
+      ],
+    ])));
+  }
+}
+
+class PlayerCrudPage extends StatefulWidget {
+  final List<Player> players;
+  final ValueChanged<Player> onSave;
+  const PlayerCrudPage({super.key, required this.players, required this.onSave});
+  @override State<PlayerCrudPage> createState()=>_PlayerCrudPageState();
+}
+class _PlayerCrudPageState extends State<PlayerCrudPage> {
+  Player? editing;
+  @override Widget build(BuildContext context) {
+    return ListView(padding: const EdgeInsets.all(14), children: [
+      Header('CRUD Players', 'Créer/modifier un joueur local pour les comparaisons'),
+      FilledButton.icon(onPressed: ()=>setState(()=>editing = null), icon: const Icon(Icons.add), label: const Text('Nouveau joueur')),
+      const SizedBox(height: 10),
+      PlayerForm(initial: editing, onSave: (p){ widget.onSave(p); ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Joueur sauvegardé localement'))); }),
+      const SizedBox(height: 14),
+      Text('Modifier depuis la DB', style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w900)),
+      ...widget.players.take(25).map((p)=>PlayerTile(p:p, onTap:()=>setState(()=>editing=p))),
+    ]);
+  }
+}
+
+class PlayerForm extends StatefulWidget {
+  final Player? initial;
+  final ValueChanged<Player> onSave;
+  const PlayerForm({super.key, required this.initial, required this.onSave});
+  @override State<PlayerForm> createState()=>_PlayerFormState();
+}
+class _PlayerFormState extends State<PlayerForm> {
+  final name=TextEditingController(), team=TextEditingController(), pos=TextEditingController(), ovr=TextEditingController(), h=TextEditingController(), w=TextEditingController(), ps=TextEditingController();
+  String body='Average', accel='Controlled';
+  @override void didUpdateWidget(covariant PlayerForm oldWidget){super.didUpdateWidget(oldWidget); _fill();}
+  @override void initState(){super.initState(); _fill();}
+  void _fill(){
+    final p=widget.initial;
+    name.text=p?.name ?? ''; team.text=p?.team ?? ''; pos.text=p?.pos ?? 'ST'; ovr.text='${p?.ovr ?? 80}'; h.text='${p?.height ?? 180}'; w.text='${p?.weight ?? 75}';
+    body=p?.body ?? 'Average'; accel=p?.accel ?? 'Controlled'; ps.text=(p?.playstyles ?? []).join(', ');
+  }
+  @override Widget build(BuildContext context) {
+    return Card(child: Padding(padding: const EdgeInsets.all(14), child: Column(children:[
+      TextField(controller:name, decoration: const InputDecoration(labelText:'Nom joueur')),
+      const SizedBox(height:8),
+      Row(children:[Expanded(child: TextField(controller:team, decoration: const InputDecoration(labelText:'Équipe'))), const SizedBox(width:8), Expanded(child: TextField(controller:pos, decoration: const InputDecoration(labelText:'Poste')))]),
+      const SizedBox(height:8),
+      Row(children:[Expanded(child: TextField(controller:ovr, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText:'OVR'))), const SizedBox(width:8), Expanded(child: TextField(controller:h, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText:'Taille cm'))), const SizedBox(width:8), Expanded(child: TextField(controller:w, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText:'Poids kg')))]),
+      const SizedBox(height:8),
+      Row(children:[
+        Expanded(child: DropdownButtonFormField<String>(value:body, items:['Lean','Average','Stocky','High & Lean','High & Average','High & Stocky','Unique'].map((x)=>DropdownMenuItem(value:x, child: Text(x))).toList(), onChanged:(v)=>setState(()=>body=v!), decoration: const InputDecoration(labelText:'Body Type'))),
+        const SizedBox(width:8),
+        Expanded(child: DropdownButtonFormField<String>(value:accel, items:['Explosive','Mostly Explosive','Controlled','Controlled Lengthy','Lengthy'].map((x)=>DropdownMenuItem(value:x, child: Text(x))).toList(), onChanged:(v)=>setState(()=>accel=v!), decoration: const InputDecoration(labelText:'AcceleRATE'))),
+      ]),
+      const SizedBox(height:8),
+      TextField(controller:ps, decoration: const InputDecoration(labelText:'PlayStyles séparés par virgule')),
+      const SizedBox(height:10),
+      Wrap(spacing: 6, children: ['Rapid+','Quick Step+','Technical+','Bruiser+','Anticipate+','Block+','Aerial+','Finesse+','Power Shot+','Incisive Pass+'].map((x)=>ActionChip(label: Text(x), onPressed:(){ if(!ps.text.contains(x)){ps.text = ps.text.trim().isEmpty ? x : '${ps.text}, $x';}})).toList()),
+      const SizedBox(height:12),
+      FilledButton.icon(onPressed: (){
+        final base=widget.initial;
+        final stats=Map<String,int>.from(base?.s ?? {'acc':75,'sprint':75,'str':75,'agg':70,'bal':75,'agi':75,'react':75,'ball':75,'drib':75,'defaw':60,'tackle':60,'inter':60,'finish':75,'shot':75,'comp':75,'stam':75,'jump':75,'head':70,'cross':70,'shortp':70,'longp':70,'vision':70});
+        widget.onSave(Player(
+          id: base?.id ?? 'custom_${DateTime.now().millisecondsSinceEpoch}',
+          name: name.text.trim().isEmpty ? 'Custom Player' : name.text.trim(),
+          team: team.text.trim().isEmpty ? 'Custom' : team.text.trim(),
+          pos: pos.text.trim().isEmpty ? 'ST' : pos.text.trim(),
+          pos2: base?.pos2 ?? '',
+          ovr: int.tryParse(ovr.text) ?? 80, pot: base?.pot ?? int.tryParse(ovr.text) ?? 80,
+          height: int.tryParse(h.text) ?? 180, weight: int.tryParse(w.text) ?? 75,
+          body: body, accel: accel, foot: base?.foot ?? 'Right', attWr: base?.attWr ?? 'Medium', defWr: base?.defWr ?? 'Medium',
+          skill: base?.skill ?? 3, weakFoot: base?.weakFoot ?? 3,
+          playstyles: ps.text.split(',').map((e)=>e.trim()).where((e)=>e.isNotEmpty).toList(),
+          s: stats,
+        ));
+      }, icon: const Icon(Icons.save), label: const Text('Sauvegarder joueur')),
+    ])));
+  }
+}
+
+class TeamCrudPage extends StatefulWidget {
+  final List<TeamInfo> teams;
+  final ValueChanged<TeamInfo> onSave;
+  const TeamCrudPage({super.key, required this.teams, required this.onSave});
+  @override State<TeamCrudPage> createState()=>_TeamCrudPageState();
+}
+class _TeamCrudPageState extends State<TeamCrudPage> {
+  TeamInfo? editing;
+  @override Widget build(BuildContext context)=>ListView(padding: const EdgeInsets.all(14), children:[
+    Header('CRUD Teams', 'Créer/modifier une équipe localement'),
+    TeamForm(initial: editing, onSave: widget.onSave),
+    const SizedBox(height:14),
+    ...widget.teams.take(30).map((t)=>Card(child: ListTile(title:Text(t.name), subtitle:Text('OVR ${t.overall} • ${t.manager}'), trailing: const Icon(Icons.edit), onTap:()=>setState(()=>editing=t)))),
+  ]);
+}
+
+Future<void> showTeamEditor(BuildContext context, TeamInfo team) async {
+  await showDialog(context: context, builder: (_) => AlertDialog(title: Text(team.name), content: SingleChildScrollView(child: TeamForm(initial: team, onSave: (_){Navigator.pop(context);})), actions:[TextButton(onPressed:()=>Navigator.pop(context), child: const Text('Fermer'))]));
+}
+
+class TeamForm extends StatefulWidget {
+  final TeamInfo? initial;
+  final ValueChanged<TeamInfo> onSave;
+  const TeamForm({super.key, required this.initial, required this.onSave});
+  @override State<TeamForm> createState()=>_TeamFormState();
+}
+class _TeamFormState extends State<TeamForm> {
+  final name=TextEditingController(), manager=TextEditingController(), ovr=TextEditingController(), att=TextEditingController(), mid=TextEditingController(), def=TextEditingController(), strong=TextEditingController(), weak=TextEditingController();
+  @override void initState(){super.initState(); fill();}
+  @override void didUpdateWidget(covariant TeamForm oldWidget){super.didUpdateWidget(oldWidget); fill();}
+  void fill(){final t=widget.initial; name.text=t?.name??''; manager.text=t?.manager??''; ovr.text='${t?.overall??80}'; att.text='${t?.attack??80}'; mid.text='${t?.midfield??80}'; def.text='${t?.defense??80}'; strong.text=(t?.strongTraits??[]).join(', '); weak.text=(t?.weakTraits??[]).join(', ');}
+  @override Widget build(BuildContext context)=>Card(child: Padding(padding: const EdgeInsets.all(14), child: Column(children:[
+    TextField(controller:name, decoration: const InputDecoration(labelText:'Nom équipe')),
+    const SizedBox(height:8), TextField(controller:manager, decoration: const InputDecoration(labelText:'Manager')),
+    const SizedBox(height:8),
+    Row(children:[Expanded(child:TextField(controller:ovr, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText:'OVR'))), const SizedBox(width:8), Expanded(child:TextField(controller:att, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText:'ATT'))), const SizedBox(width:8), Expanded(child:TextField(controller:mid, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText:'MID'))), const SizedBox(width:8), Expanded(child:TextField(controller:def, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText:'DEF')))]),
+    const SizedBox(height:8), TextField(controller:strong, decoration: const InputDecoration(labelText:'Forces séparées par virgule')),
+    const SizedBox(height:8), TextField(controller:weak, decoration: const InputDecoration(labelText:'Faiblesses séparées par virgule')),
+    const SizedBox(height:12),
+    FilledButton.icon(onPressed:()=>widget.onSave(TeamInfo(id: widget.initial?.id ?? 'custom_team_${DateTime.now().millisecondsSinceEpoch}', name: name.text.trim().isEmpty?'Custom Team':name.text.trim(), manager: manager.text.trim().isEmpty?'—':manager.text.trim(), overall:int.tryParse(ovr.text)??80, attack:int.tryParse(att.text)??80, midfield:int.tryParse(mid.text)??80, defense:int.tryParse(def.text)??80, citylikeScore: widget.initial?.citylikeScore??0, weakTraits:weak.text.split(',').map((e)=>e.trim()).where((e)=>e.isNotEmpty).toList(), equalTraits: widget.initial?.equalTraits??[], strongTraits:strong.text.split(',').map((e)=>e.trim()).where((e)=>e.isNotEmpty).toList(), xi: widget.initial?.xi??[])), icon: const Icon(Icons.save), label: const Text('Sauvegarder team')),
+  ])));
+}
+
+class ModesGuidePage extends StatelessWidget {
+  const ModesGuidePage({super.key});
+  @override Widget build(BuildContext context)=>ListView(padding: const EdgeInsets.all(14), children:[
+    Header('Guide modes & matchups', 'Explication des situations utilisées par le moteur'),
+    ...modes.map((m)=>Card(child: Padding(padding: const EdgeInsets.all(14), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children:[
+      Text(m.label, style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 18)),
+      Text(m.desc),
+      const SizedBox(height:8),
+      Wrap(spacing:6, runSpacing:6, children:m.w.entries.map((e)=>Chip(label: Text('${labelStat(e.key)} ${(e.value*100).round()}%'))).toList()),
+    ])))),
+  ]);
 }
 
 class TacticalPage extends StatelessWidget {
