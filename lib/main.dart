@@ -793,24 +793,55 @@ class _DatabasePageState extends State<DatabasePage> {
 
 
 void showPlayerDetails(BuildContext context, Player p) {
-  showModalBottomSheet(context: context, isScrollControlled: true, backgroundColor: const Color(0xFF06111F), builder: (_) {
-    final stats = ['acc','sprint','str','agg','bal','agi','react','ball','drib','defaw','tackle','inter','finish','shot','comp','stam','jump','head','cross','shortp','longp','vision'];
-    return DraggableScrollableSheet(initialChildSize: .88, maxChildSize: .95, minChildSize: .45, expand: false, builder: (_, controller) => ListView(controller: controller, padding: const EdgeInsets.all(16), children: [
-      Text(p.name, style: const TextStyle(fontSize: 28, fontWeight: FontWeight.w900)),
-      Text('${p.team} • ${p.pos} • OVR ${p.ovr} • POT ${p.pot}'),
-      const SizedBox(height: 12),
-      Wrap(spacing: 8, runSpacing: 8, children: [
-        Chip(label: Text('${p.height}cm')), Chip(label: Text('${p.weight}kg')), Chip(label: Text(p.body)), Chip(label: Text(p.accel)),
-        Chip(label: Text('Foot ${p.foot}')), Chip(label: Text('SM ${p.skill}')), Chip(label: Text('WF ${p.weakFoot}')), Chip(label: Text('WR ${p.attWr}/${p.defWr}')),
-      ]),
-      const Divider(),
-      Text('PlayStyles', style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w900)),
-      Wrap(spacing: 8, runSpacing: 8, children: p.playstyles.isEmpty ? [const Chip(label: Text('Aucun'))] : p.playstyles.map((x)=>Chip(label: Text(x))).toList()),
-      const Divider(),
-      Text('Stats détaillées', style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w900)),
-      ...stats.map((k)=>ListTile(dense:true, title: Text(labelStat(k)), trailing: Text('${p.s[k]??0}', style: const TextStyle(fontWeight: FontWeight.w900)))),
-    ]);
-  });
+  showModalBottomSheet(
+    context: context,
+    isScrollControlled: true,
+    backgroundColor: const Color(0xFF06111F),
+    builder: (_) {
+      final stats = ['acc','sprint','str','agg','bal','agi','react','ball','drib','defaw','tackle','inter','finish','shot','comp','stam','jump','head','cross','shortp','longp','vision'];
+      return DraggableScrollableSheet(
+        initialChildSize: .88,
+        maxChildSize: .95,
+        minChildSize: .45,
+        expand: false,
+        builder: (_, controller) => ListView(
+          controller: controller,
+          padding: const EdgeInsets.all(16),
+          children: [
+            Text(p.name, style: const TextStyle(fontSize: 28, fontWeight: FontWeight.w900)),
+            Text('${p.team} • ${p.pos} • OVR ${p.ovr} • POT ${p.pot}'),
+            const SizedBox(height: 12),
+            Wrap(spacing: 8, runSpacing: 8, children: [
+              Chip(label: Text('${p.height}cm')),
+              Chip(label: Text('${p.weight}kg')),
+              Chip(label: Text(p.body)),
+              Chip(label: Text(p.accel)),
+              Chip(label: Text('Foot ${p.foot}')),
+              Chip(label: Text('SM ${p.skill}')),
+              Chip(label: Text('WF ${p.weakFoot}')),
+              Chip(label: Text('WR ${p.attWr}/${p.defWr}')),
+            ]),
+            const Divider(),
+            Text('PlayStyles', style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w900)),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: p.playstyles.isEmpty
+                  ? [const Chip(label: Text('Aucun'))]
+                  : p.playstyles.map((x) => Chip(label: Text(x))).toList(),
+            ),
+            const Divider(),
+            Text('Stats détaillées', style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w900)),
+            ...stats.map((k) => ListTile(
+              dense: true,
+              title: Text(labelStat(k)),
+              trailing: Text('${p.s[k] ?? 0}', style: const TextStyle(fontWeight: FontWeight.w900)),
+            )),
+          ],
+        ),
+      );
+    },
+  );
 }
 
 class PlayerTile extends StatelessWidget {
