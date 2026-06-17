@@ -7,15 +7,15 @@ import 'package:flutter/services.dart';
 
 
 class AppTheme {
-  static const bg = Color(0xFFF3F7FA);
+  static const bg = Color(0xFFF6F8FC);
   static const card = Color(0xFFFFFFFF);
-  static const ink = Color(0xFF071325);
-  static const muted = Color(0xFF64748B);
-  static const pink = Color(0xFF10B981);
+  static const ink = Color(0xFF08111F);
+  static const muted = Color(0xFF7B8BA3);
+  static const pink = Color(0xFF0EA5A4);
   static const purple = Color(0xFF2563EB);
-  static const blue = Color(0xFF0EA5E9);
+  static const blue = Color(0xFF2563EB);
   static const dark = Color(0xFF071325);
-  static const line = Color(0xFFE2E8F0);
+  static const line = Color(0xFFD9E3EE);
   static const green = Color(0xFF22C55E);
 }
 
@@ -625,6 +625,66 @@ class TeamInfo {
   }
 }
 
+
+bool isHiddenTeamName(String name, {bool showWomen = false, bool showSoccerAid = false}) {
+  final n = name.toLowerCase();
+  if (!showWomen && (n.contains('women') || n.contains('female') || n.contains('fémin') || n.contains('femin'))) return true;
+  if (!showSoccerAid && (n.contains('soccer aid') || n.contains('classic xi') || n.contains('adidas') || n.contains('world xi'))) return true;
+  return false;
+}
+
+bool isHiddenPlayer(Player p, {bool showWomen = false, bool showSoccerAid = false}) {
+  final t = p.team.toLowerCase();
+  final n = p.name.toLowerCase();
+  if (!showWomen && (t.contains('women') || t.contains('female') || n.contains('women'))) return true;
+  if (!showSoccerAid && (t.contains('soccer aid') || t.contains('classic xi') || t.contains('adidas') || t.contains('world xi'))) return true;
+  return false;
+}
+
+List<TeamInfo> cleanTeamList(List<TeamInfo> teams, {bool showWomen = false, bool showSoccerAid = false}) {
+  final list = teams.where((t)=>!isHiddenTeamName(t.name, showWomen: showWomen, showSoccerAid: showSoccerAid)).toList();
+  list.sort((a,b)=>a.name.compareTo(b.name));
+  return list;
+}
+
+List<Player> cleanPlayerList(List<Player> players, {bool showWomen = false, bool showSoccerAid = false}) {
+  return players.where((p)=>!isHiddenPlayer(p, showWomen: showWomen, showSoccerAid: showSoccerAid)).toList();
+}
+
+void openPlayer(BuildContext context, Player p) => showPlayerDetails(context, p);
+
+String coachStrengths(Player p) {
+  final parts = <String>[];
+  if ((p.s['pac']??0) >= 88) parts.add('vitesse/profondeur');
+  if ((p.s['dri']??0) >= 86) parts.add('dribble court');
+  if ((p.s['phy']??0) >= 82) parts.add('contact physique');
+  if ((p.s['def']??0) >= 82) parts.add('lecture défensive');
+  if ((p.s['pas']??0) >= 84) parts.add('passe qui casse les lignes');
+  if ((p.s['sho']??0) >= 84) parts.add('finition/frappe');
+  return parts.isEmpty ? 'profil équilibré, à utiliser selon le poste' : parts.join(', ');
+}
+
+String coachWeaknesses(Player p) {
+  final parts = <String>[];
+  if ((p.s['pac']??0) < 70) parts.add('attaquer sa vitesse');
+  if ((p.s['phy']??0) < 65) parts.add('le mettre au contact');
+  if ((p.s['def']??0) < 55 && !p.pos.contains('ST')) parts.add('le presser dans son dos');
+  if ((p.s['stam']??0) < 70) parts.add('augmenter le tempo en fin de match');
+  return parts.isEmpty ? 'pas de faiblesse claire, utiliser un plan spécifique' : parts.join(', ');
+}
+
+String teamCoachReport(TeamInfo t, List<Player> players) {
+  final squad = _teamSquad(t, players).take(18).toList();
+  final fast = squad.where((p)=>(p.s['pac']??0)>=85).length;
+  final strong = squad.where((p)=>(p.s['phy']??0)>=80).length;
+  final creators = squad.where((p)=>(p.s['pas']??0)>=84 || (p.s['vision']??0)>=84).length;
+  final defenders = squad.where((p)=>(p.s['def']??0)>=82).length;
+  return 'Forces : ${fast>=4?'vitesse élevée, ':''}${strong>=4?'impact physique, ':''}${creators>=3?'création entre les lignes, ':''}${defenders>=4?'bloc défensif solide, ':''}OVR ${t.overall}.\n'
+         'Faiblesses à tester : transitions rapides si les latéraux montent, espace entre CB-LB/RB, pressing sur le premier relanceur.\n'
+         'Comment profiter : attaque l’espace faible, isole ton meilleur dribbleur contre leur latéral, utilise cutback si leur bloc recule.\n'
+         'Comment contrer : garde un CDM devant les CB, ferme les passes verticales, force le jeu côté faible.';
+}
+
 class GameDb {
   final List<Player> players;
   final List<TeamInfo> teams;
@@ -1049,7 +1109,7 @@ class DashboardPage extends StatelessWidget {
   final VoidCallback onStart;
   const DashboardPage({super.key, required this.db, required this.onStart});
   @override Widget build(BuildContext context) {
-    final top = db.players.take(5).toList();
+    final top = cleanPlayerList(db.players).where((p)=>!p.name.startsWith('Player ')).take(8).toList();
     return ListView(padding: const EdgeInsets.all(16), children: [
       Container(
         padding: const EdgeInsets.all(20),
@@ -1059,9 +1119,9 @@ class DashboardPage extends StatelessWidget {
           border: Border.all(color: Colors.white),
         ),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text('Coach AI Pro', style: Theme.of(context).textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.w900)),
+          Text('Coach AI Pro', style: Theme.of(context).textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.w900, color: Colors.white)),
           const SizedBox(height: 8),
-          const Text('Comparaison joueur vs joueur, modes tactiques, détection des meilleurs profils, DB complète plugin.'),
+          const Text('Comparaison joueur vs joueur, modes tactiques, détection des meilleurs profils, DB complète plugin.', style: TextStyle(color: Colors.white, height: 1.35)),
           const SizedBox(height: 16),
           FilledButton.icon(onPressed: onStart, icon: const Icon(Icons.play_arrow), label: const Text('Lancer comparaison')),
         ]),
@@ -1077,7 +1137,7 @@ class DashboardPage extends StatelessWidget {
       const SizedBox(height: 14),
       Text('Top joueurs DB', style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w900)),
       const SizedBox(height: 8),
-      ...top.map((p)=>PlayerTile(p: p)),
+      ...top.map((p)=>PlayerTile(p: p, onTap:()=>openPlayer(context,p))),
     ]);
   }
 }
@@ -1525,6 +1585,13 @@ class PlayerDetailsSheet extends StatelessWidget {
           Text(_coachProfile(p), style: const TextStyle(fontWeight:FontWeight.w700)),
         ])),
         ProBox(title:'PlayStyles & Traits', subtitle:'Séparés de la data brute FC24', icon:Icons.auto_awesome_rounded, child: Wrap(spacing:8, runSpacing:8, children: p.playstyles.isEmpty ? [const Chip(label:Text('Aucun détecté dans la DB'))] : p.playstyles.map((x)=>Chip(label:Text(x))).toList())),
+        ProBox(title:'Forces / faiblesses coach', subtitle:'Comment profiter et comment le contrer', icon:Icons.psychology_alt_rounded, child:Column(crossAxisAlignment:CrossAxisAlignment.start, children:[
+          Text('Forces : ${coachStrengths(p)}', style:const TextStyle(fontWeight:FontWeight.w900, height:1.35)),
+          const SizedBox(height:6),
+          Text('Faiblesses à cibler : ${coachWeaknesses(p)}', style:const TextStyle(fontWeight:FontWeight.w800, height:1.35, color:AppTheme.muted)),
+          const SizedBox(height:6),
+          Text('Plan : utilise ses forces dans le mode approprié du comparateur, et contre-le avec le type de duel où ses stats clés sont faibles.', style:const TextStyle(height:1.35)),
+        ])),
         _StatsCategory(title:'Stats principales', keys: const ['pac','sho','pas','dri','def','phy'], p:p),
         if (p.pos.toUpperCase().contains('GK')) _StatsCategory(title:'Gardien GK', keys: const ['gkdiv','gkhan','gkkick','gkpos','gkref'], p:p),
         _StatsCategory(title:'Vitesse & Physique', keys: const ['acc','sprint','str','agg','stam','jump','bal','agi','react'], p:p),
@@ -1589,21 +1656,20 @@ class TeamAnalyzerPage extends StatefulWidget {
 class _TeamAnalyzerPageState extends State<TeamAnalyzerPage> {
   TeamInfo? team;
   @override Widget build(BuildContext context) {
-    team ??= widget.teams.isNotEmpty ? widget.teams.first : null;
+    final teams = cleanTeamList(widget.teams);
+    team ??= teams.isNotEmpty ? teams.first : null;
     final t = team;
     if (t == null) return const Center(child: Text('Aucune équipe'));
-    final squad = widget.players.where((p)=>p.team == t.name).toList()..sort((a,b)=>b.ovr.compareTo(a.ovr));
+    final squad = _teamSquad(t, cleanPlayerList(widget.players))..sort((a,b)=>b.ovr.compareTo(a.ovr));
     return ListView(padding: const EdgeInsets.all(14), children: [
       Header('Team Analyzer', 'Forces, faiblesses et joueurs clés'),
-      DropdownButtonFormField<String>(
-        value: t.id,
-        isExpanded: true,
-        items: widget.teams.take(300).map((x)=>DropdownMenuItem(value:x.id, child: Text(x.name, overflow: TextOverflow.ellipsis))).toList(),
-        onChanged: (id)=>setState(()=>team = widget.teams.firstWhere((x)=>x.id == id)),
-        decoration: const InputDecoration(labelText:'Équipe'),
-      ),
+      TeamAutocomplete(teams:teams, value:t.name, label:'Équipe homme par défaut — autocomplete', onSelected:(name){
+        final m=teams.where((x)=>x.name.toLowerCase()==name.toLowerCase()).toList();
+        if(m.isNotEmpty) setState(()=>team=m.first);
+      }),
       const SizedBox(height: 12),
-      TeamCard(team: t, players: widget.players, onEdit: (){}),
+      GestureDetector(onTap:()=>showTeamDetails(context,t,widget.players), child: TeamCard(team: t, players: widget.players, onEdit: ()=>showTeamDetails(context,t,widget.players))),
+      ProBox(title:'Rapport coach complet', subtitle:'Forces, faiblesses, comment profiter et comment contrer', icon:Icons.psychology_alt_rounded, child:Text(teamCoachReport(t, widget.players), style:const TextStyle(height:1.45, fontWeight:FontWeight.w700))),
       ProTeamWeaknessReport(team:t, players:widget.players),
       ProBox(title:'Joueurs clés', subtitle:'Top OVR de l’équipe', icon: Icons.stars_rounded, child: Column(children: squad.take(12).map((p)=>PlayerTile(p:p, onTap:()=>showPlayerDetails(context,p))).toList())),
     ]);
@@ -1619,7 +1685,7 @@ class _MatchupFinderPageState extends State<MatchupFinderPage> {
   String mode='speed_long'; String pos='ST';
   @override Widget build(BuildContext context) {
     final m = modes.firstWhere((x)=>x.key==mode);
-    final rows = widget.players.where((p)=>pos=='all'||p.pos.toUpperCase().contains(pos)).map((p)=>(p:p, sc:score(p,m).total)).toList()..sort((a,b)=>b.sc.compareTo(a.sc));
+    final rows = cleanPlayerList(widget.players).where((p)=>pos=='all'||p.pos.toUpperCase().contains(pos)).map((p)=>(p:p, sc:score(p,m).total)).toList()..sort((a,b)=>b.sc.compareTo(a.sc));
     return ListView(padding: const EdgeInsets.all(14), children: [
       Header('Matchup Finder', 'Classe les meilleurs profils par situation'),
       Row(children: [
@@ -1628,7 +1694,8 @@ class _MatchupFinderPageState extends State<MatchupFinderPage> {
         Expanded(child: DropdownButtonFormField<String>(value: pos, items: ['all','ST','LW','RW','CAM','CM','CDM','LB','RB','CB','GK'].map((x)=>DropdownMenuItem(value:x, child: Text(x))).toList(), onChanged:(v)=>setState(()=>pos=v!), decoration: const InputDecoration(labelText:'Poste'))),
       ]),
       const SizedBox(height: 12),
-      ...rows.take(80).map((x)=>Card(child: ListTile(leading: PlayerAvatar(p:x.p), title: Text(x.p.name), subtitle: Text('${x.p.team} • ${x.p.pos} • ${x.p.accel}'), trailing: Text('${x.sc}', style: const TextStyle(fontWeight: FontWeight.w900, color: Color(0xFF86EFAC)))))),
+      ProBox(title:'Lecture Coach du mode', subtitle:'Forces / faiblesses utilisées dans le classement', icon:Icons.psychology_rounded, child:Text('Mode ${m.label} : privilégie ${m.w.keys.map(labelStat).join(', ')}. Utilise ces profils pour profiter des faiblesses adverses, et clique un joueur pour voir comment le contrer.', style:const TextStyle(height:1.4, fontWeight:FontWeight.w700))),
+      ...rows.take(80).map((x)=>PlayerTile(p:x.p, onTap:()=>openPlayer(context,x.p))),
     ]);
   }
 }
@@ -1643,8 +1710,9 @@ class TeamVsTeamPage extends StatefulWidget {
 class _TeamVsTeamPageState extends State<TeamVsTeamPage> {
   TeamInfo? a,b;
   @override Widget build(BuildContext context) {
-    a ??= widget.teams.isNotEmpty ? widget.teams.first : null;
-    b ??= widget.teams.length > 1 ? widget.teams[1] : a;
+    final teams=cleanTeamList(widget.teams);
+    a ??= teams.isNotEmpty ? teams.first : null;
+    b ??= teams.length > 1 ? teams[1] : a;
     final ta=a, tb=b;
     if(ta==null || tb==null) return const Center(child: Text('Aucune équipe'));
     final modesLine = [
@@ -1655,11 +1723,12 @@ class _TeamVsTeamPageState extends State<TeamVsTeamPage> {
     ];
     return ListView(padding: const EdgeInsets.all(14), children:[
       Header('Team vs Team', 'Compare deux équipes comme dans le plugin'),
-      Row(children:[
-        Expanded(child: DropdownButtonFormField<String>(value:ta.id, isExpanded:true, items:widget.teams.take(400).map((t)=>DropdownMenuItem(value:t.id, child:Text(t.name, overflow:TextOverflow.ellipsis))).toList(), onChanged:(id)=>setState(()=>a=widget.teams.firstWhere((t)=>t.id==id)), decoration: const InputDecoration(labelText:'Équipe A'))),
-        const SizedBox(width:8),
-        Expanded(child: DropdownButtonFormField<String>(value:tb.id, isExpanded:true, items:widget.teams.take(400).map((t)=>DropdownMenuItem(value:t.id, child:Text(t.name, overflow:TextOverflow.ellipsis))).toList(), onChanged:(id)=>setState(()=>b=widget.teams.firstWhere((t)=>t.id==id)), decoration: const InputDecoration(labelText:'Équipe B'))),
-      ]),
+      LayoutBuilder(builder:(context,c){
+        Widget fieldA()=>TeamAutocomplete(teams:teams, value:ta.name, label:'Équipe A', onSelected:(name){final m=teams.where((t)=>t.name.toLowerCase()==name.toLowerCase()).toList(); if(m.isNotEmpty) setState(()=>a=m.first);});
+        Widget fieldB()=>TeamAutocomplete(teams:teams, value:tb.name, label:'Équipe B', onSelected:(name){final m=teams.where((t)=>t.name.toLowerCase()==name.toLowerCase()).toList(); if(m.isNotEmpty) setState(()=>b=m.first);});
+        if(c.maxWidth<520) return Column(children:[fieldA(), const SizedBox(height:8), fieldB()]);
+        return Row(children:[Expanded(child:fieldA()), const SizedBox(width:8), Expanded(child:fieldB())]);
+      }),
       const SizedBox(height:12),
       Card(child: Padding(padding: const EdgeInsets.all(16), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children:[
         Text('${ta.name} vs ${tb.name}', style: const TextStyle(fontSize:22, fontWeight:FontWeight.w900)),
@@ -1669,11 +1738,8 @@ class _TeamVsTeamPageState extends State<TeamVsTeamPage> {
           return ListTile(dense:true, contentPadding:EdgeInsets.zero, title:Text(x.$1), subtitle:LinearProgressIndicator(value:(x.$2/(x.$2+x.$3).clamp(1,999))), trailing:Text('${x.$2} - ${x.$3}  ${diff>0?"+":""}$diff', style:TextStyle(fontWeight:FontWeight.w900, color:diff>=0?const Color(0xFF86EFAC):const Color(0xFFFB7185))));
         }),
       ]))),
-      Row(crossAxisAlignment: CrossAxisAlignment.start, children:[
-        Expanded(child: TeamMiniAnalysis(team:ta, players:widget.players)),
-        const SizedBox(width:8),
-        Expanded(child: TeamMiniAnalysis(team:tb, players:widget.players)),
-      ]),
+      ProBox(title:'Diagnostic match', subtitle:'Forces, faiblesses, comment attaquer / défendre', icon:Icons.auto_graph_rounded, child:Text('A — ${teamCoachReport(ta, widget.players)}\n\nB — ${teamCoachReport(tb, widget.players)}', style:const TextStyle(height:1.45, fontWeight:FontWeight.w700))),
+      LayoutBuilder(builder:(context,c){ final aCard=TeamMiniAnalysis(team:ta, players:widget.players); final bCard=TeamMiniAnalysis(team:tb, players:widget.players); if(c.maxWidth<560) return Column(children:[aCard,const SizedBox(height:10),bCard]); return Row(crossAxisAlignment: CrossAxisAlignment.start, children:[Expanded(child:aCard), const SizedBox(width:10), Expanded(child:bCard)]); }),
     ]);
   }
 }
@@ -1681,10 +1747,13 @@ class TeamMiniAnalysis extends StatelessWidget {
   final TeamInfo team; final List<Player> players;
   const TeamMiniAnalysis({super.key, required this.team, required this.players});
   @override Widget build(BuildContext context) {
-    final squad=players.where((p)=>p.team==team.name).take(5).toList();
+    final squad=_teamSquad(team, cleanPlayerList(players)).take(7).toList();
     return ProBox(title:team.name, subtitle:'OVR ${team.overall} • ${team.manager}', icon:Icons.shield, child:Column(crossAxisAlignment:CrossAxisAlignment.start, children:[
-      Wrap(spacing:6, runSpacing:6, children:[...team.strongTraits.take(3).map((x)=>Chip(label:Text('Strong $x'))), ...team.weakTraits.take(2).map((x)=>Chip(label:Text('Weak $x')))]),
-      ...squad.map((p)=>ListTile(dense:true, contentPadding:EdgeInsets.zero, leading:PlayerAvatar(p:p, size:36), title:Text(p.name, maxLines:1), trailing:Text('${p.ovr}'))),
+      Wrap(spacing:6, runSpacing:6, children:[...team.strongTraits.take(3).map((x)=>Chip(label:Text('Force: $x', overflow:TextOverflow.ellipsis))), ...team.weakTraits.take(2).map((x)=>Chip(label:Text('Faible: $x', overflow:TextOverflow.ellipsis)))]),
+      const SizedBox(height:8),
+      Text(teamCoachReport(team, players), maxLines:5, overflow:TextOverflow.ellipsis, style:const TextStyle(height:1.35, color:AppTheme.muted, fontWeight:FontWeight.w700)),
+      const Divider(),
+      ...squad.map((p)=>ListTile(dense:true, contentPadding:EdgeInsets.zero, leading:PlayerAvatar(p:p, size:36), title:Text(p.name, maxLines:1, overflow:TextOverflow.ellipsis), subtitle:Text('${p.pos} • ${coachStrengths(p)}', maxLines:1, overflow:TextOverflow.ellipsis), trailing:Text('${p.ovr}'), onTap:()=>openPlayer(context,p))),
     ]));
   }
 }
@@ -2186,7 +2255,7 @@ class TeamCard extends StatelessWidget {
 List<Player> _teamSquad(TeamInfo team, List<Player> players){
   final byId={for(final p in players) p.id:p};
   final xi=team.xi.map((id)=>byId[id]).whereType<Player>().toList();
-  final sameTeam=players.where((p)=>p.team==team.name).toList()..sort((a,b)=>b.ovr.compareTo(a.ovr));
+  final sameTeam=players.where((p)=>p.team==team.name && !isHiddenPlayer(p)).toList()..sort((a,b)=>b.ovr.compareTo(a.ovr));
   final out=<Player>[];
   for(final p in xi){ if(!out.any((x)=>x.id==p.id)) out.add(p); }
   for(final p in sameTeam){ if(!out.any((x)=>x.id==p.id)) out.add(p); }
@@ -2415,7 +2484,7 @@ class _TacticBoardAnimationStudioPageState extends State<TacticBoardAnimationStu
       ])),
       Card(child:Padding(padding:const EdgeInsets.all(12), child:Column(children:[
         AspectRatio(aspectRatio:10/14, child:GestureDetector(onTapDown:(d){}, child:CustomPaint(painter:_TacticBoardPainter(boardPlayers, t, tool, preset), child:Stack(children:[
-          for(final p in boardPlayers) AnimatedBuilder(animation:ctrl, builder:(context,_) { final o=Offset.lerp(p.pos,p.target,t)!; return Positioned(left:o.dx*MediaQuery.of(context).size.width*.88-24, top:o.dy*MediaQuery.of(context).size.width*1.23-24, child:Column(children:[PlayerAvatar(p:p.player ?? _dummyPlayer(p), size:48), Container(padding:const EdgeInsets.symmetric(horizontal:6,vertical:2), decoration:BoxDecoration(color:p.own?AppTheme.blue:Colors.redAccent, borderRadius:BorderRadius.circular(99)), child:Text(p.player?.name.split(' ').last ?? p.id, style:const TextStyle(color:Colors.white,fontSize:10,fontWeight:FontWeight.w900)))])); }),
+          for(final p in boardPlayers) AnimatedBuilder(animation:ctrl, builder:(context,_) { final o=Offset.lerp(p.pos,p.target,t)!; return Positioned(left:o.dx*MediaQuery.of(context).size.width*.88-24, top:o.dy*MediaQuery.of(context).size.width*1.23-24, child:GestureDetector(onPanUpdate:(d){ setState((){ p.pos=Offset((p.pos.dx+d.delta.dx/330).clamp(.05,.95), (p.pos.dy+d.delta.dy/460).clamp(.05,.95)); p.target=p.pos; }); }, child:Column(children:[PlayerAvatar(p:p.player ?? _dummyPlayer(p), size:48), Container(padding:const EdgeInsets.symmetric(horizontal:6,vertical:2), decoration:BoxDecoration(color:p.own?AppTheme.blue:Colors.redAccent, borderRadius:BorderRadius.circular(99)), child:Text(p.player?.name.split(' ').last ?? p.id, style:const TextStyle(color:Colors.white,fontSize:10,fontWeight:FontWeight.w900)))]))); }),
         ])))),
         const SizedBox(height:10),
         Row(children:[Expanded(child:FilledButton.icon(onPressed:(){_setTargets(); ctrl.forward(from:0);}, icon:const Icon(Icons.play_arrow_rounded), label:const Text('Play animation'))), const SizedBox(width:8), Expanded(child:OutlinedButton.icon(onPressed:()=>setState(_buildPreset), icon:const Icon(Icons.restart_alt_rounded), label:const Text('Reset')))]),
@@ -2496,8 +2565,9 @@ class _AiSimulatorPageState extends State<AiSimulatorPage> {
   @override Widget build(BuildContext context) {
     final cleanTeams = widget.teams.where((t){ final n=t.name.toLowerCase(); return !(n.contains('soccer aid')||n.contains('women')||n.contains('female')||n.contains('classic xi')); }).toList();
     team ??= cleanTeams.isNotEmpty ? cleanTeams.first : (widget.teams.isNotEmpty ? widget.teams.first : null);
-    a ??= widget.players.firstWhere((p)=>p.name.toLowerCase().contains('mbapp'), orElse:()=>widget.players.first);
-    b ??= widget.players.firstWhere((p)=>p.name.toLowerCase().contains('walker'), orElse:()=>widget.players.length>1 ? widget.players[1] : widget.players.first);
+    final simPlayers=cleanPlayerList(widget.players);
+    a ??= simPlayers.firstWhere((p)=>p.name.toLowerCase().contains('mbapp'), orElse:()=>simPlayers.first);
+    b ??= simPlayers.firstWhere((p)=>p.name.toLowerCase().contains('walker'), orElse:()=>simPlayers.length>1 ? simPlayers[1] : simPlayers.first);
     final sc=advancedScenarios.firstWhere((x)=>x.key==scenarioKey);
     final mode=modes.firstWhere((m)=>m.key==sc.duel, orElse:()=>modes.first);
     final sa=score(a!, mode), sb=score(b!, mode);
@@ -2532,8 +2602,8 @@ class _AiSimulatorPageState extends State<AiSimulatorPage> {
         SizedBox(height:96, child:ListView(scrollDirection:Axis.horizontal, children:squad.skip(11).take(18).map((p)=>Container(width:108, margin:const EdgeInsets.only(right:8), child:Column(children:[PlayerAvatar(p:p,size:52), Text(p.name, maxLines:1, overflow:TextOverflow.ellipsis, textAlign:TextAlign.center, style:const TextStyle(fontSize:12,fontWeight:FontWeight.w800)), Text('${p.pos} • ${p.ovr}', style:const TextStyle(fontSize:11,color:AppTheme.muted))]))).toList())),
       ])),
       ProBox(title:'Duel du scénario', subtitle:'Compare exactement comme le Duel Engine Pro Plus', icon:Icons.compare_arrows_rounded, child:Column(children:[
-        PlayerPicker(title:'Joueur A', players:widget.players, value:a!, onChanged:(p)=>setState(()=>a=p)),
-        PlayerPicker(title:'Joueur B', players:widget.players, value:b!, onChanged:(p)=>setState(()=>b=p)),
+        PlayerPicker(title:'Joueur A', players:simPlayers, value:a!, onChanged:(p)=>setState(()=>a=p)),
+        PlayerPicker(title:'Joueur B', players:simPlayers, value:b!, onChanged:(p)=>setState(()=>b=p)),
         ScoreSummary(a:a!, b:b!, sa:sa, sb:sb),
       ])),
       ProBox(title:'Lecture IA Coach', subtitle:'Critères, PlayStyles utiles, décision terrain', icon:Icons.psychology_alt_rounded, child:Column(crossAxisAlignment:CrossAxisAlignment.start, children:[
