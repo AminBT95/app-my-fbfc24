@@ -5,6 +5,21 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+
+class AppTheme {
+  static const bg = Color(0xFFF3F5FA);
+  static const card = Color(0xFFFFFFFF);
+  static const ink = Color(0xFF10132B);
+  static const muted = Color(0xFF7B8194);
+  static const pink = Color(0xFFFF2C86);
+  static const purple = Color(0xFF6D3DF5);
+  static const blue = Color(0xFF1D65F2);
+  static const dark = Color(0xFF111232);
+  static const line = Color(0xFFE7EAF2);
+  static const green = Color(0xFF31B36B);
+}
+
+
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
   FlutterError.onError = (details) => FlutterError.presentError(details);
@@ -18,26 +33,52 @@ class FC24CoachApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const bg = Color(0xFF06111F);
-    const panel = Color(0xFF0B1728);
     return MaterialApp(
       debugShowCheckedModeBanner: false,
       title: 'FC24 Coach AI',
       theme: ThemeData(
         useMaterial3: true,
-        brightness: Brightness.dark,
-        scaffoldBackgroundColor: bg,
-        colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF22C55E), brightness: Brightness.dark),
-        cardTheme: CardTheme(
-          color: panel,
+        brightness: Brightness.light,
+        scaffoldBackgroundColor: AppTheme.bg,
+        fontFamily: 'Roboto',
+        colorScheme: ColorScheme.fromSeed(seedColor: AppTheme.pink, brightness: Brightness.light).copyWith(
+          primary: AppTheme.pink,
+          secondary: AppTheme.purple,
+          surface: AppTheme.card,
+        ),
+        appBarTheme: const AppBarTheme(
+          backgroundColor: AppTheme.bg,
+          foregroundColor: AppTheme.ink,
+          centerTitle: false,
           elevation: 0,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24), side: const BorderSide(color: Color(0xFF263A55))),
+          scrolledUnderElevation: 0,
+          titleTextStyle: TextStyle(color: AppTheme.ink, fontSize: 20, fontWeight: FontWeight.w900),
+        ),
+        cardTheme: CardTheme(
+          color: AppTheme.card,
+          elevation: 0,
+          shadowColor: Colors.black12,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(26), side: const BorderSide(color: AppTheme.line)),
         ),
         inputDecorationTheme: InputDecorationTheme(
           filled: true,
-          fillColor: const Color(0xFF09182A),
-          border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: const BorderSide(color: Color(0xFF263A55))),
-          enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: const BorderSide(color: Color(0xFF263A55))),
+          fillColor: Colors.white,
+          labelStyle: const TextStyle(color: AppTheme.muted),
+          hintStyle: const TextStyle(color: AppTheme.muted),
+          border: OutlineInputBorder(borderRadius: BorderRadius.circular(18), borderSide: const BorderSide(color: AppTheme.line)),
+          enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(18), borderSide: const BorderSide(color: AppTheme.line)),
+          focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(18), borderSide: const BorderSide(color: AppTheme.pink, width: 1.4)),
+        ),
+        navigationBarTheme: NavigationBarThemeData(
+          backgroundColor: Colors.white,
+          indicatorColor: AppTheme.pink.withOpacity(.12),
+          labelTextStyle: MaterialStateProperty.all(const TextStyle(fontSize: 11, fontWeight: FontWeight.w800)),
+        ),
+        chipTheme: ChipThemeData(
+          backgroundColor: const Color(0xFFF7F8FC),
+          selectedColor: AppTheme.pink.withOpacity(.14),
+          side: const BorderSide(color: AppTheme.line),
+          labelStyle: const TextStyle(color: AppTheme.ink, fontWeight: FontWeight.w700),
         ),
       ),
       home: const AppShell(),
@@ -321,7 +362,7 @@ class PlayerAvatar extends StatelessWidget {
       height: size,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
-        gradient: const LinearGradient(colors: [Color(0xFF38BDF8), Color(0xFF22C55E)]),
+        color: Colors.white, border: Border.all(color: AppTheme.line, width: 2),
       ),
       child: Center(
         child: Text(
@@ -336,7 +377,7 @@ class PlayerAvatar extends StatelessWidget {
         width: size,
         height: size,
         child: img.startsWith('http')
-            ? Image.network(img, fit: BoxFit.cover, errorBuilder: (_, __, ___) => fallback)
+            ? Image.network(img, fit: BoxFit.cover, headers: const {'User-Agent':'Mozilla/5.0','Referer':'https://eep-fifa.de/'}, loadingBuilder: (c,w,p)=>p==null?w:Container(color:Colors.white, child:Center(child:SizedBox(width:size*.35,height:size*.35,child:const CircularProgressIndicator(strokeWidth:2)))), errorBuilder: (_, __, ___) => fallback)
             : Image.asset(img, fit: BoxFit.cover, errorBuilder: (_, __, ___) => fallback),
       ),
     );
@@ -580,6 +621,14 @@ const modes = <Mode>[
   Mode('keeper_1v1', 'ST vs GK 1 contre 1', 'Gardien', 'Face-à-face attaquant/gardien.', {'finish':.26,'comp':.22,'react':.16,'ball':.12,'acc':.08,'drib':.08,'shot':.08}),
   Mode('gk_shot_stop', 'Gardien arrêt réflexe', 'Gardien', 'Comparer gardiens : réflexes, plongeon, placement.', {'gkref':.30,'gkdiv':.24,'gkpos':.18,'react':.14,'gkhan':.10,'str':.04}),
   Mode('gk_sweeper', 'Gardien libéro / sortie', 'Gardien', 'Sortie rapide, jeu long, couverture profondeur.', {'gkpos':.24,'gkref':.18,'gkkick':.18,'sprint':.12,'react':.12,'longp':.10,'gkhan':.06}),
+  Mode('low_block_break', 'Casser bloc bas', 'IA Simulator', 'Vision, composure et passe incisive pour ouvrir un bloc bas.', {'vision':.28,'shortp':.22,'longp':.18,'comp':.14,'ball':.10,'drib':.08}),
+  Mode('low_block_defend', 'Défendre bloc bas', 'IA Simulator', 'Placement, interceptions et blocage pour tenir une surface compacte.', {'defaw':.30,'inter':.22,'react':.16,'str':.10,'tackle':.10,'bal':.06,'stam':.06}),
+  Mode('transition_attack', 'Transition offensive rapide', 'IA Simulator', 'Exploser après récupération : vitesse, conduite et passe longue.', {'sprint':.28,'acc':.22,'stam':.12,'ball':.12,'longp':.10,'vision':.08,'drib':.08}),
+  Mode('transition_defense', 'Transition défensive / retour', 'IA Simulator', 'Retour défensif après perte, couverture profondeur et interceptions.', {'sprint':.26,'acc':.20,'stam':.18,'defaw':.14,'inter':.12,'react':.10}),
+  Mode('wing_cross', 'Centre depuis l’aile', 'IA Simulator', 'Gagner le couloir et envoyer un centre/cutback précis.', {'cross':.32,'acc':.16,'drib':.14,'vision':.12,'ball':.10,'shortp':.08,'stam':.08}),
+  Mode('box_header', 'Centre surface / tête', 'IA Simulator', 'Attaquer le centre dans la surface : timing, taille, tête, force.', {'head':.30,'jump':.24,'str':.16,'react':.10,'finish':.10,'agg':.06,'bal':.04}),
+  Mode('hold_up_play', 'Pivot / dos au but', 'IA Simulator', 'Fixer le CB, protéger et remettre proprement.', {'str':.26,'bal':.22,'ball':.20,'comp':.12,'shortp':.08,'react':.07,'agg':.05}),
+  Mode('first_touch_turn', 'Contrôle orienté + demi-tour', 'IA Simulator', 'Premier contrôle sous pression puis changement de direction.', {'ball':.30,'agi':.20,'bal':.18,'react':.14,'drib':.12,'comp':.06}),
 ];
 
 String labelStat(String k) => {
@@ -821,6 +870,7 @@ class _AppShellState extends State<AppShell> {
         await LocalStore.saveIdeas(tacticalIdeas);
       }),
       ModesGuidePage(),
+      AiSimulatorPage(players: customPlayers, teams: customTeams),
     ];
 
     return Scaffold(
@@ -829,7 +879,7 @@ class _AppShellState extends State<AppShell> {
         title: const Text('FC24 Coach AI Pro'),
         leading: loaded == null ? null : Builder(builder: (context)=>IconButton(icon: const Icon(Icons.menu_rounded), onPressed: ()=>Scaffold.of(context).openDrawer())),
         actions: [
-          if (loaded != null) Padding(padding: const EdgeInsets.only(right: 14), child: Center(child: Text('${customPlayers.length} joueurs', style: const TextStyle(color: Color(0xFF86EFAC), fontWeight: FontWeight.w900)))),
+          if (loaded != null) Padding(padding: const EdgeInsets.only(right: 14), child: Center(child: Text('${customPlayers.length} joueurs', style: const TextStyle(color: AppTheme.pink, fontWeight: FontWeight.w900)))),
         ],
       ),
       body: SafeArea(
@@ -876,15 +926,16 @@ class AppDrawer extends StatelessWidget {
       (15, Icons.edit_note_rounded, 'Carnet entraîneur'),
       (16, Icons.import_export_rounded, 'Export / Import'),
       (17, Icons.menu_book_rounded, 'Guide modes'),
+      (18, Icons.auto_awesome_rounded, 'IA Simulator Pro'),
     ];
     return Drawer(
       child: SafeArea(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Container(
           margin: const EdgeInsets.all(14),
           padding: const EdgeInsets.all(18),
-          decoration: BoxDecoration(borderRadius: BorderRadius.circular(24), gradient: const LinearGradient(colors:[Color(0xFF123626), Color(0xFF0B1728)])),
+          decoration: BoxDecoration(borderRadius: BorderRadius.circular(24), gradient: const LinearGradient(colors:[AppTheme.pink, AppTheme.purple])),
           child: const Row(children: [
-            Icon(Icons.sports_soccer, color: Color(0xFF86EFAC), size: 36),
+            Icon(Icons.sports_soccer, color: Colors.white, size: 36),
             SizedBox(width: 10),
             Expanded(child: Text('FC24 Coach AI\nMobile Pro', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 18))),
           ]),
@@ -934,8 +985,8 @@ class DashboardPage extends StatelessWidget {
         padding: const EdgeInsets.all(20),
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(28),
-          gradient: const LinearGradient(colors: [Color(0xFF0B1728), Color(0xFF123626)]),
-          border: Border.all(color: const Color(0xFF263A55)),
+          gradient: const LinearGradient(colors: [AppTheme.pink, AppTheme.purple]),
+          border: Border.all(color: Colors.white),
         ),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Text('Coach AI Pro', style: Theme.of(context).textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.w900)),
@@ -1263,7 +1314,7 @@ class _DetectorPageState extends State<DetectorPage> {
       ]),
       const SizedBox(height: 10),
       Card(child: Padding(padding: const EdgeInsets.all(14), child: Text('${rows.length} joueurs > ${ref.name} • score référence $refScore'))),
-      ...rows.take(80).map((x)=>Card(child: ListTile(title: Text(x.p.name), subtitle: Text('${x.p.team} • ${x.p.pos} • ${x.p.body} • ${x.p.accel}'), trailing: Text('${x.sc}  +${x.sc-refScore}', style: const TextStyle(color: Color(0xFF86EFAC), fontWeight: FontWeight.w900))))),
+      ...rows.take(80).map((x)=>Card(child: ListTile(title: Text(x.p.name), subtitle: Text('${x.p.team} • ${x.p.pos} • ${x.p.body} • ${x.p.accel}'), trailing: Text('${x.sc}  +${x.sc-refScore}', style: const TextStyle(color: AppTheme.pink, fontWeight: FontWeight.w900))))),
     ]);
   }
 }
@@ -1360,7 +1411,7 @@ void showPlayerDetails(BuildContext context, Player p) {
   showModalBottomSheet(
     context: context,
     isScrollControlled: true,
-    backgroundColor: const Color(0xFF06111F),
+    backgroundColor: AppTheme.bg,
     builder: (_) => PlayerDetailsSheet(p:p),
   );
 }
@@ -2065,13 +2116,15 @@ class TeamCard extends StatelessWidget {
 List<Player> _teamSquad(TeamInfo team, List<Player> players){
   final byId={for(final p in players) p.id:p};
   final xi=team.xi.map((id)=>byId[id]).whereType<Player>().toList();
-  if(xi.isNotEmpty) return xi;
-  final squad=players.where((p)=>p.team==team.name).toList()..sort((a,b)=>b.ovr.compareTo(a.ovr));
-  return squad;
+  final sameTeam=players.where((p)=>p.team==team.name).toList()..sort((a,b)=>b.ovr.compareTo(a.ovr));
+  final out=<Player>[];
+  for(final p in xi){ if(!out.any((x)=>x.id==p.id)) out.add(p); }
+  for(final p in sameTeam){ if(!out.any((x)=>x.id==p.id)) out.add(p); }
+  return out;
 }
 
 void showTeamDetails(BuildContext context, TeamInfo team, List<Player> players){
-  showModalBottomSheet(context:context, isScrollControlled:true, backgroundColor: const Color(0xFF06111F), builder:(_)=>TeamDetailsSheet(team:team, players:players));
+  showModalBottomSheet(context:context, isScrollControlled:true, backgroundColor: AppTheme.bg, builder:(_)=>TeamDetailsSheet(team:team, players:players));
 }
 
 class TeamDetailsSheet extends StatelessWidget{
@@ -2096,7 +2149,8 @@ class TeamDetailsSheet extends StatelessWidget{
         const SizedBox(height:10),
         Text(_coachTip(team), style: const TextStyle(fontWeight:FontWeight.w800, color:Color(0xFF86EFAC))),
       ])),
-      ProBox(title:'Effectif', subtitle:'Clique sur un joueur pour détails complets', icon:Icons.groups_rounded, child:Column(children:squad.take(24).map((p)=>PlayerTile(p:p, onTap:()=>showPlayerDetails(context,p))).toList())),
+      ProBox(title:'XI titulaire', subtitle:'Les 11 joueurs sur terrain', icon:Icons.groups_rounded, child:Column(children:squad.take(11).map((p)=>PlayerTile(p:p, onTap:()=>showPlayerDetails(context,p))).toList())),
+      ProBox(title:'Remplaçants', subtitle:'Banc détecté depuis les joueurs de la même équipe', icon:Icons.swap_horiz_rounded, child:Column(children:squad.skip(11).take(18).map((p)=>PlayerTile(p:p, onTap:()=>showPlayerDetails(context,p))).toList())),
     ]));
   }
   Widget _teamBadge(String l,int v)=>Container(padding:const EdgeInsets.all(10), decoration:BoxDecoration(color:Colors.white.withOpacity(.15), borderRadius:BorderRadius.circular(16)), child:Column(children:[Text('$v', style:const TextStyle(color:Colors.white, fontSize:18, fontWeight:FontWeight.w900)), Text(l, style:const TextStyle(color:Colors.white70, fontSize:11))]));
@@ -2117,6 +2171,99 @@ class TeamPitchView extends StatelessWidget{
   }
 }
 class _PitchLines extends CustomPainter{ @override void paint(Canvas c, Size s){ final p=Paint()..color=Colors.white.withOpacity(.18)..style=PaintingStyle.stroke..strokeWidth=2; final r=RRect.fromRectAndRadius(Offset.zero & s, const Radius.circular(26)); c.drawRRect(r,p); c.drawLine(Offset(0,s.height/2), Offset(s.width,s.height/2), p); c.drawCircle(Offset(s.width/2,s.height/2), s.width*.16, p); c.drawRect(Rect.fromCenter(center:Offset(s.width/2,0), width:s.width*.42, height:s.height*.16), p); c.drawRect(Rect.fromCenter(center:Offset(s.width/2,s.height), width:s.width*.42, height:s.height*.16), p);} @override bool shouldRepaint(covariant CustomPainter oldDelegate)=>false;}
+
+
+
+
+class AdvancedScenario {
+  final String key, label, duel, advice;
+  final List<String> focus;
+  const AdvancedScenario(this.key, this.label, this.duel, this.focus, this.advice);
+}
+
+const advancedScenarios = <AdvancedScenario>[
+  AdvancedScenario('pressing_1v1','Pressing 1v1 — attaquer le porteur','pressing',['Acceleration','Aggression','Stamina','Reactions','Def. Awareness','Strength'],'Le presseur doit fermer vite l’espace : Relentless+, Intercept+ et Bruiser+ sont très utiles.'),
+  AdvancedScenario('counter_press','Contre-pressing après perte','pressing',['Stamina','Aggression','Acceleration','Reactions','Interceptions'],'Après perte, priorité à endurance + agressivité + accélération pour récupérer avant que l’adversaire respire.'),
+  AdvancedScenario('pass_vs_interception','Passe vs Interception','interception',['Vision','Short Passing','Long Passing','Composure','Interceptions'],'Le passeur gagne avec vision/précision, le défenseur avec interceptions/awareness/réactions.'),
+  AdvancedScenario('through_pass_vs_cb','Passe en profondeur vs CB','through_ball',['Vision','Long Passing','Sprint Speed','Acceleration','Def. Awareness'],'Analyse la passe + appel contre la vitesse/lecture du CB, surtout contre défense haute.'),
+  AdvancedScenario('build_up_under_press','Sortie de balle sous pressing','shield',['Ball Control','Composure','Short Passing','Balance','Press Proven+'],'Sous pressing, Press Proven+, Tiki Taka+ et composure changent fortement les animations.'),
+  AdvancedScenario('cutback_attack','Attaque cutback / passe en retrait','crossing',['Acceleration','Dribbling','Crossing','Vision','Short Passing'],'Gagner le côté puis passe en retrait : accélération, dribble, vision et centre court.'),
+  AdvancedScenario('cutback_defense','Défendre cutback','cutback_def',['Def. Awareness','Interceptions','Reactions','Acceleration','Block+'],'Couper la passe en retrait, fermer le point de penalty, ne pas sortir trop tôt.'),
+  AdvancedScenario('low_block_break','Casser bloc bas','low_block_break',['Vision','Short Passing','Long Passing','Composure','Incisive Pass+'],'Cherche le joueur capable de casser une ligne avec calme et passe incisive.'),
+  AdvancedScenario('low_block_defend','Défendre bloc bas','low_block_defend',['Def. Awareness','Interceptions','Reactions','Strength','Block+'],'Fermer l’axe et bloquer la zone plutôt que courir vers le porteur.'),
+  AdvancedScenario('transition_attack','Transition offensive rapide','transition_attack',['Sprint Speed','Acceleration','Ball Control','Long Passing','Rapid+'],'Après récupération, lance vite le joueur qui garde sa vitesse balle au pied.'),
+  AdvancedScenario('transition_defense','Transition défensive / retour','transition_defense',['Sprint Speed','Acceleration','Stamina','Def. Awareness'],'Le retour défensif dépend autant de la course longue que de la lecture de trajectoire.'),
+  AdvancedScenario('wing_cross','Centre depuis l’aile','wing_cross',['Crossing','Acceleration','Dribbling','Vision','Whipped Pass+'],'Forcer le bon pied, créer un angle de centre et viser deuxième poteau/cutback.'),
+  AdvancedScenario('box_header','Centre surface / tête','box_header',['Heading','Jumping','Strength','Height','Aerial+'],'Timing + taille + Aerial/Power Header décident souvent l’animation.'),
+  AdvancedScenario('hold_up_play','Pivot / jouer dos au but','hold_up_play',['Strength','Balance','Ball Control','Composure','Press Proven+'],'Fixer le CB, protéger, remise courte, puis appel du troisième homme.'),
+  AdvancedScenario('first_touch_turn','Contrôle orienté + demi-tour','first_touch_turn',['First Touch+','Ball Control','Agility','Balance','Reactions'],'Premier contrôle propre sous pression puis sortie côté faible.'),
+];
+
+class AiSimulatorPage extends StatefulWidget {
+  final List<Player> players;
+  final List<TeamInfo> teams;
+  const AiSimulatorPage({super.key, required this.players, required this.teams});
+  @override State<AiSimulatorPage> createState()=>_AiSimulatorPageState();
+}
+
+class _AiSimulatorPageState extends State<AiSimulatorPage> {
+  String scenarioKey='build_up_under_press';
+  TeamInfo? team;
+  Player? a,b;
+
+  @override Widget build(BuildContext context) {
+    team ??= widget.teams.isNotEmpty ? widget.teams.first : null;
+    a ??= widget.players.first;
+    b ??= widget.players.length>1 ? widget.players[1] : widget.players.first;
+    final sc=advancedScenarios.firstWhere((x)=>x.key==scenarioKey);
+    final mode=modes.firstWhere((m)=>m.key==sc.duel, orElse:()=>modes.first);
+    final sa=score(a!, mode), sb=score(b!, mode);
+    final squad=team==null ? <Player>[] : _teamSquad(team!, widget.players);
+    return ListView(padding: const EdgeInsets.all(14), children:[
+      Header('IA Simulator Pro', 'Situations tactiques du plugin : pressing, cutback, bloc bas, transitions'),
+      Container(padding: const EdgeInsets.all(18), decoration: BoxDecoration(borderRadius: BorderRadius.circular(30), gradient: const LinearGradient(colors:[AppTheme.pink, AppTheme.purple])), child: Column(crossAxisAlignment:CrossAxisAlignment.start, children:[
+        const Text('Simulation coach', style: TextStyle(color:Colors.white, fontSize:26, fontWeight:FontWeight.w900)),
+        const SizedBox(height:6),
+        Text(sc.label, style: const TextStyle(color:Colors.white70, fontWeight:FontWeight.w700)),
+        const SizedBox(height:14),
+        DropdownButtonFormField<String>(value:scenarioKey, isExpanded:true, dropdownColor: Colors.white, decoration: const InputDecoration(labelText:'Mode IA avancé'), items:advancedScenarios.map((x)=>DropdownMenuItem(value:x.key, child:Text(x.label, overflow:TextOverflow.ellipsis))).toList(), onChanged:(v)=>setState(()=>scenarioKey=v!)),
+      ])),
+      const SizedBox(height:12),
+      ProBox(title:'Contexte équipe', subtitle:'Formation + XI + remplaçants', icon:Icons.shield_rounded, child:Column(children:[
+        DropdownButtonFormField<String>(value:team?.id, isExpanded:true, items:widget.teams.take(300).map((t)=>DropdownMenuItem(value:t.id, child:Text(t.name, overflow:TextOverflow.ellipsis))).toList(), onChanged:(v)=>setState(()=>team=widget.teams.firstWhere((t)=>t.id==v)), decoration: const InputDecoration(labelText:'Équipe')),
+        const SizedBox(height:10),
+        SizedBox(height:410, child:TeamPitchView(players:squad.take(11).toList())),
+        const SizedBox(height:10),
+        Align(alignment:Alignment.centerLeft, child:Text('Remplaçants', style:Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight:FontWeight.w900))),
+        const SizedBox(height:6),
+        SizedBox(height:96, child:ListView(scrollDirection:Axis.horizontal, children:squad.skip(11).take(14).map((p)=>Container(width:108, margin:const EdgeInsets.only(right:8), child:Column(children:[PlayerAvatar(p:p,size:52), Text(p.name, maxLines:1, overflow:TextOverflow.ellipsis, textAlign:TextAlign.center, style:const TextStyle(fontSize:12,fontWeight:FontWeight.w800)), Text('${p.pos} • ${p.ovr}', style:const TextStyle(fontSize:11,color:AppTheme.muted))]))).toList())),
+      ])),
+      ProBox(title:'Duel simulé', subtitle:'Choisis 2 joueurs et l’app applique le mode IA', icon:Icons.compare_arrows_rounded, child:Column(children:[
+        PlayerPicker(title:'Joueur A', players:widget.players, value:a!, onChanged:(p)=>setState(()=>a=p)),
+        PlayerPicker(title:'Joueur B', players:widget.players, value:b!, onChanged:(p)=>setState(()=>b=p)),
+        ScoreSummary(a:a!, b:b!, sa:sa, sb:sb),
+      ])),
+      ProBox(title:'Lecture IA Coach', subtitle:'Conseils actionnables', icon:Icons.psychology_alt_rounded, child:Column(crossAxisAlignment:CrossAxisAlignment.start, children:[
+        Text(sc.advice, style: const TextStyle(fontWeight:FontWeight.w800)),
+        const SizedBox(height:8),
+        Wrap(spacing:8, runSpacing:8, children:sc.focus.map((x)=>Chip(label:Text(x))).toList()),
+        const Divider(),
+        Text(_simPlan(sc, a!, b!, sa, sb), style: const TextStyle(color:AppTheme.ink, height:1.45)),
+      ])),
+      ProDuelBreakdown(a:a!, b:b!, mode:mode),
+    ]);
+  }
+
+  String _simPlan(AdvancedScenario sc, Player a, Player b, DuelScore sa, DuelScore sb){
+    final win=sa.total>=sb.total?a:b;
+    final lose=sa.total>=sb.total?b:a;
+    if(sc.key.contains('cutback')) return 'Plan : utilise ${win.name} pour attaquer/couvrir la zone de cutback. Contre ${lose.name}, force le jeu vers la ligne et ferme le point de penalty.';
+    if(sc.key.contains('press')) return 'Plan : ${win.name} a le meilleur profil pressing. Déclenche quand la première touche adverse est longue, puis couvre la passe courte.';
+    if(sc.key.contains('transition')) return 'Plan : dès récupération, cherche ${win.name} dans l’espace. Si tu défends, recule tôt et coupe la trajectoire avant le sprint.';
+    if(sc.key.contains('low_block')) return 'Plan : patience. Attire un joueur, cherche la passe cassante ou le troisième homme. ${win.name} est le profil le plus fiable dans cette situation.';
+    return 'Plan : ${win.name} gagne ce scénario ${sa.total}-${sb.total}. Exploite ses PlayStyles actifs et évite de jouer sur le point fort de ${lose.name}.';
+  }
+}
 
 
 /* === v8.3 full CRUD/content constants === */
