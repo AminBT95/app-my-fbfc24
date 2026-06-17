@@ -7,21 +7,31 @@ import 'package:flutter/services.dart';
 
 
 class AppTheme {
-  static const bg = Color(0xFFF7F7FC);
+  static const bg = Color(0xFFF3F7FA);
   static const card = Color(0xFFFFFFFF);
-  static const ink = Color(0xFF101026);
-  static const muted = Color(0xFF73788D);
-  static const pink = Color(0xFFE83E6D);
-  static const purple = Color(0xFF5A48F5);
-  static const blue = Color(0xFF1E9BFF);
-  static const dark = Color(0xFF15152E);
-  static const line = Color(0xFFE8E9F1);
-  static const green = Color(0xFF38C979);
+  static const ink = Color(0xFF071325);
+  static const muted = Color(0xFF64748B);
+  static const pink = Color(0xFF10B981);
+  static const purple = Color(0xFF2563EB);
+  static const blue = Color(0xFF0EA5E9);
+  static const dark = Color(0xFF071325);
+  static const line = Color(0xFFE2E8F0);
+  static const green = Color(0xFF22C55E);
 }
 
 
+class Fc24HttpOverrides extends HttpOverrides {
+  @override
+  HttpClient createHttpClient(SecurityContext? context) {
+    final client = super.createHttpClient(context);
+    client.badCertificateCallback = (X509Certificate cert, String host, int port) => host.contains('eep-fifa.de');
+    return client;
+  }
+}
+
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
+  HttpOverrides.global = Fc24HttpOverrides();
   FlutterError.onError = (details) => FlutterError.presentError(details);
   runZonedGuarded(() => runApp(const FC24CoachApp()), (error, stack) {
     debugPrint('FC24 Coach AI crash: $error');
@@ -135,12 +145,11 @@ class Player {
       'gkdiv': n(j['gkdiving']), 'gkhan': n(j['gkhandling']), 'gkkick': n(j['gkkicking']), 'gkpos': n(j['gkpositioning']), 'gkref': n(j['gkreflexes']),
     };
     final ps = <String>[
-      ...list(j['playstyles']),
-      ...list(j['trait1Decoded']),
-      ...list(j['trait2Decoded']),
-      ...list(j['icontrait1']),
-      ...list(j['icontrait2']),
-    ].where((x) => x.trim().isNotEmpty).toSet().toList();
+      ...list(j['playstyles']).map(normalizePlayStyle).where((x)=>x.isNotEmpty),
+      ...list(j['trait1Decoded']).map(normalizeTrait).where((x)=>x.isNotEmpty),
+      ...list(j['trait2Decoded']).map(normalizeTrait).where((x)=>x.isNotEmpty),
+      ...inferPlaystyles(stats, str(j['pos']), str(j['pos2'])),
+    ].where((x) => x.trim().isNotEmpty && !RegExp(r'^\d+$').hasMatch(x.trim())).toSet().toList();
 
     return Player(
       id: str(j['id']),
@@ -156,13 +165,59 @@ class Player {
       body: decodeBody(str(j['bodytype'])),
       accel: guessAccel(stats, n(j['height'], 180), n(j['weight'], 75)),
       foot: str(j['foot']) == '2' ? 'Left' : 'Right',
-      attWr: decodeWr(str(j['attWR'])),
-      defWr: decodeWr(str(j['defWR'])),
+      attWr: decodeWr(str(j['attWR'], str(j['attWr']))),
+      defWr: decodeWr(str(j['defWR'], str(j['defWr']))),
       skill: n(j['skill']),
       weakFoot: n(j['weakfoot']),
       playstyles: ps,
       s: stats,
     );
+  }
+
+  static String normalizePlayStyle(String v) {
+    var t = v.trim();
+    if (t.isEmpty || t == '0' || t == 'null' || RegExp(r'^\d+$').hasMatch(t)) return '';
+    t = t.replaceAll('_', ' ').replaceAll('-', ' ');
+    final plus = t.contains('+');
+    t = t.replaceAll('+', '').trim().toLowerCase();
+    const map = {
+      'finesse shot':'Finesse Shot','chip shot':'Chip Shot','power shot':'Power Shot','dead ball':'Dead Ball','power header':'Power Header','precision header':'Power Header','acrobatic':'Acrobatic','incisive pass':'Incisive Pass','pinged pass':'Pinged Pass','long ball pass':'Long Ball Pass','tiki taka':'Tiki Taka','whipped pass':'Whipped Pass','jockey':'Jockey','block':'Block','intercept':'Intercept','anticipate':'Anticipate','slide tackle':'Slide Tackle','aerial':'Aerial','aerial fortress':'Aerial','technical':'Technical','rapid':'Rapid','first touch':'First Touch','trickster':'Trickster','press proven':'Press Proven','quick step':'Quick Step','relentless':'Relentless','long throw':'Long Throw','bruiser':'Bruiser','far throw':'Far Throw','footwork':'Footwork','cross claimer':'Cross Claimer','rush out':'Rush Out','far reach':'Far Reach','deflector':'Deflector'
+    };
+    final out = map[t] ?? t.split(' ').where((w)=>w.isNotEmpty).map((w)=>w[0].toUpperCase()+w.substring(1)).join(' ');
+    return plus ? '$out+' : out;
+  }
+
+  static String normalizeTrait(String v) {
+    final t = v.trim();
+    if (t.isEmpty || t == '0' || t == 'null' || RegExp(r'^\d+$').hasMatch(t)) return '';
+    const map = {
+      'Play Maker':'Playmaker Trait','Injury Free':'Injury Free Trait','Injury Prone':'Injury Prone Trait','Solid Player':'Solid Player Trait','Team Player':'Team Player Trait','Leadership':'Leadership Trait','One Club Player':'One Club Player Trait','Flair':'Flair Trait','Power Header':'Power Header Trait','Giant Throw-in':'Giant Throw-in Trait','Long Throw-in':'Long Throw-in Trait','Pushes Up For Corners':'Pushes Up For Corners','Comes For Crosses':'Comes For Crosses','Rushes Out Of Goal':'Rushes Out Of Goal','Saves with Feet':'Saves With Feet','Cautious With Crosses':'Cautious With Crosses','Stutter Penalty':'Stutter Penalty'
+    };
+    return map[t] ?? t;
+  }
+
+  static List<String> inferPlaystyles(Map<String,int> s, String pos, String pos2) {
+    final out = <String>[];
+    void add(String x){ if(!out.contains(x)) out.add(x); }
+    final p='${pos.toUpperCase()} ${pos2.toUpperCase()}';
+    if ((s['finish']??0)>=88 && (s['curve']??0)>=82) add('Finesse Shot');
+    if ((s['shot']??0)>=88) add('Power Shot');
+    if ((s['vision']??0)>=87 && (s['shortp']??0)>=86) add('Incisive Pass');
+    if ((s['longp']??0)>=88) add('Long Ball Pass');
+    if ((s['shortp']??0)>=88 && (s['ball']??0)>=86) add('Tiki Taka');
+    if ((s['cross']??0)>=86) add('Whipped Pass');
+    if ((s['defaw']??0)>=86 && (s['inter']??0)>=84) add('Intercept');
+    if ((s['tackle']??0)>=86 && (s['defaw']??0)>=84) add('Anticipate');
+    if ((s['slide']??0)>=84) add('Slide Tackle');
+    if ((s['drib']??0)>=88 && (s['agi']??0)>=86) add('Technical');
+    if ((s['sprint']??0)>=90) add('Rapid');
+    if ((s['acc']??0)>=90) add('Quick Step');
+    if ((s['ball']??0)>=88 && (s['react']??0)>=86) add('First Touch');
+    if ((s['stam']??0)>=88) add('Relentless');
+    if ((s['str']??0)>=86 && (s['agg']??0)>=78) add('Bruiser');
+    if ((s['jump']??0)>=86 && (s['head']??0)>=82) add('Aerial');
+    if (p.contains('GK')) { if((s['gkref']??0)>=84) add('Far Reach'); if((s['gkkick']??0)>=84) add('Far Throw'); if((s['gkpos']??0)>=84) add('Rush Out'); }
+    return out;
   }
 
   static String decodeWr(String v) {
@@ -385,9 +440,9 @@ class PlayerAvatar extends StatelessWidget {
         child: img.startsWith('http')
             ? Image.network(
                 img,
-                fit: BoxFit.cover,
+                fit: BoxFit.contain,
                 filterQuality: FilterQuality.high,
-                headers: const {'User-Agent':'Mozilla/5.0 (Android) AppleWebKit/537.36','Accept':'image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8'},
+                headers: const {'User-Agent':'Mozilla/5.0 (Android) AppleWebKit/537.36','Accept':'image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8','Referer':'https://eep-fifa.de/generic.html'},
                 loadingBuilder: (c,w,progress)=>progress==null?w:Stack(fit:StackFit.expand, children:[fallback, Center(child:SizedBox(width:size*.28,height:size*.28,child:const CircularProgressIndicator(strokeWidth:2)))]),
                 errorBuilder: (_, __, ___) => fallback,
               )
@@ -884,6 +939,7 @@ class _AppShellState extends State<AppShell> {
       }),
       ModesGuidePage(),
       AiSimulatorPage(players: customPlayers, teams: customTeams),
+      TacticBoardAnimationStudioPage(players: customPlayers, teams: customTeams),
     ];
 
     return Scaffold(
@@ -940,6 +996,7 @@ class AppDrawer extends StatelessWidget {
       (16, Icons.import_export_rounded, 'Export / Import'),
       (17, Icons.menu_book_rounded, 'Guide modes'),
       (18, Icons.auto_awesome_rounded, 'IA Simulator Pro'),
+      (19, Icons.animation_rounded, 'Tactic Board Studio'),
     ];
     return Drawer(
       child: SafeArea(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -2277,6 +2334,152 @@ class ScenarioStepCard extends StatelessWidget{
   @override Widget build(BuildContext context)=>Container(margin:const EdgeInsets.only(bottom:10), padding:const EdgeInsets.all(14), decoration:BoxDecoration(color:Colors.white, borderRadius:BorderRadius.circular(20), border:Border.all(color:AppTheme.line), boxShadow:[BoxShadow(color:Colors.black.withOpacity(.035), blurRadius:18, offset:Offset(0,8))]), child:Row(crossAxisAlignment:CrossAxisAlignment.start, children:[Container(width:34,height:34, decoration:const BoxDecoration(shape:BoxShape.circle, gradient:LinearGradient(colors:[AppTheme.pink,AppTheme.purple])), child:Center(child:Text('$n', style:const TextStyle(color:Colors.white,fontWeight:FontWeight.w900)))), const SizedBox(width:10), Expanded(child:Column(crossAxisAlignment:CrossAxisAlignment.start, children:[Text(title, style:const TextStyle(fontWeight:FontWeight.w900,fontSize:15)), const SizedBox(height:3), Text(body, style:const TextStyle(color:AppTheme.muted,height:1.35))]))]));
 }
 
+class TacticBoardAnimationStudioPage extends StatefulWidget {
+  final List<Player> players;
+  final List<TeamInfo> teams;
+  const TacticBoardAnimationStudioPage({super.key, required this.players, required this.teams});
+  @override State<TacticBoardAnimationStudioPage> createState()=>_TacticBoardAnimationStudioPageState();
+}
+
+class _BoardPlayer {
+  final String id;
+  final bool own;
+  Offset pos;
+  Offset target;
+  Player? player;
+  _BoardPlayer(this.id, this.own, this.pos, {this.player}) : target = pos;
+}
+
+class _TacticBoardAnimationStudioPageState extends State<TacticBoardAnimationStudioPage> with SingleTickerProviderStateMixin {
+  late AnimationController ctrl;
+  String preset='3v2';
+  String tool='move';
+  int ownCount=3, oppCount=2;
+  String selectedTeamName='';
+  final List<_BoardPlayer> boardPlayers=[];
+  final List<String> timeline=['Frame 1 — départ', 'Frame 2 — appel + passe', 'Frame 3 — tir/cutback'];
+  int currentFrame=0;
+  bool showWomen=false, showSoccerAid=false;
+
+  @override void initState(){ super.initState(); ctrl=AnimationController(vsync:this, duration:const Duration(milliseconds:1200))..addListener(()=>setState((){})); _buildPreset(); }
+  @override void dispose(){ ctrl.dispose(); super.dispose(); }
+
+  List<TeamInfo> get cleanTeams => widget.teams.where((t){ final n=t.name.toLowerCase(); if(!showWomen && (n.contains('women')||n.contains('female'))) return false; if(!showSoccerAid && (n.contains('soccer aid')||n.contains('classic xi')||n.contains('adidas'))) return false; return true; }).toList();
+
+  void _buildPreset(){
+    boardPlayers.clear();
+    final team = selectedTeamName.isEmpty ? (cleanTeams.isNotEmpty ? cleanTeams.first : null) : cleanTeams.where((t)=>t.name==selectedTeamName).cast<TeamInfo?>().firstWhere((x)=>x!=null, orElse:()=>cleanTeams.isNotEmpty?cleanTeams.first:null);
+    selectedTeamName = team?.name ?? '';
+    final squad = team==null ? widget.players.take(11).toList() : _teamSquad(team, widget.players);
+    final ownPts = preset=='rondo' ? [const Offset(.36,.35),const Offset(.64,.35),const Offset(.36,.65),const Offset(.64,.65)] : [const Offset(.20,.70),const Offset(.42,.62),const Offset(.66,.50),const Offset(.80,.34),const Offset(.55,.26),const Offset(.28,.40),const Offset(.74,.72)];
+    final oppPts = preset=='rondo' ? [const Offset(.50,.44),const Offset(.50,.56)] : [const Offset(.48,.50),const Offset(.62,.38),const Offset(.70,.64),const Offset(.35,.35),const Offset(.35,.65)];
+    final oc = preset=='rondo' ? 4 : ownCount;
+    final bc = preset=='rondo' ? 2 : oppCount;
+    for(int i=0;i<oc;i++){ boardPlayers.add(_BoardPlayer('M${i+1}', true, ownPts[i%ownPts.length], player: squad.isNotEmpty ? squad[i%squad.length] : null)); }
+    for(int i=0;i<bc;i++){ boardPlayers.add(_BoardPlayer('A${i+1}', false, oppPts[i%oppPts.length])); }
+    ctrl.value=0;
+  }
+
+  void _setTargets(){
+    for(final p in boardPlayers){
+      if(p.own){
+        if(preset.contains('3v2') || preset=='counter') p.target = Offset((p.pos.dx+.18).clamp(.08,.92), (p.pos.dy + (p.id.endsWith('1')?-.12:p.id.endsWith('2')?.02:.10)).clamp(.10,.90));
+        else if(preset=='rondo') p.target = Offset((p.pos.dx + (p.id.endsWith('1')?.06:-.06)).clamp(.10,.90), (p.pos.dy + (p.id.endsWith('3')?.06:-.04)).clamp(.10,.90));
+        else p.target = Offset((p.pos.dx+.10).clamp(.08,.92), p.pos.dy);
+      } else {
+        p.target = Offset((p.pos.dx-.05).clamp(.08,.92), (p.pos.dy + (p.id.endsWith('1')?.08:-.08)).clamp(.10,.90));
+      }
+    }
+  }
+
+  @override Widget build(BuildContext context){
+    final t = Curves.easeInOut.transform(ctrl.value);
+    return ListView(padding:const EdgeInsets.all(14), children:[
+      Header('Tactic Board Animation Studio', 'Situations 3v2/4v3, animation simultanée, passes, tirs, duels, sauvegarde timeline'),
+      ProBox(title:'Contrôle studio', subtitle:'Même contenu que le Tactic Board HTML : joueurs custom + timeline + groupes', icon:Icons.animation_rounded, child:Column(children:[
+        Row(children:[
+          Expanded(child: DropdownButtonFormField<String>(value:preset, decoration:const InputDecoration(labelText:'Preset situation'), items:['3v2','4v3','5v4','rondo','counter','build'].map((x)=>DropdownMenuItem(value:x, child:Text(x))).toList(), onChanged:(v)=>setState((){preset=v!; _buildPreset();}))),
+          const SizedBox(width:8),
+          Expanded(child: TextFormField(initialValue:'$ownCount', keyboardType:TextInputType.number, decoration:const InputDecoration(labelText:'Mes joueurs'), onChanged:(v)=>setState(()=>ownCount=int.tryParse(v)??ownCount))),
+          const SizedBox(width:8),
+          Expanded(child: TextFormField(initialValue:'$oppCount', keyboardType:TextInputType.number, decoration:const InputDecoration(labelText:'Adversaires'), onChanged:(v)=>setState(()=>oppCount=int.tryParse(v)??oppCount))),
+        ]),
+        const SizedBox(height:10),
+        TeamAutocomplete(teams:cleanTeams, value:selectedTeamName, label:'Autocomplete équipe homme par défaut', onSelected:(name)=>setState((){selectedTeamName=name; _buildPreset();})),
+        const SizedBox(height:10),
+        Wrap(spacing:8, runSpacing:8, children:[
+          for(final x in ['move','pass','shot','dribble','run','press','zone','duel']) ChoiceChip(label:Text(x), selected:tool==x, onSelected:(_)=>setState(()=>tool=x)),
+          FilterChip(label:const Text('Afficher Female'), selected:showWomen, onSelected:(v)=>setState(()=>showWomen=v)),
+          FilterChip(label:const Text('Afficher Soccer Aid'), selected:showSoccerAid, onSelected:(v)=>setState(()=>showSoccerAid=v)),
+        ]),
+      ])),
+      Card(child:Padding(padding:const EdgeInsets.all(12), child:Column(children:[
+        AspectRatio(aspectRatio:10/14, child:GestureDetector(onTapDown:(d){}, child:CustomPaint(painter:_TacticBoardPainter(boardPlayers, t, tool, preset), child:Stack(children:[
+          for(final p in boardPlayers) AnimatedBuilder(animation:ctrl, builder:(context,_) { final o=Offset.lerp(p.pos,p.target,t)!; return Positioned(left:o.dx*MediaQuery.of(context).size.width*.88-24, top:o.dy*MediaQuery.of(context).size.width*1.23-24, child:Column(children:[PlayerAvatar(p:p.player ?? _dummyPlayer(p), size:48), Container(padding:const EdgeInsets.symmetric(horizontal:6,vertical:2), decoration:BoxDecoration(color:p.own?AppTheme.blue:Colors.redAccent, borderRadius:BorderRadius.circular(99)), child:Text(p.player?.name.split(' ').last ?? p.id, style:const TextStyle(color:Colors.white,fontSize:10,fontWeight:FontWeight.w900)))])); }),
+        ])))),
+        const SizedBox(height:10),
+        Row(children:[Expanded(child:FilledButton.icon(onPressed:(){_setTargets(); ctrl.forward(from:0);}, icon:const Icon(Icons.play_arrow_rounded), label:const Text('Play animation'))), const SizedBox(width:8), Expanded(child:OutlinedButton.icon(onPressed:()=>setState(_buildPreset), icon:const Icon(Icons.restart_alt_rounded), label:const Text('Reset')))]),
+      ]))),
+      ProBox(title:'Timeline & groupes simultanés', subtitle:'Keyframes, actions et export idée tactique', icon:Icons.timeline_rounded, child:Column(crossAxisAlignment:CrossAxisAlignment.start, children:[
+        ...timeline.asMap().entries.map((e)=>ListTile(selected:e.key==currentFrame, leading:CircleAvatar(child:Text('${e.key+1}')), title:Text(e.value), subtitle:Text(e.key==0?'Positions de départ':e.key==1?'Appel + passe en même temps':'Finalisation / duel'), onTap:()=>setState(()=>currentFrame=e.key))),
+        Wrap(spacing:8, children:[ActionChip(label:const Text('+ Keyframe'), onPressed:()=>setState(()=>timeline.add('Frame ${timeline.length+1} — action custom'))), ActionChip(label:const Text('Groupe simultané'), onPressed:()=>setState(()=>timeline.add('Groupe ${timeline.length} — mouvements synchronisés'))), ActionChip(label:const Text('Exporter JSON'), onPressed:()=>ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content:Text('Export prêt dans la prochaine build connectée au stockage local'))))]),
+      ])),
+      ProBox(title:'Lecture coach de la situation', subtitle:'Analyse rapide pour appliquer en match FC24', icon:Icons.psychology_rounded, child:Column(crossAxisAlignment:CrossAxisAlignment.start, children:[
+        Text(_studioAdvice(), style:const TextStyle(fontWeight:FontWeight.w800, height:1.35)),
+        const SizedBox(height:10),
+        Wrap(spacing:8, runSpacing:8, children:['Déclencheur','Action','Risque','Duel gagnant','Espace cible','Timing passe/tir'].map((x)=>Chip(label:Text(x))).toList()),
+      ])),
+    ]);
+  }
+
+  String _studioAdvice(){
+    if(preset=='3v2') return '3v2 : fixer le premier défenseur, déclencher l’appel extérieur, puis cutback ou passe diagonale. Le porteur ne doit pas courir face au CB.';
+    if(preset=='rondo') return 'Rondo : crée un triangle permanent, une passe de sécurité et un troisième homme. La perte arrive si les angles sont plats.';
+    if(preset=='counter') return 'Contre-attaque : première passe verticale, appel dans le dos, puis finition avant replacement du bloc.';
+    if(preset=='build') return 'Sortie de balle : attire le pressing sur un côté, trouve le 6/8 libre, puis change le côté.';
+    return 'Overload : crée supériorité sur un côté, attire, puis trouve l’espace libre opposé.';
+  }
+  Player _dummyPlayer(_BoardPlayer bp)=>Player(id:bp.id,name:bp.id,team:bp.own?'Moi':'Adv',pos:bp.own?'ATT':'DEF',pos2:'',image:'',ovr:70,pot:70,height:180,weight:75,body:'Average',accel:'Controlled',foot:'Right',attWr:'Medium',defWr:'Medium',skill:3,weakFoot:3,playstyles:const[],s:const{});
+}
+
+class _TacticBoardPainter extends CustomPainter{
+  final List<_BoardPlayer> players; final double t; final String tool, preset;
+  _TacticBoardPainter(this.players,this.t,this.tool,this.preset);
+  @override void paint(Canvas canvas, Size size){
+    final bg=Paint()..shader=const LinearGradient(begin:Alignment.topCenter,end:Alignment.bottomCenter,colors:[Color(0xFF0B7A3B),Color(0xFF075E2F)]).createShader(Offset.zero & size);
+    final r=RRect.fromRectAndRadius(Offset.zero & size, const Radius.circular(28)); canvas.drawRRect(r,bg);
+    final line=Paint()..color=Colors.white.withOpacity(.28)..style=PaintingStyle.stroke..strokeWidth=2;
+    canvas.drawRRect(RRect.fromRectAndRadius(Rect.fromLTWH(18,18,size.width-36,size.height-36), const Radius.circular(22)), line);
+    canvas.drawLine(Offset(18,size.height/2), Offset(size.width-18,size.height/2), line);
+    canvas.drawCircle(Offset(size.width/2,size.height/2), 58, line);
+    canvas.drawRect(Rect.fromCenter(center:Offset(size.width/2,18), width:size.width*.42, height:80), line);
+    canvas.drawRect(Rect.fromCenter(center:Offset(size.width/2,size.height-18), width:size.width*.42, height:80), line);
+    final arrow=Paint()..color=Colors.white.withOpacity(.88)..strokeWidth=3..strokeCap=StrokeCap.round;
+    for(final p in players.where((e)=>e.own)){
+      final a=Offset(p.pos.dx*size.width,p.pos.dy*size.height); final b=Offset.lerp(a,Offset(p.target.dx*size.width,p.target.dy*size.height), max(t,.18))!;
+      canvas.drawLine(a,b,arrow); final ang=atan2(b.dy-a.dy,b.dx-a.dx); canvas.drawLine(b,b-Offset(cos(ang-.5)*10,sin(ang-.5)*10),arrow); canvas.drawLine(b,b-Offset(cos(ang+.5)*10,sin(ang+.5)*10),arrow);
+    }
+    if(tool=='zone' || preset=='3v2' || preset=='cutback'){
+      final z=Paint()..color=AppTheme.blue.withOpacity(.18)..style=PaintingStyle.fill; canvas.drawRRect(RRect.fromRectAndRadius(Rect.fromCenter(center:Offset(size.width*.68,size.height*.34), width:120, height:70), const Radius.circular(18)), z);
+    }
+  }
+  @override bool shouldRepaint(covariant _TacticBoardPainter old)=>true;
+}
+
+class TeamAutocomplete extends StatelessWidget{
+  final List<TeamInfo> teams; final String value; final String label; final ValueChanged<String> onSelected;
+  const TeamAutocomplete({super.key, required this.teams, required this.value, required this.label, required this.onSelected});
+  @override Widget build(BuildContext context){
+    final names=teams.map((e)=>e.name).toList();
+    return Autocomplete<String>(
+      initialValue: TextEditingValue(text:value),
+      optionsBuilder:(text){ final q=text.text.toLowerCase(); if(q.isEmpty) return names.take(25); return names.where((n)=>n.toLowerCase().contains(q)).take(30); },
+      onSelected:onSelected,
+      fieldViewBuilder:(context,ctrl,focus,onSubmit)=>TextField(controller:ctrl, focusNode:focus, decoration:InputDecoration(labelText:label, prefixIcon:const Icon(Icons.shield_rounded), suffixIcon:IconButton(icon:const Icon(Icons.check), onPressed:()=>onSelected(ctrl.text)))),
+    );
+  }
+}
+
 class AiSimulatorPage extends StatefulWidget {
   final List<Player> players;
   final List<TeamInfo> teams;
@@ -2312,7 +2515,15 @@ class _AiSimulatorPageState extends State<AiSimulatorPage> {
       const SizedBox(height:12),
       if(showGuide) ProBox(title:'Guide modes IA du plugin', subtitle:'Tous les scénarios disponibles et leurs conseils', icon:Icons.menu_book_rounded, child:Column(crossAxisAlignment:CrossAxisAlignment.start, children:advancedScenarios.map((x)=>Padding(padding:const EdgeInsets.only(bottom:10), child:Text('• ${x.label}\n${x.advice}', style:const TextStyle(height:1.35)))).toList())),
       ProBox(title:'Terrain tactique interactif', subtitle:'Zone, flèches, joueurs, duel et intention de jeu', icon:Icons.sports_soccer_rounded, child:Column(children:[
-        if(team!=null) DropdownButtonFormField<String>(value:team?.id, isExpanded:true, items:cleanTeams.take(500).map((t)=>DropdownMenuItem(value:t.id, child:Text(t.name, overflow:TextOverflow.ellipsis))).toList(), onChanged:(v)=>setState(()=>team=cleanTeams.firstWhere((t)=>t.id==v)), decoration: const InputDecoration(labelText:'Équipe')),
+        if(team!=null) TeamAutocomplete(teams: cleanTeams, value: team?.name ?? '', label: 'Équipe homme par défaut — autocomplete', onSelected: (name){
+          final matches = cleanTeams.where((t)=>t.name.toLowerCase()==name.toLowerCase()).toList();
+          if(matches.isNotEmpty) setState(()=>team=matches.first);
+        }),
+        const SizedBox(height:10),
+        Wrap(spacing:8, runSpacing:8, children:[
+          const Chip(label:Text('Mode hommes par défaut')),
+          ActionChip(label:const Text('Changer équipe'), onPressed:()=>setState(()=>team=cleanTeams.isNotEmpty?cleanTeams[(cleanTeams.indexOf(team!) + 1) % cleanTeams.length]:team)),
+        ]),
         const SizedBox(height:10),
         ScenarioTacticalBoard(scenario:sc, a:a!, b:b!, squad:squad.take(11).toList()),
         const SizedBox(height:10),
