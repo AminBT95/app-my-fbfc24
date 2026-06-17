@@ -90,7 +90,7 @@ class Player {
       'defaw': n(j['defaw']), 'tackle': n(j['standtackle']), 'slide': n(j['slidetackle']), 'inter': n(j['interceptions']),
       'finish': n(j['finishing']), 'shot': n(j['shotpower']), 'longshot': n(j['longshots']), 'comp': n(j['composure']), 'stam': n(j['stamina']),
       'jump': n(j['jumping']), 'head': n(j['heading']), 'cross': n(j['crossing']), 'shortp': n(j['shortpass']), 'longp': n(j['longpass']),
-      'vision': n(j['vision']), 'curve': n(j['curve']), 'fk': n(j['fk']), 'posi': n(j['positioning']),
+      'vision': n(j['vision']), 'curve': n(j['curve']), 'fk': n(j['fk']), 'posi': n(j['positioning']), 'volleys': n(j['volleys']), 'penalties': n(j['penalties']),
       'gkdiv': n(j['gkdiving']), 'gkhan': n(j['gkhandling']), 'gkkick': n(j['gkkicking']), 'gkpos': n(j['gkpositioning']), 'gkref': n(j['gkreflexes']),
     };
     final ps = <String>[
@@ -500,7 +500,16 @@ class TeamInfo {
       weakTraits: split(j['weakTraits']),
       equalTraits: split(j['equalTraits']),
       strongTraits: split(j['strongTraits']),
-      xi: split(j['xi']),
+      xi: (() {
+        final rawXi = j['xi'];
+        if (rawXi is List) {
+          return rawXi.map((e) {
+            if (e is Map) return Player.str(e['id']);
+            return Player.str(e);
+          }).where((id) => id.isNotEmpty && id != '0').toList();
+        }
+        return split(rawXi);
+      })(),
     );
   }
 }
@@ -562,7 +571,7 @@ String labelStat(String k) => {
   'acc':'Acceleration','sprint':'Sprint Speed','str':'Strength','agg':'Aggression','bal':'Balance','agi':'Agility','react':'Reactions',
   'ball':'Ball Control','drib':'Dribbling','defaw':'Def. Awareness','tackle':'Standing Tackle','slide':'Slide Tackle','inter':'Interceptions',
   'finish':'Finishing','shot':'Shot Power','longshot':'Long Shots','comp':'Composure','stam':'Stamina','jump':'Jumping','head':'Heading',
-  'cross':'Crossing','shortp':'Short Passing','longp':'Long Passing','vision':'Vision','curve':'Curve'
+  'cross':'Crossing','shortp':'Short Passing','longp':'Long Passing','vision':'Vision','curve':'Curve','fk':'Free Kick','posi':'Positioning','volleys':'Volleys','penalties':'Penalties','gkdiv':'GK Diving','gkhan':'GK Handling','gkkick':'GK Kicking','gkpos':'GK Positioning','gkref':'GK Reflexes'
 }[k] ?? k;
 
 class DuelScore {
@@ -1137,87 +1146,137 @@ class _DetectorPageState extends State<DetectorPage> {
   }
 }
 
+
 class DatabasePage extends StatefulWidget {
   final List<Player> players;
   const DatabasePage({super.key, required this.players});
   @override State<DatabasePage> createState()=>_DatabasePageState();
 }
+
 class _DatabasePageState extends State<DatabasePage> {
-  String q='', pos='all', team='all';
+  String q='', pos='all', team='all', foot='all', accel='all';
+  bool showWomen=false, showSoccerAid=false, onlyNamed=false, onlyPlayStyles=false, onlyGk=false;
+  RangeValues ovrRange = const RangeValues(40, 99);
+
+  bool hidden(Player p) {
+    final t=p.team.toLowerCase();
+    final n=p.name.toLowerCase();
+    if (!showWomen && (t.contains('women') || t.contains('female') || n.contains('women'))) return true;
+    if (!showSoccerAid && (t.contains('soccer aid') || t.contains('adidas') || t.contains('classic xi'))) return true;
+    return false;
+  }
+
   @override Widget build(BuildContext context) {
-    final teams=['all', ...widget.players.map((p)=>p.team).where((t)=>t!='—').toSet().take(200)];
+    final visibleForTeams = widget.players.where((p)=>!hidden(p)).toList();
+    final teams=['all', ...visibleForTeams.map((p)=>p.team).where((t)=>t!='—').toSet().take(350)];
     final query=q.toLowerCase().trim();
-    final rows=widget.players.where((p)=>(team=='all'||p.team==team)&&(pos=='all'||p.pos.toUpperCase().contains(pos))&&(query.isEmpty||('${p.name} ${p.team} ${p.pos}').toLowerCase().contains(query))).take(250).toList();
+    final rows=widget.players.where((p){
+      if (hidden(p)) return false;
+      if (onlyNamed && p.name.startsWith('Player ')) return false;
+      if (onlyPlayStyles && p.playstyles.isEmpty) return false;
+      if (onlyGk && !p.pos.toUpperCase().contains('GK')) return false;
+      if (team!='all' && p.team!=team) return false;
+      if (pos!='all' && !p.pos.toUpperCase().contains(pos)) return false;
+      if (foot!='all' && p.foot!=foot) return false;
+      if (accel!='all' && p.accel!=accel) return false;
+      if (p.ovr < ovrRange.start.round() || p.ovr > ovrRange.end.round()) return false;
+      if (query.isNotEmpty && !('${p.name} ${p.team} ${p.pos} ${p.ovr} ${p.playstyles.join(' ')}').toLowerCase().contains(query)) return false;
+      return true;
+    }).take(500).toList();
+
     return ListView(padding: const EdgeInsets.all(14), children:[
-      Header('Base joueurs', '${widget.players.length} joueurs depuis le plugin'),
-      TextField(decoration: const InputDecoration(prefixIcon: Icon(Icons.search), hintText:'Recherche joueur...'), onChanged:(v)=>setState(()=>q=v)),
-      const SizedBox(height:8),
-      Row(children:[
-        Expanded(child: DropdownButtonFormField<String>(value: pos, items: ['all','ST','LW','RW','CAM','CM','CDM','LB','RB','CB','GK'].map((x)=>DropdownMenuItem(value:x, child: Text(x))).toList(), onChanged:(v)=>setState(()=>pos=v!), decoration: const InputDecoration(labelText:'Poste'))),
-        const SizedBox(width:8),
-        Expanded(child: DropdownButtonFormField<String>(value: team, isExpanded:true, items: teams.map((x)=>DropdownMenuItem(value:x, child: Text(x, overflow: TextOverflow.ellipsis))).toList(), onChanged:(v)=>setState(()=>team=v!), decoration: const InputDecoration(labelText:'Équipe'))),
-      ]),
-      const SizedBox(height: 8),
+      Header('Base joueurs Pro', '${rows.length} affichés / ${widget.players.length} joueurs'),
+      ProBox(title:'Recherche avancée', subtitle:'Female & Soccer Aid cachés par défaut', icon:Icons.tune_rounded, child:Column(children:[
+        TextField(decoration: const InputDecoration(prefixIcon: Icon(Icons.search), hintText:'Nom, ID, équipe, poste, PlayStyle...'), onChanged:(v)=>setState(()=>q=v)),
+        const SizedBox(height:8),
+        Row(children:[
+          Expanded(child: DropdownButtonFormField<String>(value: pos, items: ['all','ST','CF','LW','RW','CAM','CM','CDM','LM','RM','LB','RB','CB','GK'].map((x)=>DropdownMenuItem(value:x, child: Text(x))).toList(), onChanged:(v)=>setState(()=>pos=v!), decoration: const InputDecoration(labelText:'Poste'))),
+          const SizedBox(width:8),
+          Expanded(child: DropdownButtonFormField<String>(value: team, isExpanded:true, items: teams.map((x)=>DropdownMenuItem(value:x, child: Text(x, overflow: TextOverflow.ellipsis))).toList(), onChanged:(v)=>setState(()=>team=v!), decoration: const InputDecoration(labelText:'Équipe'))),
+        ]),
+        const SizedBox(height:8),
+        Row(children:[
+          Expanded(child: DropdownButtonFormField<String>(value: foot, items: ['all','Right','Left'].map((x)=>DropdownMenuItem(value:x, child: Text(x))).toList(), onChanged:(v)=>setState(()=>foot=v!), decoration: const InputDecoration(labelText:'Pied'))),
+          const SizedBox(width:8),
+          Expanded(child: DropdownButtonFormField<String>(value: accel, isExpanded:true, items: ['all','Controlled','Explosive','Mostly Explosive','Controlled Lengthy','Lengthy'].map((x)=>DropdownMenuItem(value:x, child: Text(x, overflow: TextOverflow.ellipsis))).toList(), onChanged:(v)=>setState(()=>accel=v!), decoration: const InputDecoration(labelText:'AcceleRATE'))),
+        ]),
+        const SizedBox(height:8),
+        Row(children:[
+          Text('OVR ${ovrRange.start.round()}-${ovrRange.end.round()}', style: const TextStyle(fontWeight:FontWeight.w900)),
+          Expanded(child: RangeSlider(values: ovrRange, min: 1, max: 99, divisions: 98, labels: RangeLabels('${ovrRange.start.round()}','${ovrRange.end.round()}'), onChanged:(v)=>setState(()=>ovrRange=v))),
+        ]),
+        Wrap(spacing:8, runSpacing:8, children:[
+          FilterChip(label:const Text('Avec vrais noms'), selected:onlyNamed, onSelected:(v)=>setState(()=>onlyNamed=v)),
+          FilterChip(label:const Text('Avec PlayStyles/Traits'), selected:onlyPlayStyles, onSelected:(v)=>setState(()=>onlyPlayStyles=v)),
+          FilterChip(label:const Text('GK seulement'), selected:onlyGk, onSelected:(v)=>setState(()=>onlyGk=v)),
+          FilterChip(label:const Text('Afficher Female'), selected:showWomen, onSelected:(v)=>setState(()=>showWomen=v)),
+          FilterChip(label:const Text('Afficher Soccer Aid'), selected:showSoccerAid, onSelected:(v)=>setState(()=>showSoccerAid=v)),
+        ]),
+      ])),
       ...rows.map((p)=>PlayerTile(p:p, onTap:()=>showPlayerDetails(context,p))),
     ]);
   }
 }
-
 
 void showPlayerDetails(BuildContext context, Player p) {
   showModalBottomSheet(
     context: context,
     isScrollControlled: true,
     backgroundColor: const Color(0xFF06111F),
-    builder: (_) {
-      final stats = ['acc','sprint','str','agg','bal','agi','react','ball','drib','defaw','tackle','inter','finish','shot','comp','stam','jump','head','cross','shortp','longp','vision'];
-      return DraggableScrollableSheet(
-        initialChildSize: .88,
-        maxChildSize: .95,
-        minChildSize: .45,
-        expand: false,
-        builder: (_, controller) => ListView(
-          controller: controller,
-          padding: const EdgeInsets.all(16),
-          children: [
-            Row(children: [
-              PlayerAvatar(p: p, size: 84),
-              const SizedBox(width: 14),
-              Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text(p.name, style: const TextStyle(fontSize: 28, fontWeight: FontWeight.w900)),
-                Text('${p.team} • ${p.pos} • OVR ${p.ovr} • POT ${p.pot}'),
-              ])),
-            ]),
-            const SizedBox(height: 12),
-            Wrap(spacing: 8, runSpacing: 8, children: [
-              Chip(label: Text('${p.height}cm')),
-              Chip(label: Text('${p.weight}kg')),
-              Chip(label: Text(p.body)),
-              Chip(label: Text(p.accel)),
-              Chip(label: Text('Foot ${p.foot}')),
-              Chip(label: Text('SM ${p.skill}')),
-              Chip(label: Text('WF ${p.weakFoot}')),
-              Chip(label: Text('WR ${p.attWr}/${p.defWr}')),
-            ]),
-            const Divider(),
-            Text('PlayStyles', style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w900)),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: p.playstyles.isEmpty
-                  ? [const Chip(label: Text('Aucun'))]
-                  : p.playstyles.map((x) => Chip(label: Text(x))).toList(),
-            ),
-            const Divider(),
-            Text('Stats détaillées', style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w900)),
-            ...stats.map((k) => StatBar(label: labelStat(k), value: p.s[k] ?? 0)),
-          ],
-        ),
-      );
-    },
+    builder: (_) => PlayerDetailsSheet(p:p),
   );
 }
 
+class PlayerDetailsSheet extends StatelessWidget {
+  final Player p;
+  const PlayerDetailsSheet({super.key, required this.p});
+  @override Widget build(BuildContext context) {
+    return DraggableScrollableSheet(
+      initialChildSize: .90,
+      maxChildSize: .96,
+      minChildSize: .45,
+      expand: false,
+      builder: (_, controller) => ListView(controller: controller, padding: const EdgeInsets.all(16), children: [
+        Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(borderRadius: BorderRadius.circular(30), gradient: const LinearGradient(colors:[Color(0xFF14532D), Color(0xFF0EA5E9)])),
+          child: Row(children:[
+            PlayerAvatar(p:p, size:104),
+            const SizedBox(width:16),
+            Expanded(child: Column(crossAxisAlignment:CrossAxisAlignment.start, children:[
+              Text(p.name, style: const TextStyle(fontSize:28, fontWeight:FontWeight.w900, color:Colors.white)),
+              Text('${p.team} • ${p.pos}${p.pos2.isNotEmpty ? ' / ${p.pos2}' : ''}', style: const TextStyle(color:Colors.white70)),
+              const SizedBox(height:10),
+              Wrap(spacing:8, runSpacing:8, children:[
+                _heroBadge('OVR', p.ovr), _heroBadge('POT', p.pot), _heroBadge('SM', p.skill), _heroBadge('WF', p.weakFoot),
+              ]),
+            ])),
+          ]),
+        ),
+        const SizedBox(height:12),
+        Wrap(spacing:8, runSpacing:8, children:[
+          Chip(label: Text('ID ${p.id}')), Chip(label: Text('${p.height}cm')), Chip(label: Text('${p.weight}kg')), Chip(label: Text(p.body)), Chip(label: Text(p.accel)), Chip(label: Text('Foot ${p.foot}')), Chip(label: Text('WR ${p.attWr}/${p.defWr}')),
+        ]),
+        const SizedBox(height:12),
+        ProBox(title:'PlayStyles & Traits', subtitle:'Séparés de la data brute FC24', icon:Icons.auto_awesome_rounded, child: Wrap(spacing:8, runSpacing:8, children: p.playstyles.isEmpty ? [const Chip(label:Text('Aucun détecté dans la DB'))] : p.playstyles.map((x)=>Chip(label:Text(x))).toList())),
+        _StatsCategory(title:'Stats principales', keys: const ['pac','sho','pas','dri','def','phy'], p:p),
+        if (p.pos.toUpperCase().contains('GK')) _StatsCategory(title:'Gardien GK', keys: const ['gkdiv','gkhan','gkkick','gkpos','gkref'], p:p),
+        _StatsCategory(title:'Vitesse & Physique', keys: const ['acc','sprint','str','agg','stam','jump','bal','agi','react'], p:p),
+        _StatsCategory(title:'Tir', keys: const ['finish','shot','longshot','posi','volleys','penalties','comp'], p:p),
+        _StatsCategory(title:'Passe & Création', keys: const ['shortp','longp','vision','cross','curve','fk'], p:p),
+        _StatsCategory(title:'Dribble', keys: const ['ball','drib','agi','bal','react','comp'], p:p),
+        _StatsCategory(title:'Défense', keys: const ['defaw','tackle','slide','inter','head','agg'], p:p),
+      ]),
+    );
+  }
+  Widget _heroBadge(String label, int value)=>Container(padding: const EdgeInsets.symmetric(horizontal:12, vertical:8), decoration:BoxDecoration(color:Colors.white.withOpacity(.14), borderRadius:BorderRadius.circular(16)), child:Column(children:[Text('$value', style:const TextStyle(color:Colors.white, fontWeight:FontWeight.w900, fontSize:18)), Text(label, style:const TextStyle(color:Colors.white70, fontSize:11))]));
+}
+
+class _StatsCategory extends StatelessWidget {
+  final String title; final List<String> keys; final Player p;
+  const _StatsCategory({required this.title, required this.keys, required this.p});
+  @override Widget build(BuildContext context) => ProBox(title:title, subtitle:'Stats FC24 catégorisées', icon:Icons.bar_chart_rounded, child:Column(children: keys.map((k)=>StatBar(label: labelStat(k), value: p.s[k] ?? 0)).toList()));
+}
 
 class PlayerTile extends StatelessWidget {
   final Player p; final VoidCallback? onTap;
@@ -1226,10 +1285,10 @@ class PlayerTile extends StatelessWidget {
     onTap:onTap,
     leading: PlayerAvatar(p: p),
     title: Text(p.name, maxLines:1, overflow:TextOverflow.ellipsis, style: const TextStyle(fontWeight:FontWeight.w900)),
-    subtitle: Text('${p.team} • ${p.pos} • ${p.height}cm ${p.weight}kg\n${p.body} • ${p.accel}', maxLines:2, overflow:TextOverflow.ellipsis),
+    subtitle: Text('${p.team} • ${p.pos}${p.pos2.isNotEmpty ? ' / ${p.pos2}' : ''} • ${p.height}cm ${p.weight}kg\n${p.body} • ${p.accel}', maxLines:2, overflow:TextOverflow.ellipsis),
     trailing: Column(mainAxisAlignment:MainAxisAlignment.center, children:[
-      Text('OVR ${p.ovr}', style: const TextStyle(fontWeight:FontWeight.w900, color: Color(0xFF86EFAC))),
-      Text(p.playstyles.take(1).join(), style: const TextStyle(fontSize:10), overflow:TextOverflow.ellipsis),
+      Text('${p.ovr}', style: const TextStyle(fontWeight:FontWeight.w900, color: Color(0xFF86EFAC), fontSize:18)),
+      Text(p.playstyles.isEmpty ? 'traits 0' : 'traits ${p.playstyles.length}', style: const TextStyle(fontSize:10), overflow:TextOverflow.ellipsis),
     ]),
   ));
 }
@@ -1776,59 +1835,123 @@ class PitchPainter extends CustomPainter {
 }
 
 /* === v8.2 build-fix minimal fallback classes === */
-class TeamsPage extends StatelessWidget {
+
+class TeamsPage extends StatefulWidget {
   final List<TeamInfo> teams;
   final List<Player> players;
   final ValueChanged<TeamInfo> onEditTeam;
   const TeamsPage({super.key, required this.teams, required this.players, required this.onEditTeam});
-  @override
-  Widget build(BuildContext context) => ListView(
-    padding: const EdgeInsets.all(14),
-    children: [
-      Header('Teams Database', '${teams.length} équipes'),
-      ...teams.take(120).map((t) => TeamCard(team: t, players: players, onEdit: () => onEditTeam(t))),
-    ],
-  );
+  @override State<TeamsPage> createState()=>_TeamsPageState();
+}
+class _TeamsPageState extends State<TeamsPage> {
+  String q=''; bool showWomen=false; bool showSoccerAid=false;
+  bool hiddenTeam(TeamInfo t){ final n=t.name.toLowerCase(); if(!showWomen && n.contains('women')) return true; if(!showSoccerAid && (n.contains('soccer aid')||n.contains('classic xi')||n.contains('adidas'))) return true; return false; }
+  @override Widget build(BuildContext context){
+    final rows=widget.teams.where((t)=>!hiddenTeam(t) && (q.trim().isEmpty || ('${t.name} ${t.manager}').toLowerCase().contains(q.toLowerCase()))).take(250).toList();
+    return ListView(padding: const EdgeInsets.all(14), children:[
+      Header('Teams Database Pro', '${rows.length} équipes affichées'),
+      ProBox(title:'Filtres équipes', subtitle:'Female & Soccer Aid cachés par défaut', icon:Icons.filter_list_rounded, child:Column(children:[
+        TextField(decoration: const InputDecoration(prefixIcon:Icon(Icons.search), hintText:'Chercher équipe ou manager...'), onChanged:(v)=>setState(()=>q=v)),
+        const SizedBox(height:8),
+        Wrap(spacing:8, children:[
+          FilterChip(label:const Text('Afficher Female'), selected:showWomen, onSelected:(v)=>setState(()=>showWomen=v)),
+          FilterChip(label:const Text('Afficher Soccer Aid'), selected:showSoccerAid, onSelected:(v)=>setState(()=>showSoccerAid=v)),
+        ]),
+      ])),
+      ...rows.map((t)=>TeamCard(team:t, players:widget.players, onEdit:()=>widget.onEditTeam(t), onOpen:()=>showTeamDetails(context,t,widget.players))),
+    ]);
+  }
 }
 
 class TeamCard extends StatelessWidget {
   final TeamInfo team;
   final List<Player> players;
   final VoidCallback onEdit;
-  const TeamCard({super.key, required this.team, required this.players, required this.onEdit});
-  @override
-  Widget build(BuildContext context) {
-    final squad = players.where((p) => p.team == team.name).take(5).toList();
+  final VoidCallback? onOpen;
+  const TeamCard({super.key, required this.team, required this.players, required this.onEdit, this.onOpen});
+  @override Widget build(BuildContext context) {
+    final squad = _teamSquad(team, players).take(5).toList();
     return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(14),
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Row(children: [
-            Expanded(child: Text(team.name, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w900))),
-            IconButton.filledTonal(onPressed: onEdit, icon: const Icon(Icons.edit)),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(24),
+        onTap: onOpen,
+        child: Padding(
+          padding: const EdgeInsets.all(14),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Row(children: [
+              CircleAvatar(backgroundColor: const Color(0xFF22C55E), child: Text(team.name.substring(0,1), style: const TextStyle(fontWeight:FontWeight.w900, color:Color(0xFF052E16)))),
+              const SizedBox(width:10),
+              Expanded(child: Text(team.name, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w900))),
+              IconButton.filledTonal(onPressed: onEdit, icon: const Icon(Icons.edit)),
+              const Icon(Icons.chevron_right_rounded),
+            ]),
+            Text('Manager: ${team.manager}'),
+            const SizedBox(height: 8),
+            Row(children: [Expanded(child: MiniScore('OVR', team.overall, 'team')), const SizedBox(width: 8), Expanded(child: MiniScore('ATT', team.attack, 'attack')), const SizedBox(width: 8), Expanded(child: MiniScore('DEF', team.defense, 'def'))]),
+            if (squad.isNotEmpty) const Divider(),
+            ...squad.map((p) => ListTile(dense: true, contentPadding: EdgeInsets.zero, leading: PlayerAvatar(p: p, size: 36), title: Text(p.name), subtitle: Text('${p.pos} • OVR ${p.ovr}'), trailing: Text(p.accel, style: const TextStyle(fontSize:11)))),
           ]),
-          Text('Manager: ${team.manager}'),
-          const SizedBox(height: 8),
-          Row(children: [
-            Expanded(child: MiniScore('OVR', team.overall, 'team')),
-            const SizedBox(width: 8),
-            Expanded(child: MiniScore('ATT', team.attack, 'attack')),
-            const SizedBox(width: 8),
-            Expanded(child: MiniScore('DEF', team.defense, 'def')),
-          ]),
-          if (squad.isNotEmpty) const Divider(),
-          ...squad.map((p) => ListTile(
-            dense: true,
-            contentPadding: EdgeInsets.zero,
-            leading: PlayerAvatar(p: p, size: 36),
-            title: Text(p.name),
-            subtitle: Text('${p.pos} • OVR ${p.ovr}'),
-          )),
-        ]),
+        ),
       ),
     );
   }
 }
+
+List<Player> _teamSquad(TeamInfo team, List<Player> players){
+  final byId={for(final p in players) p.id:p};
+  final xi=team.xi.map((id)=>byId[id]).whereType<Player>().toList();
+  if(xi.isNotEmpty) return xi;
+  final squad=players.where((p)=>p.team==team.name).toList()..sort((a,b)=>b.ovr.compareTo(a.ovr));
+  return squad;
+}
+
+void showTeamDetails(BuildContext context, TeamInfo team, List<Player> players){
+  showModalBottomSheet(context:context, isScrollControlled:true, backgroundColor: const Color(0xFF06111F), builder:(_)=>TeamDetailsSheet(team:team, players:players));
+}
+
+class TeamDetailsSheet extends StatelessWidget{
+  final TeamInfo team; final List<Player> players;
+  const TeamDetailsSheet({super.key, required this.team, required this.players});
+  @override Widget build(BuildContext context){
+    final squad=_teamSquad(team, players);
+    return DraggableScrollableSheet(initialChildSize:.90, maxChildSize:.96, minChildSize:.45, expand:false, builder:(_,controller)=>ListView(controller:controller, padding:const EdgeInsets.all(16), children:[
+      Container(padding:const EdgeInsets.all(18), decoration:BoxDecoration(borderRadius:BorderRadius.circular(30), gradient:const LinearGradient(colors:[Color(0xFF065F46), Color(0xFF2563EB)])), child:Column(crossAxisAlignment:CrossAxisAlignment.start, children:[
+        Text(team.name, style:const TextStyle(fontSize:30, fontWeight:FontWeight.w900, color:Colors.white)),
+        Text('Manager ${team.manager}', style:const TextStyle(color:Colors.white70)),
+        const SizedBox(height:12),
+        Row(children:[Expanded(child:_teamBadge('OVR',team.overall)), const SizedBox(width:8), Expanded(child:_teamBadge('ATT',team.attack)), const SizedBox(width:8), Expanded(child:_teamBadge('MID',team.midfield)), const SizedBox(width:8), Expanded(child:_teamBadge('DEF',team.defense))]),
+      ])),
+      const SizedBox(height:12),
+      ProBox(title:'Formation terrain', subtitle:'XI détecté depuis la database quand disponible', icon:Icons.sports_soccer_rounded, child:SizedBox(height:460, child:TeamPitchView(players:squad.take(11).toList()))),
+      ProTeamWeaknessReport(team:team, players:players),
+      ProBox(title:'Analyse tactique rapide', subtitle:'Ce que tu dois attaquer / éviter', icon:Icons.psychology_alt_rounded, child:Column(crossAxisAlignment:CrossAxisAlignment.start, children:[
+        Text('Forces : ${team.strongTraits.take(5).join(', ')}'),
+        const SizedBox(height:6),
+        Text('Faiblesses : ${team.weakTraits.take(5).join(', ')}'),
+        const SizedBox(height:10),
+        Text(_coachTip(team), style: const TextStyle(fontWeight:FontWeight.w800, color:Color(0xFF86EFAC))),
+      ])),
+      ProBox(title:'Effectif', subtitle:'Clique sur un joueur pour détails complets', icon:Icons.groups_rounded, child:Column(children:squad.take(24).map((p)=>PlayerTile(p:p, onTap:()=>showPlayerDetails(context,p))).toList())),
+    ]));
+  }
+  Widget _teamBadge(String l,int v)=>Container(padding:const EdgeInsets.all(10), decoration:BoxDecoration(color:Colors.white.withOpacity(.15), borderRadius:BorderRadius.circular(16)), child:Column(children:[Text('$v', style:const TextStyle(color:Colors.white, fontSize:18, fontWeight:FontWeight.w900)), Text(l, style:const TextStyle(color:Colors.white70, fontSize:11))]));
+  String _coachTip(TeamInfo t){ if(t.defense<78) return 'Plan : attaque la profondeur et vise les espaces LB-CB / RB-CB.'; if(t.midfield<78) return 'Plan : surcharge le milieu avec triangles courts puis renverse vite.'; if(t.attack<78) return 'Plan : bloc medium, ferme l’axe et force les centres faibles.'; return 'Plan : varie tempo, cutbacks et appels dans le dos après fixation.'; }
+}
+
+class TeamPitchView extends StatelessWidget{
+  final List<Player> players;
+  const TeamPitchView({super.key, required this.players});
+  @override Widget build(BuildContext context){
+    final pts=[const Offset(.50,.90), const Offset(.18,.72), const Offset(.38,.72), const Offset(.62,.72), const Offset(.82,.72), const Offset(.25,.50), const Offset(.50,.48), const Offset(.75,.50), const Offset(.22,.25), const Offset(.50,.20), const Offset(.78,.25)];
+    return LayoutBuilder(builder:(context,c){
+      return Container(decoration:BoxDecoration(borderRadius:BorderRadius.circular(26), gradient:const LinearGradient(begin:Alignment.topCenter,end:Alignment.bottomCenter,colors:[Color(0xFF166534), Color(0xFF22C55E)])), child:Stack(children:[
+        Positioned.fill(child:CustomPaint(painter:_PitchLines())),
+        for(int i=0;i<players.length && i<pts.length;i++) Positioned(left:pts[i].dx*c.maxWidth-34, top:pts[i].dy*c.maxHeight-34, child:Column(children:[PlayerAvatar(p:players[i], size:58), const SizedBox(height:2), Container(padding:const EdgeInsets.symmetric(horizontal:6,vertical:2), decoration:BoxDecoration(color:Colors.black.withOpacity(.45), borderRadius:BorderRadius.circular(10)), child:Text(players[i].name.replaceFirst('Player ', '#'), style:const TextStyle(color:Colors.white, fontSize:11, fontWeight:FontWeight.w800)))])),
+      ]));
+    });
+  }
+}
+class _PitchLines extends CustomPainter{ @override void paint(Canvas c, Size s){ final p=Paint()..color=Colors.white.withOpacity(.18)..style=PaintingStyle.stroke..strokeWidth=2; final r=RRect.fromRectAndRadius(Offset.zero & s, const Radius.circular(26)); c.drawRRect(r,p); c.drawLine(Offset(0,s.height/2), Offset(s.width,s.height/2), p); c.drawCircle(Offset(s.width/2,s.height/2), s.width*.16, p); c.drawRect(Rect.fromCenter(center:Offset(s.width/2,0), width:s.width*.42, height:s.height*.16), p); c.drawRect(Rect.fromCenter(center:Offset(s.width/2,s.height), width:s.width*.42, height:s.height*.16), p);} @override bool shouldRepaint(covariant CustomPainter oldDelegate)=>false;}
 
 
 /* === v8.3 full CRUD/content constants === */
