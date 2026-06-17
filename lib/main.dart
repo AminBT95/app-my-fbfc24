@@ -2383,11 +2383,11 @@ class _TacticBoardAnimationStudioPageState extends State<TacticBoardAnimationStu
   void _setTargets(){
     for(final p in boardPlayers){
       if(p.own){
-        if(preset.contains('3v2') || preset=='counter') p.target = Offset((p.pos.dx+.18).clamp(.08,.92), (p.pos.dy + (p.id.endsWith('1')?-.12:p.id.endsWith('2')?.02:.10)).clamp(.10,.90));
-        else if(preset=='rondo') p.target = Offset((p.pos.dx + (p.id.endsWith('1')?.06:-.06)).clamp(.10,.90), (p.pos.dy + (p.id.endsWith('3')?.06:-.04)).clamp(.10,.90));
+        if(preset.contains('3v2') || preset=='counter') p.target = Offset((p.pos.dx+.18).clamp(.08,.92), (p.pos.dy + (p.id.endsWith('1')?-.12:p.id.endsWith('2') ? .02 : .10)).clamp(.10,.90));
+        else if(preset=='rondo') p.target = Offset((p.pos.dx + (p.id.endsWith('1') ? .06 : -.06)).clamp(.10,.90), (p.pos.dy + (p.id.endsWith('3') ? .06 : -.04)).clamp(.10,.90));
         else p.target = Offset((p.pos.dx+.10).clamp(.08,.92), p.pos.dy);
       } else {
-        p.target = Offset((p.pos.dx-.05).clamp(.08,.92), (p.pos.dy + (p.id.endsWith('1')?.08:-.08)).clamp(.10,.90));
+        p.target = Offset((p.pos.dx-.05).clamp(.08,.92), (p.pos.dy + (p.id.endsWith('1') ? .08 : -.08)).clamp(.10,.90));
       }
     }
   }
