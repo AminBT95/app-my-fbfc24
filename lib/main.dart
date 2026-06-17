@@ -313,7 +313,9 @@ class PlayerAvatar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final img = p.image.trim();
+    final explicit = p.image.trim();
+    final digits = RegExp(r'\d+').firstMatch(p.id)?.group(0) ?? '';
+    final img = explicit.isNotEmpty ? explicit : (digits.isNotEmpty ? 'https://eep-fifa.de/Minifaces/p$digits.png' : '');
     final fallback = Container(
       width: size,
       height: size,
@@ -553,18 +555,31 @@ class Mode {
 }
 
 const modes = <Mode>[
-  Mode('physical', 'Duel physique', 'Duel', 'Épaule contre épaule, contact, protection.', {'str':.34,'agg':.18,'bal':.15,'sprint':.10,'react':.10,'stam':.08,'jump':.05}),
-  Mode('speed_short', 'Vitesse courte 0-10m', 'Vitesse', 'Démarrage explosif, sortie de dribble.', {'acc':.42,'sprint':.20,'agi':.14,'react':.12,'bal':.07,'stam':.05}),
-  Mode('speed_long', 'Course longue', 'Vitesse', 'Appel profondeur, poursuite, contre-attaque.', {'sprint':.42,'acc':.22,'stam':.14,'str':.08,'react':.08,'agi':.06}),
-  Mode('dribble', 'Dribble 1v1', 'Attaque', 'Ailier/CAM contre défenseur.', {'agi':.24,'drib':.22,'acc':.18,'bal':.14,'ball':.12,'react':.10}),
-  Mode('defense', 'Tacle / récupération', 'Défense', 'Défenseur qui attaque le ballon.', {'tackle':.28,'defaw':.24,'inter':.16,'react':.12,'str':.10,'agg':.10}),
-  Mode('interception', 'Passe vs interception', 'Lecture', 'Passeur contre joueur qui coupe la ligne.', {'vision':.22,'shortp':.18,'longp':.15,'comp':.10,'inter':.16,'defaw':.12,'react':.07}),
-  Mode('pressing', 'Pressing 1v1', 'Pressing', 'Harceler le porteur, contre-pressing.', {'stam':.22,'agg':.20,'acc':.18,'react':.14,'defaw':.10,'str':.08,'agi':.08}),
-  Mode('pass_break', 'Casser ligne par passe', 'Passe', 'Trouver une passe verticale contre bloc.', {'vision':.26,'shortp':.22,'longp':.20,'comp':.12,'react':.08,'ball':.08,'drib':.04}),
-  Mode('aerial', 'Duel aérien', 'Aérien', 'Centre, corner, ballon long.', {'head':.28,'jump':.24,'str':.18,'react':.10,'agg':.08,'defaw':.06,'finish':.06}),
-  Mode('finish', 'Finition sous pression', 'Tir', 'Tir, sang-froid, contact.', {'finish':.28,'comp':.22,'shot':.18,'react':.12,'ball':.08,'str':.06,'bal':.06}),
-  Mode('cutback', 'Cutback attaque/défense', 'Zone', 'Passe en retrait ou couverture de cutback.', {'acc':.14,'drib':.14,'cross':.14,'vision':.12,'inter':.16,'defaw':.16,'react':.14}),
-  Mode('jockey', 'Jockey défensif', 'Défense', 'Contenir sans se jeter.', {'defaw':.24,'agi':.20,'bal':.16,'tackle':.16,'react':.14,'acc':.10}),
+  Mode('shoulder', 'Épaule contre épaule', 'Duel', 'Contact direct, protection et gain du duel physique.', {'str':.34,'agg':.18,'bal':.15,'sprint':.10,'react':.10,'stam':.08,'jump':.05}),
+  Mode('physical', 'Duel physique complet', 'Duel', 'Contact, stabilité, agressivité et animation de corps.', {'str':.32,'agg':.18,'bal':.16,'react':.12,'sprint':.08,'stam':.08,'jump':.06}),
+  Mode('shield', 'Protéger ballon dos au but', 'Duel', 'Pivot, faux 9, sortie de balle sous pressing.', {'str':.26,'bal':.22,'ball':.18,'comp':.12,'react':.10,'agg':.07,'drib':.05}),
+  Mode('speed_short', 'Vitesse courte 0-10m', 'Vitesse', 'Démarrage explosif, crochet, premier pas.', {'acc':.42,'sprint':.20,'agi':.14,'react':.12,'bal':.07,'stam':.05}),
+  Mode('speed_long', 'Course longue 25m+', 'Vitesse', 'Appel profondeur, poursuite, transition.', {'sprint':.42,'acc':.22,'stam':.14,'str':.08,'react':.08,'agi':.06}),
+  Mode('through_ball', 'Appel profondeur vs CB', 'Vitesse', 'ST lancé dans le dos contre défenseur central.', {'sprint':.28,'acc':.22,'react':.14,'finish':.10,'str':.08,'ball':.08,'stam':.06,'comp':.04}),
+  Mode('dribble_wing', '1v1 aile / crochet', 'Attaque', 'Ailier contre latéral, crochet intérieur/extérieur.', {'agi':.24,'drib':.22,'acc':.18,'bal':.14,'ball':.12,'react':.10}),
+  Mode('dribble_central', 'Dribble petits espaces', 'Attaque', 'CAM/ST entre les lignes, demi-tour, conduite serrée.', {'drib':.22,'ball':.22,'bal':.18,'agi':.17,'react':.13,'comp':.08}),
+  Mode('dribble', 'Dribble 1v1 global', 'Attaque', 'Dribble général contre défenseur.', {'agi':.24,'drib':.22,'acc':.18,'bal':.14,'ball':.12,'react':.10}),
+  Mode('tackle', 'Tacle debout / récupération', 'Défense', 'Défenseur qui attaque le ballon.', {'tackle':.28,'defaw':.24,'inter':.16,'react':.12,'str':.10,'agg':.10}),
+  Mode('defense', 'Défense complète', 'Défense', 'Awareness, tacle, interception et contact.', {'tackle':.24,'defaw':.24,'inter':.18,'react':.13,'str':.11,'agg':.10}),
+  Mode('jockey', 'Jockey défensif / contenir', 'Défense', 'Contenir sans se jeter, fermer l’angle.', {'defaw':.24,'agi':.20,'bal':.16,'tackle':.16,'react':.14,'acc':.10}),
+  Mode('interception', 'Interception passe au sol', 'Lecture', 'Couper une ligne de passe ou défendre bloc bas.', {'inter':.32,'defaw':.24,'react':.16,'acc':.10,'vision':.08,'stam':.06,'shortp':.04}),
+  Mode('pressing', 'Pressing / harcèlement', 'Pressing', 'Presser le porteur, contre-pressing, deuxième ballon.', {'stam':.22,'agg':.20,'acc':.18,'react':.14,'defaw':.10,'str':.08,'agi':.08}),
+  Mode('pass_break', 'Casser ligne par passe', 'Passe', 'Passe verticale, bloc bas, troisième homme.', {'vision':.26,'shortp':.22,'longp':.20,'comp':.12,'react':.08,'ball':.08,'drib':.04}),
+  Mode('crossing', 'Centre / cutback offensif', 'Passe', 'Centre depuis l’aile ou passe en retrait.', {'cross':.30,'vision':.16,'acc':.12,'drib':.12,'ball':.10,'stam':.08,'shortp':.07,'comp':.05}),
+  Mode('cutback', 'Cutback attaque/défense', 'Zone', 'Passe en retrait, couverture de zone.', {'acc':.14,'drib':.14,'cross':.14,'vision':.12,'inter':.16,'defaw':.16,'react':.14}),
+  Mode('cutback_def', 'Défendre cutback', 'Zone', 'Couper la passe en retrait dans la surface.', {'defaw':.30,'inter':.22,'react':.18,'acc':.10,'tackle':.10,'bal':.05,'stam':.05}),
+  Mode('aerial', 'Duel aérien / centre', 'Aérien', 'Centre, corner, ballon long, deuxième poteau.', {'head':.28,'jump':.24,'str':.18,'react':.10,'agg':.08,'defaw':.06,'finish':.06}),
+  Mode('finish', 'Finition sous pression', 'Tir', 'Face au but avec contact ou défense proche.', {'finish':.28,'comp':.22,'shot':.18,'react':.12,'ball':.08,'str':.06,'bal':.06}),
+  Mode('finish_pressure', 'Finition sous forte pression', 'Tir', 'Tir rapide avec défenseur au contact.', {'finish':.30,'comp':.20,'shot':.18,'react':.12,'ball':.08,'bal':.07,'str':.05}),
+  Mode('long_shot', 'Frappe de loin / puissance', 'Tir', 'Frappe de loin, Power Shot, finesse sous pression.', {'shot':.30,'comp':.18,'finish':.16,'ball':.10,'str':.08,'vision':.08,'react':.06,'bal':.04}),
+  Mode('keeper_1v1', 'ST vs GK 1 contre 1', 'Gardien', 'Face-à-face attaquant/gardien.', {'finish':.26,'comp':.22,'react':.16,'ball':.12,'acc':.08,'drib':.08,'shot':.08}),
+  Mode('gk_shot_stop', 'Gardien arrêt réflexe', 'Gardien', 'Comparer gardiens : réflexes, plongeon, placement.', {'gkref':.30,'gkdiv':.24,'gkpos':.18,'react':.14,'gkhan':.10,'str':.04}),
+  Mode('gk_sweeper', 'Gardien libéro / sortie', 'Gardien', 'Sortie rapide, jeu long, couverture profondeur.', {'gkpos':.24,'gkref':.18,'gkkick':.18,'sprint':.12,'react':.12,'longp':.10,'gkhan':.06}),
 ];
 
 String labelStat(String k) => {
@@ -647,17 +662,30 @@ List<ImpactRow> profileRows(Player p, Mode m) {
 List<ImpactRow> playRows(Player p, Mode m) {
   final map = <String, Map<String, int>>{
     'physical': {'Bruiser+':8,'Press Proven+':5,'Aerial+':3,'Block+':2},
+    'shoulder': {'Bruiser+':9,'Press Proven+':5,'Aerial+':3,'Block+':2},
+    'shield': {'Press Proven+':9,'Bruiser+':6,'First Touch+':5,'Tiki Taka+':4,'Technical+':3},
     'speed_short': {'Quick Step+':10,'Rapid+':4,'Technical+':2},
     'speed_long': {'Rapid+':9,'Quick Step+':4,'Relentless+':3},
+    'through_ball': {'Rapid+':8,'Quick Step+':5,'First Touch+':4,'Finesse+':3},
     'dribble': {'Technical+':9,'Trickster+':7,'First Touch+':5,'Press Proven+':4,'Quick Step+':4},
+    'dribble_wing': {'Technical+':9,'Trickster+':7,'Rapid+':5,'Quick Step+':5,'Whipped Pass+':3},
+    'dribble_central': {'Technical+':9,'First Touch+':7,'Trickster+':6,'Press Proven+':5,'Finesse+':3},
     'defense': {'Anticipate+':9,'Block+':7,'Jockey+':6,'Slide Tackle+':5,'Bruiser+':3,'Intercept+':4},
-    'interception': {'Intercept+':8,'Incisive Pass+':4,'Long Ball Pass+':3},
-    'pressing': {'Relentless+':9,'Intercept+':7,'Bruiser+':4,'Anticipate+':4},
-    'pass_break': {'Incisive Pass+':9,'Long Ball Pass+':8,'Tiki Taka+':7,'Whipped Pass+':6},
+    'tackle': {'Anticipate+':9,'Slide Tackle+':7,'Jockey+':6,'Bruiser+':4,'Block+':3},
+    'interception': {'Intercept+':9,'Anticipate+':5,'Block+':4,'Incisive Pass+':3,'Long Ball Pass+':2},
+    'pressing': {'Relentless+':9,'Intercept+':7,'Bruiser+':4,'Anticipate+':4,'Press Proven+':3},
+    'pass_break': {'Incisive Pass+':9,'Long Ball Pass+':8,'Tiki Taka+':7,'Whipped Pass+':6,'First Touch+':3},
+    'crossing': {'Whipped Pass+':10,'Rapid+':4,'Technical+':4,'Tiki Taka+':3},
     'aerial': {'Aerial+':10,'Power Header+':9,'Bruiser+':4,'Anticipate+':3},
     'finish': {'Finesse+':8,'Power Shot+':8,'Aerial+':3,'First Touch+':3,'Technical+':2},
+    'finish_pressure': {'Finesse+':8,'Power Shot+':8,'First Touch+':5,'Technical+':3,'Press Proven+':3},
+    'long_shot': {'Power Shot+':10,'Finesse+':8,'Dead Ball+':3,'Technical+':2},
     'cutback': {'Whipped Pass+':6,'Intercept+':7,'Block+':5,'Technical+':4},
+    'cutback_def': {'Intercept+':9,'Block+':8,'Anticipate+':7,'Jockey+':4},
     'jockey': {'Jockey+':8,'Anticipate+':6,'Block+':4},
+    'keeper_1v1': {'Finesse+':6,'Power Shot+':6,'Quick Step+':4,'Rush Out+':8,'Far Throw+':2},
+    'gk_shot_stop': {'Rush Out+':4,'Far Throw+':2},
+    'gk_sweeper': {'Rush Out+':9,'Long Ball Pass+':7,'Far Throw+':5},
   };
   final active = map[m.key] ?? {};
   final all = mergedPlayStyles(p).isEmpty ? ['Aucun PlayStyle'] : mergedPlayStyles(p);
@@ -688,7 +716,10 @@ String playReason(String ps) => {
   'Incisive Pass+':'passe cassante',
   'Long Ball Pass+':'longue passe',
   'Whipped Pass+':'centre tendu',
-  'Tiki Taka+':'passe courte'
+  'Tiki Taka+':'passe courte',
+  'Rush Out+':'sortie gardien',
+  'Far Throw+':'relance rapide gardien',
+  'Dead Ball+':'coups de pied arrêtés'
 }[ps] ?? 'impact situationnel';
 
 class AppShell extends StatefulWidget {
@@ -939,6 +970,64 @@ class Kpi extends StatelessWidget {
   ));
 }
 
+
+class ProComparisonHero extends StatelessWidget {
+  final Player a,b; final DuelScore sa,sb; final Mode mode;
+  const ProComparisonHero({super.key, required this.a, required this.b, required this.sa, required this.sb, required this.mode});
+  @override Widget build(BuildContext context) {
+    final total=max(1, sa.total+sb.total), pa=(sa.total/total*100).round();
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(borderRadius: BorderRadius.circular(32), gradient: const LinearGradient(colors:[Color(0xFF1D4ED8), Color(0xFF0B1728)]), boxShadow:[BoxShadow(color:Colors.black.withOpacity(.25), blurRadius:28, offset:Offset(0,14))]),
+      child: Column(crossAxisAlignment:CrossAxisAlignment.start, children:[
+        Row(children:[
+          Expanded(child:_heroPlayer(a, sa.total, true)),
+          Container(padding: const EdgeInsets.all(10), decoration:BoxDecoration(color:Colors.white.withOpacity(.12), borderRadius:BorderRadius.circular(18)), child: const Text('VS', style:TextStyle(fontWeight:FontWeight.w900))),
+          Expanded(child:_heroPlayer(b, sb.total, false)),
+        ]),
+        const SizedBox(height:14),
+        Text(mode.label, style: const TextStyle(color:Colors.white, fontWeight:FontWeight.w900, fontSize:18)),
+        const SizedBox(height:8),
+        ClipRRect(borderRadius: BorderRadius.circular(99), child: LinearProgressIndicator(value:pa/100, minHeight:12, backgroundColor:Colors.white24)),
+        const SizedBox(height:6),
+        Text('${a.name} $pa% • ${b.name} ${100-pa}%', style: const TextStyle(color:Colors.white70)),
+      ]),
+    );
+  }
+  Widget _heroPlayer(Player p, int score, bool left)=>Column(crossAxisAlignment:left?CrossAxisAlignment.start:CrossAxisAlignment.end, children:[
+    PlayerAvatar(p:p, size:88), const SizedBox(height:8),
+    Text(p.name, maxLines:1, overflow:TextOverflow.ellipsis, textAlign:left?TextAlign.left:TextAlign.right, style: const TextStyle(color:Colors.white, fontSize:20, fontWeight:FontWeight.w900)),
+    Text('${p.team} • ${p.pos}', maxLines:1, overflow:TextOverflow.ellipsis, style: const TextStyle(color:Colors.white70)),
+    const SizedBox(height:6), Container(padding: const EdgeInsets.symmetric(horizontal:12, vertical:7), decoration:BoxDecoration(color:Colors.white.withOpacity(.14), borderRadius:BorderRadius.circular(999)), child:Text('$score pts • OVR ${p.ovr}', style: const TextStyle(color:Colors.white, fontWeight:FontWeight.w800))),
+  ]);
+}
+
+class TacticalSituationCard extends StatelessWidget {
+  final Mode mode; final Player a,b;
+  const TacticalSituationCard({super.key, required this.mode, required this.a, required this.b});
+  @override Widget build(BuildContext context)=>ProBox(title:'Situation tactique', subtitle:mode.group, icon:Icons.sports_soccer_rounded, child:Column(crossAxisAlignment:CrossAxisAlignment.start, children:[
+    Text(mode.desc, style: const TextStyle(color:Color(0xFFB7C9E8))),
+    const SizedBox(height:10),
+    Wrap(spacing:8, runSpacing:8, children:mode.w.keys.map((k)=>Chip(label:Text('${labelStat(k)} ${(mode.w[k]!*100).round()}%'))).toList()),
+    const SizedBox(height:10),
+    Text(_advice(), style: const TextStyle(fontWeight:FontWeight.w700)),
+  ]));
+  String _advice(){
+    if(mode.key.contains('cutback')) return 'Coach : cherche le joueur qui gagne la zone entre latéral et CB. Défensivement, priorité à awareness + interceptions.';
+    if(mode.key.contains('through')) return 'Coach : attaque l’espace dans le dos. Le défenseur doit reculer tôt et défendre la profondeur.';
+    if(mode.key.contains('gk')) return 'Coach : pour GK, la ligne GK Reflexes / Positioning / Diving est plus importante que les stats générales.';
+    if(mode.key.contains('shield')) return 'Coach : dos au but, body type + balance + Press Proven changent les animations.';
+    if(mode.key.contains('dribble')) return 'Coach : isole le joueur, attaque le mauvais appui et surveille Technical/Quick Step.';
+    return 'Coach : compare les stats pondérées + profil caché + PlayStyles réellement activés.';
+  }
+}
+
+class _MiniSlider extends StatelessWidget {
+  final String label; final double value; final ValueChanged<double> onChanged;
+  const _MiniSlider({required this.label, required this.value, required this.onChanged});
+  @override Widget build(BuildContext context)=>Row(children:[SizedBox(width:58, child:Text('$label ≥ ${value.round()}', style: const TextStyle(fontSize:12, fontWeight:FontWeight.w800))), Expanded(child:Slider(value:value,min:0,max:99,divisions:99,onChanged:onChanged))]);
+}
+
 class ComparePage extends StatelessWidget {
   final List<Player> players; final Player a,b; final Mode mode;
   final ValueChanged<Player> onA,onB; final ValueChanged<Mode> onMode; final ValueChanged<Map<String,dynamic>> onSaveHistory;
@@ -946,10 +1035,14 @@ class ComparePage extends StatelessWidget {
   @override Widget build(BuildContext context) {
     final sa=score(a,mode), sb=score(b,mode), win=sa.total>=sb.total?a:b;
     return ListView(padding: const EdgeInsets.all(14), children: [
-      Header('Comparateur', 'Gagnant prévu : ${win.name}'),
+      Header('Comparateur Pro+', 'Gagnant prévu : ${win.name}'),
+      ProComparisonHero(a:a,b:b,sa:sa,sb:sb,mode:mode),
+      const SizedBox(height: 10),
       PlayerPicker(title:'Joueur A', players:players, value:a, onChanged:onA),
       PlayerPicker(title:'Joueur B', players:players, value:b, onChanged:onB),
       ModePicker(mode: mode, onChanged: onMode),
+      TacticalSituationCard(mode:mode, a:a, b:b),
+      const SizedBox(height: 10),
       ScoreSummary(a:a,b:b,sa:sa,sb:sb),
       FilledButton.icon(onPressed: () => onSaveHistory({'date': DateTime.now().toIso8601String(), 'a': a.name, 'b': b.name, 'mode': mode.label, 'scoreA': sa.total, 'scoreB': sb.total, 'winner': win.name}), icon: const Icon(Icons.save), label: const Text('Sauvegarder dans historique')),
       const SizedBox(height: 10),
@@ -1011,15 +1104,29 @@ class PlayerSearchDialog extends StatefulWidget {
   @override State<PlayerSearchDialog> createState()=>_PlayerSearchDialogState();
 }
 class _PlayerSearchDialogState extends State<PlayerSearchDialog> {
-  String q=''; String team='all'; String pos='all';
+  String q=''; String team='all'; String pos='all'; String foot='all'; String accel='all'; String body='all'; String play='all';
+  bool showWomen=false, showSoccerAid=false, onlyNamed=false; RangeValues ovrRange=const RangeValues(40,99); double minPace=0; double minPhy=0;
   @override Widget build(BuildContext context) {
-    final teams=['all', ...widget.players.map((p)=>p.team).where((t)=>t!='—').toSet().take(150)];
+    bool hidden(Player p){final t=p.team.toLowerCase(), n=p.name.toLowerCase(); if(!showWomen && (t.contains('women')||t.contains('female')||n.contains('women'))) return true; if(!showSoccerAid && (t.contains('soccer aid')||t.contains('classic xi')||t.contains('adidas'))) return true; return false;}
+    final visible=widget.players.where((p)=>!hidden(p)).toList();
+    final teams=['all', ...visible.map((p)=>p.team).where((t)=>t!='—').toSet().take(350)];
+    final plays=['all', ...widget.players.expand((p)=>mergedPlayStyles(p)).toSet().take(120)];
     final query=q.toLowerCase().trim();
-    final res=widget.players.where((p)=>
-      (team=='all'||p.team==team) &&
-      (pos=='all'||p.pos.toUpperCase().contains(pos)) &&
-      (query.isEmpty || ('${p.name} ${p.team} ${p.pos} ${p.ovr}').toLowerCase().contains(query))
-    ).take(150).toList();
+    final res=widget.players.where((p){
+      if(hidden(p)) return false;
+      if(onlyNamed && p.name.startsWith('Player ')) return false;
+      if(team!='all' && p.team!=team) return false;
+      if(pos!='all' && !p.pos.toUpperCase().contains(pos)) return false;
+      if(foot!='all' && p.foot!=foot) return false;
+      if(accel!='all' && p.accel!=accel) return false;
+      if(body!='all' && p.body!=body) return false;
+      if(play!='all' && !mergedPlayStyles(p).contains(play)) return false;
+      if(p.ovr < ovrRange.start.round() || p.ovr > ovrRange.end.round()) return false;
+      if((p.s['pac']??0) < minPace.round()) return false;
+      if((p.s['phy']??0) < minPhy.round()) return false;
+      if(query.isNotEmpty && !('${p.id} ${p.name} ${p.team} ${p.pos} ${p.ovr} ${p.playstyles.join(' ')} ${p.body} ${p.accel}').toLowerCase().contains(query)) return false;
+      return true;
+    }).take(250).toList();
     return AlertDialog(
       title: const Text('Choisir joueur'),
       content: SizedBox(width: double.maxFinite, height: 560, child: Column(children: [
@@ -1028,8 +1135,23 @@ class _PlayerSearchDialogState extends State<PlayerSearchDialog> {
         Row(children: [
           Expanded(child: DropdownButtonFormField<String>(value: team, isExpanded: true, items: teams.map((t)=>DropdownMenuItem(value:t, child: Text(t, overflow: TextOverflow.ellipsis))).toList(), onChanged:(v)=>setState(()=>team=v!), decoration: const InputDecoration(labelText:'Équipe'))),
           const SizedBox(width: 8),
-          Expanded(child: DropdownButtonFormField<String>(value: pos, items: ['all','ST','LW','RW','CAM','CM','CDM','LB','RB','CB','GK'].map((t)=>DropdownMenuItem(value:t, child: Text(t))).toList(), onChanged:(v)=>setState(()=>pos=v!), decoration: const InputDecoration(labelText:'Poste'))),
+          Expanded(child: DropdownButtonFormField<String>(value: pos, items: ['all','ST','CF','LW','RW','CAM','CM','CDM','LM','RM','LB','RB','CB','GK'].map((t)=>DropdownMenuItem(value:t, child: Text(t))).toList(), onChanged:(v)=>setState(()=>pos=v!), decoration: const InputDecoration(labelText:'Poste'))),
         ]),
+        const SizedBox(height: 8),
+        Row(children: [
+          Expanded(child: DropdownButtonFormField<String>(value: foot, items: ['all','Right','Left'].map((t)=>DropdownMenuItem(value:t, child: Text(t))).toList(), onChanged:(v)=>setState(()=>foot=v!), decoration: const InputDecoration(labelText:'Pied'))),
+          const SizedBox(width: 8),
+          Expanded(child: DropdownButtonFormField<String>(value: accel, isExpanded:true, items: ['all','Controlled','Explosive','Mostly Explosive','Controlled Lengthy','Lengthy'].map((t)=>DropdownMenuItem(value:t, child: Text(t, overflow:TextOverflow.ellipsis))).toList(), onChanged:(v)=>setState(()=>accel=v!), decoration: const InputDecoration(labelText:'AcceleRATE'))),
+        ]),
+        const SizedBox(height: 8),
+        Row(children: [
+          Expanded(child: DropdownButtonFormField<String>(value: body, isExpanded:true, items: ['all','Lean','Average','Stocky','High & Lean','High & Average','High & Stocky','Unique'].map((t)=>DropdownMenuItem(value:t, child: Text(t, overflow:TextOverflow.ellipsis))).toList(), onChanged:(v)=>setState(()=>body=v!), decoration: const InputDecoration(labelText:'Body'))),
+          const SizedBox(width: 8),
+          Expanded(child: DropdownButtonFormField<String>(value: play, isExpanded:true, items: plays.map((t)=>DropdownMenuItem(value:t, child: Text(t, overflow:TextOverflow.ellipsis))).toList(), onChanged:(v)=>setState(()=>play=v!), decoration: const InputDecoration(labelText:'PlayStyle / trait'))),
+        ]),
+        Row(children:[Text('OVR ${ovrRange.start.round()}-${ovrRange.end.round()}'), Expanded(child:RangeSlider(values:ovrRange,min:1,max:99,divisions:98,onChanged:(v)=>setState(()=>ovrRange=v)))]),
+        Row(children:[Expanded(child:Slider(value:minPace,min:0,max:99,divisions:99,label:'PAC ${minPace.round()}',onChanged:(v)=>setState(()=>minPace=v))), Expanded(child:Slider(value:minPhy,min:0,max:99,divisions:99,label:'PHY ${minPhy.round()}',onChanged:(v)=>setState(()=>minPhy=v)))]),
+        Wrap(spacing:8, children:[FilterChip(label:const Text('Vrais noms'), selected:onlyNamed, onSelected:(v)=>setState(()=>onlyNamed=v)), FilterChip(label:const Text('Afficher Female'), selected:showWomen, onSelected:(v)=>setState(()=>showWomen=v)), FilterChip(label:const Text('Afficher Soccer Aid'), selected:showSoccerAid, onSelected:(v)=>setState(()=>showSoccerAid=v))]),
         const SizedBox(height: 8),
         Expanded(child: ListView.builder(itemCount: res.length, itemBuilder: (_,i)=>PlayerTile(p:res[i], onTap:()=>Navigator.pop(context,res[i])))),
       ])),
@@ -1154,7 +1276,7 @@ class DatabasePage extends StatefulWidget {
 }
 
 class _DatabasePageState extends State<DatabasePage> {
-  String q='', pos='all', team='all', foot='all', accel='all';
+  String q='', pos='all', team='all', foot='all', accel='all', body='all', play='all'; double minPac=0, minSho=0, minPas=0, minDri=0, minDef=0, minPhy=0;
   bool showWomen=false, showSoccerAid=false, onlyNamed=false, onlyPlayStyles=false, onlyGk=false;
   RangeValues ovrRange = const RangeValues(40, 99);
 
@@ -1169,6 +1291,7 @@ class _DatabasePageState extends State<DatabasePage> {
   @override Widget build(BuildContext context) {
     final visibleForTeams = widget.players.where((p)=>!hidden(p)).toList();
     final teams=['all', ...visibleForTeams.map((p)=>p.team).where((t)=>t!='—').toSet().take(350)];
+    final plays=['all', ...widget.players.expand((p)=>mergedPlayStyles(p)).toSet().take(120)];
     final query=q.toLowerCase().trim();
     final rows=widget.players.where((p){
       if (hidden(p)) return false;
@@ -1179,6 +1302,9 @@ class _DatabasePageState extends State<DatabasePage> {
       if (pos!='all' && !p.pos.toUpperCase().contains(pos)) return false;
       if (foot!='all' && p.foot!=foot) return false;
       if (accel!='all' && p.accel!=accel) return false;
+      if (body!='all' && p.body!=body) return false;
+      if (play!='all' && !mergedPlayStyles(p).contains(play)) return false;
+      if ((p.s['pac']??0) < minPac.round() || (p.s['sho']??0) < minSho.round() || (p.s['pas']??0) < minPas.round() || (p.s['dri']??0) < minDri.round() || (p.s['def']??0) < minDef.round() || (p.s['phy']??0) < minPhy.round()) return false;
       if (p.ovr < ovrRange.start.round() || p.ovr > ovrRange.end.round()) return false;
       if (query.isNotEmpty && !('${p.name} ${p.team} ${p.pos} ${p.ovr} ${p.playstyles.join(' ')}').toLowerCase().contains(query)) return false;
       return true;
@@ -1200,6 +1326,18 @@ class _DatabasePageState extends State<DatabasePage> {
           const SizedBox(width:8),
           Expanded(child: DropdownButtonFormField<String>(value: accel, isExpanded:true, items: ['all','Controlled','Explosive','Mostly Explosive','Controlled Lengthy','Lengthy'].map((x)=>DropdownMenuItem(value:x, child: Text(x, overflow: TextOverflow.ellipsis))).toList(), onChanged:(v)=>setState(()=>accel=v!), decoration: const InputDecoration(labelText:'AcceleRATE'))),
         ]),
+        const SizedBox(height:8),
+        Row(children:[
+          Expanded(child: DropdownButtonFormField<String>(value: body, isExpanded:true, items: ['all','Lean','Average','Stocky','High & Lean','High & Average','High & Stocky','Unique'].map((x)=>DropdownMenuItem(value:x, child: Text(x, overflow: TextOverflow.ellipsis))).toList(), onChanged:(v)=>setState(()=>body=v!), decoration: const InputDecoration(labelText:'Body type'))),
+          const SizedBox(width:8),
+          Expanded(child: DropdownButtonFormField<String>(value: play, isExpanded:true, items: plays.map((x)=>DropdownMenuItem(value:x, child: Text(x, overflow: TextOverflow.ellipsis))).toList(), onChanged:(v)=>setState(()=>play=v!), decoration: const InputDecoration(labelText:'PlayStyle / trait'))),
+        ]),
+        _MiniSlider(label:'PAC', value:minPac, onChanged:(v)=>setState(()=>minPac=v)),
+        _MiniSlider(label:'SHO', value:minSho, onChanged:(v)=>setState(()=>minSho=v)),
+        _MiniSlider(label:'PAS', value:minPas, onChanged:(v)=>setState(()=>minPas=v)),
+        _MiniSlider(label:'DRI', value:minDri, onChanged:(v)=>setState(()=>minDri=v)),
+        _MiniSlider(label:'DEF', value:minDef, onChanged:(v)=>setState(()=>minDef=v)),
+        _MiniSlider(label:'PHY', value:minPhy, onChanged:(v)=>setState(()=>minPhy=v)),
         const SizedBox(height:8),
         Row(children:[
           Text('OVR ${ovrRange.start.round()}-${ovrRange.end.round()}', style: const TextStyle(fontWeight:FontWeight.w900)),
@@ -1258,6 +1396,13 @@ class PlayerDetailsSheet extends StatelessWidget {
           Chip(label: Text('ID ${p.id}')), Chip(label: Text('${p.height}cm')), Chip(label: Text('${p.weight}kg')), Chip(label: Text(p.body)), Chip(label: Text(p.accel)), Chip(label: Text('Foot ${p.foot}')), Chip(label: Text('WR ${p.attWr}/${p.defWr}')),
         ]),
         const SizedBox(height:12),
+        ProBox(title:'Carte joueur détaillée', subtitle:'Profil complet utilisé par le moteur', icon:Icons.badge_rounded, child:Column(crossAxisAlignment:CrossAxisAlignment.start, children:[
+          Wrap(spacing:8, runSpacing:8, children:[Chip(label:Text('Miniface EEP auto')), Chip(label:Text('Att WR ${p.attWr}')), Chip(label:Text('Def WR ${p.defWr}')), Chip(label:Text('POT ${p.pot}')), Chip(label:Text('SM ${p.skill} / WF ${p.weakFoot}'))]),
+          const SizedBox(height:8),
+          Text('Forces rapides : ${_topStats(p).join(' • ')}', style: const TextStyle(color:Color(0xFFB7C9E8))),
+          const SizedBox(height:8),
+          Text(_coachProfile(p), style: const TextStyle(fontWeight:FontWeight.w700)),
+        ])),
         ProBox(title:'PlayStyles & Traits', subtitle:'Séparés de la data brute FC24', icon:Icons.auto_awesome_rounded, child: Wrap(spacing:8, runSpacing:8, children: p.playstyles.isEmpty ? [const Chip(label:Text('Aucun détecté dans la DB'))] : p.playstyles.map((x)=>Chip(label:Text(x))).toList())),
         _StatsCategory(title:'Stats principales', keys: const ['pac','sho','pas','dri','def','phy'], p:p),
         if (p.pos.toUpperCase().contains('GK')) _StatsCategory(title:'Gardien GK', keys: const ['gkdiv','gkhan','gkkick','gkpos','gkref'], p:p),
@@ -1268,6 +1413,18 @@ class PlayerDetailsSheet extends StatelessWidget {
         _StatsCategory(title:'Défense', keys: const ['defaw','tackle','slide','inter','head','agg'], p:p),
       ]),
     );
+  }
+  List<String> _topStats(Player p){
+    final items=p.s.entries.where((e)=>e.value>0).toList()..sort((a,b)=>b.value.compareTo(a.value));
+    return items.take(6).map((e)=>'${labelStat(e.key)} ${e.value}').toList();
+  }
+  String _coachProfile(Player p){
+    if(p.pos.toUpperCase().contains('GK')) return 'Lecture coach : gardien à juger surtout sur réflexes, placement, plongeon et jeu au pied.';
+    if(p.pos.toUpperCase().contains('CB')) return 'Lecture coach : vérifie pace longue, strength, defensive awareness, body type et Anticipate/Block.';
+    if(p.pos.toUpperCase().contains('ST')) return 'Lecture coach : finition, composure, accélération, force et appel profondeur sont prioritaires.';
+    if(p.pos.toUpperCase().contains('W')) return 'Lecture coach : accélération, dribble, agilité, centre/finition et pied fort sont clés.';
+    if(p.pos.toUpperCase().contains('CM') || p.pos.toUpperCase().contains('CDM')) return 'Lecture coach : réactions, stamina, passes, interceptions et Press Proven/Tiki Taka changent beaucoup.';
+    return 'Lecture coach : utilise le comparateur pour lire ses duels forts/faibles selon situation.';
   }
   Widget _heroBadge(String label, int value)=>Container(padding: const EdgeInsets.symmetric(horizontal:12, vertical:8), decoration:BoxDecoration(color:Colors.white.withOpacity(.14), borderRadius:BorderRadius.circular(16)), child:Column(children:[Text('$value', style:const TextStyle(color:Colors.white, fontWeight:FontWeight.w900, fontSize:18)), Text(label, style:const TextStyle(color:Colors.white70, fontSize:11))]));
 }
@@ -1281,17 +1438,25 @@ class _StatsCategory extends StatelessWidget {
 class PlayerTile extends StatelessWidget {
   final Player p; final VoidCallback? onTap;
   const PlayerTile({super.key, required this.p, this.onTap});
-  @override Widget build(BuildContext context)=>Card(child: ListTile(
-    onTap:onTap,
-    leading: PlayerAvatar(p: p),
-    title: Text(p.name, maxLines:1, overflow:TextOverflow.ellipsis, style: const TextStyle(fontWeight:FontWeight.w900)),
-    subtitle: Text('${p.team} • ${p.pos}${p.pos2.isNotEmpty ? ' / ${p.pos2}' : ''} • ${p.height}cm ${p.weight}kg\n${p.body} • ${p.accel}', maxLines:2, overflow:TextOverflow.ellipsis),
-    trailing: Column(mainAxisAlignment:MainAxisAlignment.center, children:[
-      Text('${p.ovr}', style: const TextStyle(fontWeight:FontWeight.w900, color: Color(0xFF86EFAC), fontSize:18)),
-      Text(p.playstyles.isEmpty ? 'traits 0' : 'traits ${p.playstyles.length}', style: const TextStyle(fontSize:10), overflow:TextOverflow.ellipsis),
-    ]),
+  @override Widget build(BuildContext context)=>Card(child: InkWell(
+    borderRadius: BorderRadius.circular(24), onTap:onTap,
+    child: Padding(padding: const EdgeInsets.all(12), child: Row(children:[
+      PlayerAvatar(p:p, size:58), const SizedBox(width:12),
+      Expanded(child: Column(crossAxisAlignment:CrossAxisAlignment.start, children:[
+        Text(p.name, maxLines:1, overflow:TextOverflow.ellipsis, style: const TextStyle(fontWeight:FontWeight.w900, fontSize:16)),
+        Text('${p.team} • ${p.pos}${p.pos2.isNotEmpty ? ' / ${p.pos2}' : ''}', maxLines:1, overflow:TextOverflow.ellipsis, style: const TextStyle(color:Color(0xFFB7C9E8))),
+        const SizedBox(height:5),
+        Wrap(spacing:6, runSpacing:4, children:[
+          _tiny('${p.height}cm'), _tiny('${p.weight}kg'), _tiny(p.accel), _tiny(p.playstyles.isEmpty?'traits 0':'traits ${p.playstyles.length}'),
+        ]),
+      ])),
+      const SizedBox(width:8),
+      Container(width:52, height:52, decoration:BoxDecoration(shape:BoxShape.circle, gradient: const LinearGradient(colors:[Color(0xFF22C55E), Color(0xFF38BDF8)])), child:Center(child:Text('${p.ovr}', style: const TextStyle(color:Color(0xFF052E16), fontWeight:FontWeight.w900, fontSize:18)))),
+    ])),
   ));
+  Widget _tiny(String t)=>Container(padding: const EdgeInsets.symmetric(horizontal:8, vertical:4), decoration:BoxDecoration(color: const Color(0xFF101F35), borderRadius:BorderRadius.circular(999), border:Border.all(color: const Color(0xFF263A55))), child:Text(t, style: const TextStyle(fontSize:11)));
 }
+
 
 
 class TeamAnalyzerPage extends StatefulWidget {
