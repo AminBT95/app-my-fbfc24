@@ -7,16 +7,19 @@ import 'package:flutter/services.dart';
 
 
 class AppTheme {
-  static const bg = Color(0xFFF6F8FC);
+  static const bg = Color(0xFFF3F7FB);
   static const card = Color(0xFFFFFFFF);
-  static const ink = Color(0xFF08111F);
-  static const muted = Color(0xFF7B8BA3);
-  static const pink = Color(0xFF0EA5A4);
-  static const purple = Color(0xFF2563EB);
-  static const blue = Color(0xFF2563EB);
-  static const dark = Color(0xFF071325);
-  static const line = Color(0xFFD9E3EE);
-  static const green = Color(0xFF22C55E);
+  static const ink = Color(0xFF071225);
+  static const muted = Color(0xFF8EA0B8);
+  static const pink = Color(0xFF0EA5A4); // legacy alias used by old widgets
+  static const purple = Color(0xFF246BFE);
+  static const blue = Color(0xFF246BFE);
+  static const dark = Color(0xFF081526);
+  static const line = Color(0xFFDDE7F0);
+  static const green = Color(0xFF18C58F);
+  static const pitch = Color(0xFF0B7A44);
+  static const navy = Color(0xFF0A1628);
+  static const orange = Color(0xFFFFA552);
 }
 
 
@@ -484,7 +487,7 @@ class ProBox extends StatelessWidget {
           const SizedBox(width: 10),
           Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Text(title, style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w900)),
-            Text(subtitle, style: const TextStyle(color: Color(0xFFB7C9E8))),
+            Text(subtitle, style: const TextStyle(color: AppTheme.muted, fontWeight: FontWeight.w600, height: 1.25)),
           ])),
         ]),
         const SizedBox(height: 12),
@@ -566,9 +569,29 @@ final formationPresets = <FormationPreset>[
     'GK': Offset(.08,.50),'LB': Offset(.24,.25),'CB1': Offset(.24,.42),'CB2': Offset(.24,.58),'RB': Offset(.24,.75),
     'CDM1': Offset(.43,.42),'CDM2': Offset(.43,.58),'CAM': Offset(.58,.50),'LW': Offset(.67,.30),'ST': Offset(.80,.50),'RW': Offset(.67,.70),
   }),
+  FormationPreset('4-4-2', {
+    'GK': Offset(.08,.50),'LB': Offset(.24,.22),'CB1': Offset(.24,.42),'CB2': Offset(.24,.58),'RB': Offset(.24,.78),
+    'LM': Offset(.48,.22),'CM1': Offset(.48,.42),'CM2': Offset(.48,.58),'RM': Offset(.48,.78),'ST1': Offset(.76,.42),'ST2': Offset(.76,.58),
+  }),
+  FormationPreset('4-1-2-1-2', {
+    'GK': Offset(.08,.50),'LB': Offset(.23,.23),'CB1': Offset(.23,.42),'CB2': Offset(.23,.58),'RB': Offset(.23,.77),
+    'CDM': Offset(.42,.50),'CM1': Offset(.52,.33),'CM2': Offset(.52,.67),'CAM': Offset(.65,.50),'ST1': Offset(.82,.40),'ST2': Offset(.82,.60),
+  }),
+  FormationPreset('3-4-2-1', {
+    'GK': Offset(.08,.50),'CB1': Offset(.25,.32),'CB2': Offset(.23,.50),'CB3': Offset(.25,.68),
+    'LM': Offset(.45,.18),'CM1': Offset(.45,.42),'CM2': Offset(.45,.58),'RM': Offset(.45,.82),'LF': Offset(.66,.36),'RF': Offset(.66,.64),'ST': Offset(.82,.50),
+  }),
+  FormationPreset('3-5-2', {
+    'GK': Offset(.08,.50),'CB1': Offset(.24,.32),'CB2': Offset(.22,.50),'CB3': Offset(.24,.68),
+    'LM': Offset(.45,.18),'CDM': Offset(.43,.50),'RM': Offset(.45,.82),'CAM1': Offset(.62,.38),'CAM2': Offset(.62,.62),'ST1': Offset(.82,.42),'ST2': Offset(.82,.58),
+  }),
   FormationPreset('5-3-2', {
     'GK': Offset(.08,.50),'LWB': Offset(.25,.18),'CB1': Offset(.24,.36),'CB2': Offset(.24,.50),'CB3': Offset(.24,.64),'RWB': Offset(.25,.82),
     'CM1': Offset(.50,.35),'CM2': Offset(.48,.50),'CM3': Offset(.50,.65),'ST1': Offset(.76,.42),'ST2': Offset(.76,.58),
+  }),
+  FormationPreset('5-2-1-2', {
+    'GK': Offset(.08,.50),'LWB': Offset(.25,.18),'CB1': Offset(.24,.36),'CB2': Offset(.24,.50),'CB3': Offset(.24,.64),'RWB': Offset(.25,.82),
+    'CM1': Offset(.48,.42),'CM2': Offset(.48,.58),'CAM': Offset(.62,.50),'ST1': Offset(.78,.42),'ST2': Offset(.78,.58),
   }),
 ];
 
@@ -1241,7 +1264,7 @@ class Header extends StatelessWidget {
     padding: const EdgeInsets.only(bottom: 12),
     child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       Text(title, style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w900)),
-      const SizedBox(height: 4), Text(sub, style: const TextStyle(color: Color(0xFFB7C9E8))),
+      const SizedBox(height: 4), Text(sub, style: const TextStyle(color: AppTheme.muted, fontWeight: FontWeight.w600, height: 1.25)),
     ]),
   );
 }
@@ -1800,6 +1823,7 @@ class _TacticalIdeasPageState extends State<TacticalIdeasPage> {
 }
 
 
+
 class FormationBuilderPage extends StatefulWidget {
   final List<Player> players;
   const FormationBuilderPage({super.key, required this.players});
@@ -1808,49 +1832,95 @@ class FormationBuilderPage extends StatefulWidget {
 class _FormationBuilderPageState extends State<FormationBuilderPage> {
   FormationPreset preset = formationPresets.first;
   late Map<String, Offset> spots;
-  String selectedTeam = 'all';
+  final Map<String, Player> assigned = {};
+  String selectedTeam = 'France';
+  bool showWomen=false, showSoccerAid=false, showJson=false;
 
-  @override void initState() {
-    super.initState();
-    spots = Map<String, Offset>.from(preset.spots);
+  @override void initState(){ super.initState(); spots=Map<String,Offset>.from(preset.spots); _autoFill(); }
+
+  List<Player> get pool => cleanPlayerList(widget.players, showWomen:showWomen, showSoccerAid:showSoccerAid)
+    .where((p)=>selectedTeam=='all'||p.team==selectedTeam).toList()..sort((a,b)=>b.ovr.compareTo(a.ovr));
+  List<String> get teams => ['all', ...(cleanPlayerList(widget.players, showWomen:showWomen, showSoccerAid:showSoccerAid).map((p)=>p.team).where((t)=>t!='—').toSet().toList()..sort())];
+
+  void _autoFill(){
+    assigned.clear();
+    final list=pool;
+    for(final pos in spots.keys){
+      final exact=list.where((p)=>_fits(pos,p)).toList();
+      final pick=(exact.isNotEmpty?exact:list).where((p)=>!assigned.values.any((x)=>x.id==p.id)).cast<Player?>().firstWhere((p)=>p!=null, orElse:()=>null);
+      if(pick!=null) assigned[pos]=pick;
+    }
   }
-
-  @override Widget build(BuildContext context) {
-    final teams = ['all', ...widget.players.map((p)=>p.team).where((t)=>t!='—').toSet().take(200)];
-    final list = widget.players.where((p)=>selectedTeam=='all'||p.team==selectedTeam).take(16).toList();
-    return ListView(padding: const EdgeInsets.all(14), children: [
-      Header('Formation Builder', 'Drag & drop joueurs/postes sur le terrain'),
-      Row(children: [
-        Expanded(child: DropdownButtonFormField<String>(value:preset.name, items: formationPresets.map((f)=>DropdownMenuItem(value:f.name, child:Text(f.name))).toList(), onChanged:(v){setState((){preset=formationPresets.firstWhere((f)=>f.name==v); spots=Map<String,Offset>.from(preset.spots);});}, decoration: const InputDecoration(labelText:'Formation'))),
-        const SizedBox(width:8),
-        Expanded(child: DropdownButtonFormField<String>(value:selectedTeam, isExpanded:true, items:teams.map((t)=>DropdownMenuItem(value:t, child:Text(t, overflow:TextOverflow.ellipsis))).toList(), onChanged:(v)=>setState(()=>selectedTeam=v!), decoration: const InputDecoration(labelText:'Équipe'))),
-      ]),
+  bool _fits(String role, Player p){
+    final r=role.replaceAll(RegExp(r'\d'), '').toUpperCase();
+    final txt='${p.pos} ${p.pos2}'.toUpperCase();
+    if(r=='GK') return txt.contains('GK');
+    if(r.contains('CB')) return txt.contains('CB');
+    if(r.contains('LB')||r.contains('LWB')) return txt.contains('LB')||txt.contains('LWB');
+    if(r.contains('RB')||r.contains('RWB')) return txt.contains('RB')||txt.contains('RWB');
+    if(r.contains('CDM')) return txt.contains('CDM');
+    if(r.contains('CM')) return txt.contains('CM')||txt.contains('CDM');
+    if(r.contains('CAM')) return txt.contains('CAM')||txt.contains('CM');
+    if(r.contains('LW')||r=='LF'||r=='LM') return txt.contains('LW')||txt.contains('LM')||txt.contains('LF');
+    if(r.contains('RW')||r=='RF'||r=='RM') return txt.contains('RW')||txt.contains('RM')||txt.contains('RF');
+    if(r.contains('ST')||r.contains('CF')) return txt.contains('ST')||txt.contains('CF');
+    return true;
+  }
+  String _json(){
+    return jsonEncode({
+      'formation':preset.name,
+      'team':selectedTeam,
+      'spots':spots.map((k,v)=>MapEntry(k, {'x':double.parse(v.dx.toStringAsFixed(3)), 'y':double.parse(v.dy.toStringAsFixed(3)), 'playerid': assigned[k]?.id, 'name':assigned[k]?.name})),
+    });
+  }
+  @override Widget build(BuildContext context){
+    final bench=pool.where((p)=>!assigned.values.any((x)=>x.id==p.id)).take(18).toList();
+    return ListView(padding:const EdgeInsets.all(16), children:[
+      Header('Formation Builder Pro', 'Crée un XI, remplace les joueurs, déplace les postes et exporte la tactique'),
+      ProBox(title:'Contrôles formation', subtitle:'Plus de systèmes + auto-fill + banc cliquable', icon:Icons.tune_rounded, child:Column(children:[
+        LayoutBuilder(builder:(context,c){
+          final f1=DropdownButtonFormField<String>(value:preset.name, isExpanded:true, decoration:const InputDecoration(labelText:'Formation'), items:formationPresets.map((f)=>DropdownMenuItem(value:f.name, child:Text(f.name))).toList(), onChanged:(v)=>setState((){preset=formationPresets.firstWhere((f)=>f.name==v); spots=Map<String,Offset>.from(preset.spots); _autoFill();}));
+          final f2=DropdownButtonFormField<String>(value:teams.contains(selectedTeam)?selectedTeam:'all', isExpanded:true, decoration:const InputDecoration(labelText:'Équipe'), items:teams.take(450).map((t)=>DropdownMenuItem(value:t, child:Text(t, overflow:TextOverflow.ellipsis))).toList(), onChanged:(v)=>setState((){selectedTeam=v!; _autoFill();}));
+          return c.maxWidth<560?Column(children:[f1,const SizedBox(height:10),f2]):Row(children:[Expanded(child:f1),const SizedBox(width:10),Expanded(child:f2)]);
+        }),
+        const SizedBox(height:10),
+        Wrap(spacing:8, runSpacing:8, children:[
+          ActionChip(label:const Text('Auto meilleur XI'), avatar:const Icon(Icons.auto_awesome), onPressed:()=>setState(_autoFill)),
+          ActionChip(label:const Text('Reset positions'), avatar:const Icon(Icons.restart_alt), onPressed:()=>setState(()=>spots=Map<String,Offset>.from(preset.spots))),
+          FilterChip(label:const Text('Afficher Female'), selected:showWomen, onSelected:(v)=>setState(()=>showWomen=v)),
+          FilterChip(label:const Text('Afficher Soccer Aid'), selected:showSoccerAid, onSelected:(v)=>setState(()=>showSoccerAid=v)),
+          FilterChip(label:const Text('Voir JSON'), selected:showJson, onSelected:(v)=>setState(()=>showJson=v)),
+        ])
+      ])),
       const SizedBox(height:12),
-      AspectRatio(aspectRatio:1.55, child: LayoutBuilder(builder:(context,c){
-        return Container(decoration: BoxDecoration(borderRadius: BorderRadius.circular(22), color: const Color(0xFF146C43), border: Border.all(color: Colors.white54)), child: Stack(children: [
-          Positioned.fill(child: CustomPaint(painter: PitchLinesPainter())),
-          ...spots.entries.map((e){
-            final p = list.isNotEmpty ? list[spots.keys.toList().indexOf(e.key) % list.length] : null;
-            return Positioned(
-              left: e.value.dx*c.maxWidth-28, top: e.value.dy*c.maxHeight-28,
-              child: Draggable<String>(
-                data:e.key,
-                feedback: Material(color:Colors.transparent, child: _formationDot(e.key, p, true)),
-                childWhenDragging: Opacity(opacity:.35, child:_formationDot(e.key,p,false)),
-                child: DragTarget<String>(
-                  onAccept:(from){setState((){final a=spots[from]!; spots[from]=spots[e.key]!; spots[e.key]=a;});},
-                  builder:(_,__,___)=>_formationDot(e.key,p,false),
-                ),
-              ),
-            );
-          }),
+      Card(child:Padding(padding:const EdgeInsets.all(12), child:AspectRatio(aspectRatio:1.35, child:LayoutBuilder(builder:(context,c){
+        return Container(decoration:BoxDecoration(borderRadius:BorderRadius.circular(28), gradient:const LinearGradient(begin:Alignment.topLeft,end:Alignment.bottomRight,colors:[Color(0xFF075E2F), Color(0xFF0A7A48)]), boxShadow:[BoxShadow(color:AppTheme.pitch.withOpacity(.22), blurRadius:28, offset:Offset(0,14))]), child:Stack(children:[
+          Positioned.fill(child:CustomPaint(painter:PitchLinesPainter())),
+          ...spots.entries.map((e){ final p=assigned[e.key]; return Positioned(left:e.value.dx*c.maxWidth-34, top:e.value.dy*c.maxHeight-38, child:GestureDetector(
+            onPanUpdate:(d)=>setState(()=>spots[e.key]=Offset((spots[e.key]!.dx+d.delta.dx/c.maxWidth).clamp(.04,.96), (spots[e.key]!.dy+d.delta.dy/c.maxHeight).clamp(.06,.94))),
+            onTap:() async { final pick=await showPlayerSearch(context, pool, p ?? (pool.isNotEmpty?pool.first:widget.players.first)); if(pick!=null) setState(()=>assigned[e.key]=pick); },
+            child:DragTarget<Player>(onAccept:(pl)=>setState(()=>assigned[e.key]=pl), builder:(_,cand,rej)=>_formationPlayer(e.key,p, cand.isNotEmpty)),
+          ));}),
         ]));
-      })),
+      })))),
       const SizedBox(height:12),
-      ProBox(title:'Export formation JSON', subtitle:'Copie simple de la structure', icon:Icons.code, child: SelectableText(jsonEncode(spots.map((k,v)=>MapEntry(k, {'x':v.dx,'y':v.dy}))))),
+      ProBox(title:'Banc / remplaçants', subtitle:'Glisse un joueur sur un poste ou clique une pastille sur terrain', icon:Icons.swap_horiz_rounded, child:SizedBox(height:118, child:ListView(scrollDirection:Axis.horizontal, children:bench.map((p)=>Draggable<Player>(data:p, feedback:Material(color:Colors.transparent, child:_benchChip(p, true)), child:_benchChip(p,false))).toList()))),
+      ProBox(title:'Analyse formation', subtitle:'Forces, faiblesses, utilisation et contre', icon:Icons.psychology_alt_rounded, child:Text(_formationReport(), style:const TextStyle(height:1.45, fontWeight:FontWeight.w700))),
+      if(showJson) ProBox(title:'Export formation JSON', subtitle:'Structure complète postes + joueurs', icon:Icons.code_rounded, child:SelectableText(_json())),
     ]);
   }
-  Widget _formationDot(String pos, Player? p, bool big) => Container(width: big?70:58, height: big?70:58, decoration: BoxDecoration(shape:BoxShape.circle, gradient: const LinearGradient(colors:[Color(0xFF38BDF8),Color(0xFF22C55E)]), boxShadow:[BoxShadow(color:Colors.black.withOpacity(.25), blurRadius:12)]), child: Center(child: Text(pos, textAlign:TextAlign.center, style: const TextStyle(fontWeight:FontWeight.w900, color:Colors.white, fontSize:11))));
+  Widget _formationPlayer(String role, Player? p, bool active)=>Column(children:[
+    Container(width:active?74:66, height:active?74:66, padding:const EdgeInsets.all(3), decoration:BoxDecoration(shape:BoxShape.circle, gradient:const LinearGradient(colors:[Color(0xFF24C6DC), Color(0xFF18C58F)]), border:Border.all(color:Colors.white, width:2), boxShadow:[BoxShadow(color:Colors.black.withOpacity(.25), blurRadius:12)]), child:p==null?Center(child:Text(role, style:const TextStyle(color:Colors.white,fontWeight:FontWeight.w900,fontSize:12))):PlayerAvatar(p:p,size:60)),
+    const SizedBox(height:3),
+    Container(padding:const EdgeInsets.symmetric(horizontal:7,vertical:3), decoration:BoxDecoration(color:Colors.black.withOpacity(.48), borderRadius:BorderRadius.circular(999)), child:Text(p==null?role:p.name.split(' ').last, maxLines:1, overflow:TextOverflow.ellipsis, style:const TextStyle(color:Colors.white,fontSize:10,fontWeight:FontWeight.w900))),
+  ]);
+  Widget _benchChip(Player p,bool big)=>Container(width:big?126:112, margin:const EdgeInsets.only(right:10), padding:const EdgeInsets.all(8), decoration:BoxDecoration(color:Colors.white, borderRadius:BorderRadius.circular(22), border:Border.all(color:AppTheme.line), boxShadow:big?[BoxShadow(color:Colors.black.withOpacity(.18), blurRadius:18)]:[]), child:Column(children:[PlayerAvatar(p:p,size:46), const SizedBox(height:4), Text(p.name, maxLines:1, overflow:TextOverflow.ellipsis, style:const TextStyle(fontWeight:FontWeight.w900,fontSize:12)), Text('${p.pos} • ${p.ovr}', style:const TextStyle(color:AppTheme.muted,fontSize:11))]));
+  String _formationReport(){
+    final ps=assigned.values.toList(); if(ps.isEmpty) return 'Aucun joueur assigné.';
+    int avg(String k)=>ps.map((p)=>p.s[k]??0).fold(0,(a,b)=>a+b)~/max(1,ps.length);
+    final pace=avg('pac'), pass=avg('pas'), def=avg('def'), phy=avg('phy');
+    return 'Forces : ${pace>=80?'profondeur/vitesse, ':''}${pass>=80?'sortie de balle, ':''}${def>=78?'bloc solide, ':''}${phy>=78?'duels physiques, ':''}formation ${preset.name}.\nFaiblesses : ${pace<72?'manque de vitesse, ':''}${def<70?'exposition transition, ':''}${pass<72?'risque sous pressing, ':''}surveiller espaces entre lignes.\nComment profiter : isole tes profils les plus rapides, utilise cutback si les ailiers dominent, et renverse côté faible.\nComment contrer : ferme l’axe, presse le relanceur faible et attaque dans le dos des latéraux.';
+  }
 }
 
 class PitchLinesPainter extends CustomPainter {
@@ -2156,15 +2226,26 @@ class _ExportImportPageState extends State<ExportImportPage> {
   ]);
 }
 
-class TacticalPage extends StatelessWidget {
+
+class TacticalPage extends StatefulWidget {
   final Player a,b; final Mode mode;
   const TacticalPage({super.key, required this.a, required this.b, required this.mode});
   @override Widget build(BuildContext context) {
-    final sa=score(a,mode), sb=score(b,mode), win=sa.total>=sb.total?a:b;
-    return ListView(padding: const EdgeInsets.all(14), children:[
-      Header('Terrain tactique', '${mode.label} • gagnant : ${win.name}'),
-      Card(child: Padding(padding: const EdgeInsets.all(14), child: AspectRatio(aspectRatio: 1.55, child: CustomPaint(painter: PitchPainter(a.name,b.name,sa.total>=sb.total,mode.key))))),
-      Card(child: Padding(padding: const EdgeInsets.all(14), child: Text('Animation simplifiée : ligne de course/passe, zone chaude et gagnant mis en évidence.'))),
+    final sa=score(a,mode), sb=score(b,mode), win=sa.total>=sb.total?a:b, lose=sa.total>=sb.total?b:a;
+    return ListView(padding: const EdgeInsets.all(16), children:[
+      Header('Tactical Lab Pro', '${mode.label} • gagnant probable : ${win.name}'),
+      ProBox(title:'Terrain interactif de duel', subtitle:'Ligne de course, zone utile, angle et timing', icon:Icons.sports_soccer_rounded, child:Column(children:[
+        AspectRatio(aspectRatio:1.36, child:CustomPaint(painter:PitchPainter(a.name,b.name,sa.total>=sb.total,mode.key))),
+        const SizedBox(height:12),
+        ScoreSummary(a:a,b:b,sa:sa,sb:sb),
+      ])),
+      ProDuelBreakdown(a:a,b:b,mode:mode),
+      ProBox(title:'Plan coach complet', subtitle:'Forces, faiblesses, profiter et contrer', icon:Icons.menu_book_rounded, child:Text(
+        'Forces ${win.name} : ${coachStrengths(win)}.\n'
+        'Faiblesses ${lose.name} : ${coachWeaknesses(lose)}.\n\n'
+        'Comment profiter : crée ce duel en isolant ${win.name}, oriente son corps vers son pied fort et joue avant que le soutien adverse arrive.\n'
+        'Comment contrer : évite le duel direct, couvre la ligne de course, force ${win.name} vers la zone faible et déclenche le second défenseur seulement après contrôle.',
+        style:const TextStyle(height:1.45, fontWeight:FontWeight.w700))),
     ]);
   }
 }
@@ -2172,20 +2253,23 @@ class PitchPainter extends CustomPainter {
   final String a,b,mode; final bool aWin;
   PitchPainter(this.a,this.b,this.aWin,this.mode);
   @override void paint(Canvas c, Size s) {
-    final bg=Paint()..color=const Color(0xFF146C43); final line=Paint()..color=Colors.white70..style=PaintingStyle.stroke..strokeWidth=2;
-    c.drawRRect(RRect.fromRectAndRadius(Offset.zero&s, const Radius.circular(22)), bg);
-    c.drawRect(Rect.fromLTWH(18,18,s.width-36,s.height-36), line); c.drawLine(Offset(s.width/2,18),Offset(s.width/2,s.height-18),line); c.drawCircle(Offset(s.width/2,s.height/2),42,line);
-    Offset pa=Offset(s.width*.35,s.height*.55), pb=Offset(s.width*.65,s.height*.48), ball=Offset(s.width*.50,s.height*.50);
-    if(mode.contains('speed')) {pa=Offset(s.width*.32,s.height*.48); pb=Offset(s.width*.56,s.height*.50); ball=Offset(s.width*.78,s.height*.40);}
-    if(mode.contains('aerial')) {pa=Offset(s.width*.62,s.height*.38); pb=Offset(s.width*.70,s.height*.52); ball=Offset(s.width*.72,s.height*.47);}
-    if(mode.contains('press')) {pa=Offset(s.width*.38,s.height*.52); pb=Offset(s.width*.58,s.height*.50); ball=Offset(s.width*.50,s.height*.53);}
-    c.drawLine(pa, ball, Paint()..color=const Color(0xFFFACC15)..strokeWidth=4);
-    c.drawLine(pb, ball, Paint()..color=Colors.white70..strokeWidth=3);
-    drawP(c,pa,a.substring(0,min(2,a.length)).toUpperCase(),aWin,const Color(0xFF38BDF8));
-    drawP(c,pb,b.substring(0,min(2,b.length)).toUpperCase(),!aWin,const Color(0xFFFB7185));
-    c.drawCircle(ball,8,Paint()..color=Colors.white);
+    final bg=Paint()..shader=const LinearGradient(begin:Alignment.topLeft,end:Alignment.bottomRight,colors:[Color(0xFF08743E),Color(0xFF0B162A)]).createShader(Offset.zero&s);
+    final line=Paint()..color=Colors.white.withOpacity(.58)..style=PaintingStyle.stroke..strokeWidth=2;
+    c.drawRRect(RRect.fromRectAndRadius(Offset.zero&s, const Radius.circular(28)), bg);
+    c.drawRRect(RRect.fromRectAndRadius(Rect.fromLTWH(18,18,s.width-36,s.height-36), const Radius.circular(18)), line);
+    c.drawLine(Offset(s.width/2,18),Offset(s.width/2,s.height-18),line); c.drawCircle(Offset(s.width/2,s.height/2),48,line);
+    Offset pa=Offset(s.width*.35,s.height*.55), pb=Offset(s.width*.62,s.height*.48), ball=Offset(s.width*.78,s.height*.38), zone=Offset(s.width*.67,s.height*.40);
+    if(mode.contains('press')||mode.contains('shield')) {pa=Offset(s.width*.42,s.height*.53); pb=Offset(s.width*.58,s.height*.52); ball=Offset(s.width*.50,s.height*.53); zone=Offset(s.width*.50,s.height*.53);} 
+    if(mode.contains('aerial')) {pa=Offset(s.width*.62,s.height*.38); pb=Offset(s.width*.70,s.height*.52); ball=Offset(s.width*.76,s.height*.45); zone=Offset(s.width*.72,s.height*.47);} 
+    if(mode.contains('cross')||mode.contains('cutback')) {pa=Offset(s.width*.72,s.height*.22); pb=Offset(s.width*.64,s.height*.36); ball=Offset(s.width*.58,s.height*.55); zone=Offset(s.width*.58,s.height*.55);} 
+    c.drawCircle(zone,44,Paint()..color=const Color(0xFF18C58F).withOpacity(.18));
+    _arrow(c, pa, ball, const Color(0xFFFFD166), 4); _arrow(c, pb, ball, Colors.white.withOpacity(.75), 3);
+    drawP(c,pa,a.substring(0,min(2,a.length)).toUpperCase(),aWin,const Color(0xFF24C6DC));
+    drawP(c,pb,b.substring(0,min(2,b.length)).toUpperCase(),!aWin,const Color(0xFFFF5573));
+    c.drawCircle(ball,9,Paint()..color=Colors.white);
   }
-  void drawP(Canvas c, Offset o, String t, bool win, Color col){c.drawCircle(o,win?27:23,Paint()..color=col); if(win)c.drawCircle(o,36,Paint()..color=const Color(0xFF22C55E).withOpacity(.25)); final tp=TextPainter(text:TextSpan(text:t,style:const TextStyle(color:Colors.white,fontWeight:FontWeight.w900)),textDirection:TextDirection.ltr)..layout(); tp.paint(c,o-Offset(tp.width/2,tp.height/2));}
+  void _arrow(Canvas c, Offset a, Offset b, Color col, double w){ final p=Paint()..color=col..strokeWidth=w..strokeCap=StrokeCap.round; c.drawLine(a,b,p); final ang=atan2(b.dy-a.dy,b.dx-a.dx); c.drawLine(b,b-Offset(cos(ang-.55)*13,sin(ang-.55)*13),p); c.drawLine(b,b-Offset(cos(ang+.55)*13,sin(ang+.55)*13),p); }
+  void drawP(Canvas c, Offset o, String t, bool win, Color col){c.drawCircle(o,win?29:24,Paint()..color=col); if(win)c.drawCircle(o,42,Paint()..color=const Color(0xFF18C58F).withOpacity(.22)); final tp=TextPainter(text:TextSpan(text:t,style:const TextStyle(color:Colors.white,fontWeight:FontWeight.w900)),textDirection:TextDirection.ltr)..layout(); tp.paint(c,o-Offset(tp.width/2,tp.height/2));}
   @override bool shouldRepaint(covariant CustomPainter oldDelegate)=>true;
 }
 
@@ -2255,9 +2339,20 @@ class TeamCard extends StatelessWidget {
 List<Player> _teamSquad(TeamInfo team, List<Player> players){
   final byId={for(final p in players) p.id:p};
   final xi=team.xi.map((id)=>byId[id]).whereType<Player>().toList();
-  final sameTeam=players.where((p)=>p.team==team.name && !isHiddenPlayer(p)).toList()..sort((a,b)=>b.ovr.compareTo(a.ovr));
+  final teamLower=team.name.toLowerCase();
+  bool allowExtra(Player p){
+    if(isHiddenPlayer(p)) return false;
+    if(p.team!=team.name) return false;
+    if(xi.isNotEmpty && !teamLower.contains('women') && !teamLower.contains('female')){
+      // Avoid mixing female club players when the DB uses same club display name for men/women.
+      // Keep named players and IDs already in the official XI; keep generic extras only when no XI exists.
+      if(p.name.startsWith('Player ') && !xi.any((x)=>x.id==p.id)) return false;
+    }
+    return true;
+  }
+  final sameTeam=players.where(allowExtra).toList()..sort((a,b)=>b.ovr.compareTo(a.ovr));
   final out=<Player>[];
-  for(final p in xi){ if(!out.any((x)=>x.id==p.id)) out.add(p); }
+  for(final p in xi){ if(!out.any((x)=>x.id==p.id) && !isHiddenPlayer(p)) out.add(p); }
   for(final p in sameTeam){ if(!out.any((x)=>x.id==p.id)) out.add(p); }
   return out;
 }
@@ -2403,6 +2498,7 @@ class ScenarioStepCard extends StatelessWidget{
   @override Widget build(BuildContext context)=>Container(margin:const EdgeInsets.only(bottom:10), padding:const EdgeInsets.all(14), decoration:BoxDecoration(color:Colors.white, borderRadius:BorderRadius.circular(20), border:Border.all(color:AppTheme.line), boxShadow:[BoxShadow(color:Colors.black.withOpacity(.035), blurRadius:18, offset:Offset(0,8))]), child:Row(crossAxisAlignment:CrossAxisAlignment.start, children:[Container(width:34,height:34, decoration:const BoxDecoration(shape:BoxShape.circle, gradient:LinearGradient(colors:[AppTheme.pink,AppTheme.purple])), child:Center(child:Text('$n', style:const TextStyle(color:Colors.white,fontWeight:FontWeight.w900)))), const SizedBox(width:10), Expanded(child:Column(crossAxisAlignment:CrossAxisAlignment.start, children:[Text(title, style:const TextStyle(fontWeight:FontWeight.w900,fontSize:15)), const SizedBox(height:3), Text(body, style:const TextStyle(color:AppTheme.muted,height:1.35))]))]));
 }
 
+
 class TacticBoardAnimationStudioPage extends StatefulWidget {
   final List<Player> players;
   final List<TeamInfo> teams;
@@ -2418,120 +2514,123 @@ class _BoardPlayer {
   Player? player;
   _BoardPlayer(this.id, this.own, this.pos, {this.player}) : target = pos;
 }
+class _BoardFrame {
+  final String name;
+  final Map<String, Offset> pos;
+  final Offset ball;
+  const _BoardFrame(this.name, this.pos, this.ball);
+}
 
 class _TacticBoardAnimationStudioPageState extends State<TacticBoardAnimationStudioPage> with SingleTickerProviderStateMixin {
   late AnimationController ctrl;
-  String preset='3v2';
-  String tool='move';
-  int ownCount=3, oppCount=2;
-  String selectedTeamName='';
+  String preset='3v2', tool='move', selectedTeamName='';
+  int ownCount=3, oppCount=2, currentFrame=0;
+  bool showWomen=false, showSoccerAid=false, showJson=false;
   final List<_BoardPlayer> boardPlayers=[];
-  final List<String> timeline=['Frame 1 — départ', 'Frame 2 — appel + passe', 'Frame 3 — tir/cutback'];
-  int currentFrame=0;
-  bool showWomen=false, showSoccerAid=false;
+  final List<_BoardFrame> frames=[];
+  Offset ball=const Offset(.45,.55), ballTarget=const Offset(.70,.38);
 
-  @override void initState(){ super.initState(); ctrl=AnimationController(vsync:this, duration:const Duration(milliseconds:1200))..addListener(()=>setState((){})); _buildPreset(); }
+  @override void initState(){ super.initState(); ctrl=AnimationController(vsync:this, duration:const Duration(milliseconds:1100))..addListener(()=>setState((){})); _buildPreset(); _saveFrame('Frame 1 — départ'); _setTargets(); _saveFrame('Frame 2 — mouvement synchronisé'); }
   @override void dispose(){ ctrl.dispose(); super.dispose(); }
-
-  List<TeamInfo> get cleanTeams => widget.teams.where((t){ final n=t.name.toLowerCase(); if(!showWomen && (n.contains('women')||n.contains('female'))) return false; if(!showSoccerAid && (n.contains('soccer aid')||n.contains('classic xi')||n.contains('adidas'))) return false; return true; }).toList();
+  List<TeamInfo> get cleanTeams => cleanTeamList(widget.teams, showWomen:showWomen, showSoccerAid:showSoccerAid);
+  TeamInfo? get selectedTeam { final list=cleanTeams; if(list.isEmpty) return null; return list.firstWhere((t)=>t.name==selectedTeamName, orElse:()=>list.first); }
+  List<Player> get squad => selectedTeam==null ? cleanPlayerList(widget.players, showWomen:showWomen, showSoccerAid:showSoccerAid).take(18).toList() : _teamSquad(selectedTeam!, widget.players).take(24).toList();
 
   void _buildPreset(){
     boardPlayers.clear();
-    final team = selectedTeamName.isEmpty ? (cleanTeams.isNotEmpty ? cleanTeams.first : null) : cleanTeams.where((t)=>t.name==selectedTeamName).cast<TeamInfo?>().firstWhere((x)=>x!=null, orElse:()=>cleanTeams.isNotEmpty?cleanTeams.first:null);
-    selectedTeamName = team?.name ?? '';
-    final squad = team==null ? widget.players.take(11).toList() : _teamSquad(team, widget.players);
-    final ownPts = preset=='rondo' ? [const Offset(.36,.35),const Offset(.64,.35),const Offset(.36,.65),const Offset(.64,.65)] : [const Offset(.20,.70),const Offset(.42,.62),const Offset(.66,.50),const Offset(.80,.34),const Offset(.55,.26),const Offset(.28,.40),const Offset(.74,.72)];
+    if(selectedTeamName.isEmpty && cleanTeams.isNotEmpty) selectedTeamName=cleanTeams.first.name;
+    final sq=squad;
+    final ownPts = preset=='rondo' ? [const Offset(.36,.34),const Offset(.64,.34),const Offset(.36,.66),const Offset(.64,.66)] : preset=='build' ? [const Offset(.18,.74),const Offset(.32,.60),const Offset(.32,.40),const Offset(.46,.50),const Offset(.60,.34),const Offset(.60,.66)] : [const Offset(.20,.70),const Offset(.42,.62),const Offset(.66,.50),const Offset(.80,.34),const Offset(.55,.26),const Offset(.28,.40),const Offset(.74,.72)];
     final oppPts = preset=='rondo' ? [const Offset(.50,.44),const Offset(.50,.56)] : [const Offset(.48,.50),const Offset(.62,.38),const Offset(.70,.64),const Offset(.35,.35),const Offset(.35,.65)];
-    final oc = preset=='rondo' ? 4 : ownCount;
-    final bc = preset=='rondo' ? 2 : oppCount;
-    for(int i=0;i<oc;i++){ boardPlayers.add(_BoardPlayer('M${i+1}', true, ownPts[i%ownPts.length], player: squad.isNotEmpty ? squad[i%squad.length] : null)); }
+    final oc = preset=='rondo' ? 4 : ownCount.clamp(1,11);
+    final bc = preset=='rondo' ? 2 : oppCount.clamp(0,11);
+    for(int i=0;i<oc;i++){ boardPlayers.add(_BoardPlayer('M${i+1}', true, ownPts[i%ownPts.length], player: sq.isNotEmpty ? sq[i%sq.length] : null)); }
     for(int i=0;i<bc;i++){ boardPlayers.add(_BoardPlayer('A${i+1}', false, oppPts[i%oppPts.length])); }
-    ctrl.value=0;
+    ball= preset=='rondo'?const Offset(.50,.50):const Offset(.43,.58); ballTarget=const Offset(.72,.42); ctrl.value=0;
   }
-
   void _setTargets(){
     for(final p in boardPlayers){
       if(p.own){
-        if(preset.contains('3v2') || preset=='counter') p.target = Offset((p.pos.dx+.18).clamp(.08,.92), (p.pos.dy + (p.id.endsWith('1')?-.12:p.id.endsWith('2') ? .02 : .10)).clamp(.10,.90));
-        else if(preset=='rondo') p.target = Offset((p.pos.dx + (p.id.endsWith('1') ? .06 : -.06)).clamp(.10,.90), (p.pos.dy + (p.id.endsWith('3') ? .06 : -.04)).clamp(.10,.90));
-        else p.target = Offset((p.pos.dx+.10).clamp(.08,.92), p.pos.dy);
-      } else {
-        p.target = Offset((p.pos.dx-.05).clamp(.08,.92), (p.pos.dy + (p.id.endsWith('1') ? .08 : -.08)).clamp(.10,.90));
-      }
+        if(preset=='3v2'||preset=='counter') p.target=Offset((p.pos.dx+.16).clamp(.06,.94),(p.pos.dy+(p.id.endsWith('1')?-.10:(p.id.endsWith('2') ? .02 : .10))).clamp(.08,.92));
+        else if(preset=='rondo') p.target=Offset((p.pos.dx+(((p.id.endsWith('1') || p.id.endsWith('3')) ? .07 : -.07))).clamp(.06,.94),(p.pos.dy+(((p.id.endsWith('1') || p.id.endsWith('2')) ? .05 : -.05))).clamp(.08,.92));
+        else if(preset=='build') p.target=Offset((p.pos.dx+.10).clamp(.06,.94),(p.pos.dy+(p.id.endsWith('4')?-.10:(p.id.endsWith('5') ? .07 : 0))).clamp(.08,.92));
+        else p.target=Offset((p.pos.dx+.12).clamp(.06,.94),p.pos.dy);
+      } else { p.target=Offset((p.pos.dx-.04).clamp(.06,.94),(p.pos.dy+((p.id.endsWith('1') ? .08 : -.08))).clamp(.08,.92)); }
     }
+    ballTarget = preset=='3v2' ? const Offset(.78,.38) : preset=='rondo' ? const Offset(.64,.34) : preset=='build' ? const Offset(.62,.34) : const Offset(.74,.50);
   }
+  void _saveFrame(String name){ frames.add(_BoardFrame(name, {for(final p in boardPlayers) p.id:p.pos}, ball)); currentFrame=frames.length-1; }
+  void _goFrame(int i){ if(i<0||i>=frames.length) return; final f=frames[i]; setState((){currentFrame=i; for(final p in boardPlayers){ if(f.pos[p.id]!=null){p.pos=f.pos[p.id]!; p.target=p.pos;} } ball=f.ball; ballTarget=ball; ctrl.value=0;}); }
+  String _json()=>jsonEncode({'preset':preset,'own':ownCount,'opp':oppCount,'team':selectedTeamName,'tool':tool,'ball':{'x':ball.dx,'y':ball.dy},'players':boardPlayers.map((p)=>{'id':p.id,'own':p.own,'x':p.pos.dx,'y':p.pos.dy,'targetX':p.target.dx,'targetY':p.target.dy,'playerid':p.player?.id,'name':p.player?.name}).toList(),'frames':frames.map((f)=>{'name':f.name,'ball':{'x':f.ball.dx,'y':f.ball.dy},'pos':f.pos.map((k,v)=>MapEntry(k,{'x':v.dx,'y':v.dy}))}).toList()});
 
   @override Widget build(BuildContext context){
-    final t = Curves.easeInOut.transform(ctrl.value);
-    return ListView(padding:const EdgeInsets.all(14), children:[
-      Header('Tactic Board Animation Studio', 'Situations 3v2/4v3, animation simultanée, passes, tirs, duels, sauvegarde timeline'),
-      ProBox(title:'Contrôle studio', subtitle:'Même contenu que le Tactic Board HTML : joueurs custom + timeline + groupes', icon:Icons.animation_rounded, child:Column(children:[
-        Row(children:[
-          Expanded(child: DropdownButtonFormField<String>(value:preset, decoration:const InputDecoration(labelText:'Preset situation'), items:['3v2','4v3','5v4','rondo','counter','build'].map((x)=>DropdownMenuItem(value:x, child:Text(x))).toList(), onChanged:(v)=>setState((){preset=v!; _buildPreset();}))),
-          const SizedBox(width:8),
-          Expanded(child: TextFormField(initialValue:'$ownCount', keyboardType:TextInputType.number, decoration:const InputDecoration(labelText:'Mes joueurs'), onChanged:(v)=>setState(()=>ownCount=int.tryParse(v)??ownCount))),
-          const SizedBox(width:8),
-          Expanded(child: TextFormField(initialValue:'$oppCount', keyboardType:TextInputType.number, decoration:const InputDecoration(labelText:'Adversaires'), onChanged:(v)=>setState(()=>oppCount=int.tryParse(v)??oppCount))),
-        ]),
+    final t=Curves.easeInOut.transform(ctrl.value);
+    return ListView(padding:const EdgeInsets.all(16), children:[
+      Header('Tactic Board Animation Studio Pro', 'Drag & drop réel, keyframes, groupes simultanés, passe/tir/dribble/pressing/zone/duel'),
+      ProBox(title:'Studio controls', subtitle:'Presets + joueurs custom + équipe autocomplete', icon:Icons.tune_rounded, child:Column(children:[
+        LayoutBuilder(builder:(context,c){
+          final w=[DropdownButtonFormField<String>(value:preset, decoration:const InputDecoration(labelText:'Preset'), items:['3v2','4v3','5v4','rondo','counter','build'].map((x)=>DropdownMenuItem(value:x, child:Text(x))).toList(), onChanged:(v)=>setState((){preset=v!; _buildPreset(); frames.clear(); _saveFrame('Frame 1 — départ');})), TextFormField(initialValue:'$ownCount', keyboardType:TextInputType.number, decoration:const InputDecoration(labelText:'Mes joueurs'), onChanged:(v)=>setState(()=>ownCount=int.tryParse(v)??ownCount)), TextFormField(initialValue:'$oppCount', keyboardType:TextInputType.number, decoration:const InputDecoration(labelText:'Adversaires'), onChanged:(v)=>setState(()=>oppCount=int.tryParse(v)??oppCount))];
+          return c.maxWidth<560?Column(children:[w[0],const SizedBox(height:8),Row(children:[Expanded(child:w[1]),const SizedBox(width:8),Expanded(child:w[2])])]):Row(children:[Expanded(child:w[0]),const SizedBox(width:8),Expanded(child:w[1]),const SizedBox(width:8),Expanded(child:w[2])]);
+        }),
         const SizedBox(height:10),
-        TeamAutocomplete(teams:cleanTeams, value:selectedTeamName, label:'Autocomplete équipe homme par défaut', onSelected:(name)=>setState((){selectedTeamName=name; _buildPreset();})),
+        TeamAutocomplete(teams:cleanTeams, value:selectedTeamName, label:'Équipe hommes par défaut', onSelected:(name)=>setState((){selectedTeamName=name; _buildPreset(); frames.clear(); _saveFrame('Frame 1 — départ');})),
         const SizedBox(height:10),
         Wrap(spacing:8, runSpacing:8, children:[
-          for(final x in ['move','pass','shot','dribble','run','press','zone','duel']) ChoiceChip(label:Text(x), selected:tool==x, onSelected:(_)=>setState(()=>tool=x)),
+          for(final x in ['move','pass','shot','dribble','run','press','zone','duel','delete']) ChoiceChip(label:Text(x), selected:tool==x, onSelected:(_)=>setState(()=>tool=x)),
           FilterChip(label:const Text('Afficher Female'), selected:showWomen, onSelected:(v)=>setState(()=>showWomen=v)),
           FilterChip(label:const Text('Afficher Soccer Aid'), selected:showSoccerAid, onSelected:(v)=>setState(()=>showSoccerAid=v)),
-        ]),
+        ])
       ])),
       Card(child:Padding(padding:const EdgeInsets.all(12), child:Column(children:[
-        AspectRatio(aspectRatio:10/14, child:GestureDetector(onTapDown:(d){}, child:CustomPaint(painter:_TacticBoardPainter(boardPlayers, t, tool, preset), child:Stack(children:[
-          for(final p in boardPlayers) AnimatedBuilder(animation:ctrl, builder:(context,_) { final o=Offset.lerp(p.pos,p.target,t)!; return Positioned(left:o.dx*MediaQuery.of(context).size.width*.88-24, top:o.dy*MediaQuery.of(context).size.width*1.23-24, child:GestureDetector(onPanUpdate:(d){ setState((){ p.pos=Offset((p.pos.dx+d.delta.dx/330).clamp(.05,.95), (p.pos.dy+d.delta.dy/460).clamp(.05,.95)); p.target=p.pos; }); }, child:Column(children:[PlayerAvatar(p:p.player ?? _dummyPlayer(p), size:48), Container(padding:const EdgeInsets.symmetric(horizontal:6,vertical:2), decoration:BoxDecoration(color:p.own?AppTheme.blue:Colors.redAccent, borderRadius:BorderRadius.circular(99)), child:Text(p.player?.name.split(' ').last ?? p.id, style:const TextStyle(color:Colors.white,fontSize:10,fontWeight:FontWeight.w900)))]))); }),
-        ])))),
-        const SizedBox(height:10),
-        Row(children:[Expanded(child:FilledButton.icon(onPressed:(){_setTargets(); ctrl.forward(from:0);}, icon:const Icon(Icons.play_arrow_rounded), label:const Text('Play animation'))), const SizedBox(width:8), Expanded(child:OutlinedButton.icon(onPressed:()=>setState(_buildPreset), icon:const Icon(Icons.restart_alt_rounded), label:const Text('Reset')))]),
+        AspectRatio(aspectRatio:.76, child:LayoutBuilder(builder:(context,c){
+          return Container(decoration:BoxDecoration(borderRadius:BorderRadius.circular(30), boxShadow:[BoxShadow(color:Colors.black.withOpacity(.12), blurRadius:28, offset:Offset(0,16))]), child:ClipRRect(borderRadius:BorderRadius.circular(30), child:CustomPaint(painter:_TacticBoardPainter(boardPlayers,t,tool,preset, ball, ballTarget), child:Stack(children:[
+            Positioned(left:Offset.lerp(ball,ballTarget,t)!.dx*c.maxWidth-10, top:Offset.lerp(ball,ballTarget,t)!.dy*c.maxHeight-10, child:GestureDetector(onPanUpdate:(d)=>setState(()=>ball=Offset((ball.dx+d.delta.dx/c.maxWidth).clamp(.04,.96),(ball.dy+d.delta.dy/c.maxHeight).clamp(.04,.96))), child:Container(width:20,height:20, decoration:BoxDecoration(color:Colors.white, shape:BoxShape.circle, border:Border.all(color:AppTheme.navy,width:2))))),
+            for(final p in boardPlayers) AnimatedBuilder(animation:ctrl, builder:(context,_){ final o=Offset.lerp(p.pos,p.target,t)!; return Positioned(left:o.dx*c.maxWidth-29, top:o.dy*c.maxHeight-34, child:GestureDetector(onPanUpdate:(d)=>setState((){p.pos=Offset((p.pos.dx+d.delta.dx/c.maxWidth).clamp(.04,.96),(p.pos.dy+d.delta.dy/c.maxHeight).clamp(.04,.96)); p.target=p.pos;}), onTap:() async { if(p.own){ final pick=await showPlayerSearch(context, squad.isEmpty?widget.players:squad, p.player ?? (squad.isNotEmpty?squad.first:widget.players.first)); if(pick!=null) setState(()=>p.player=pick); }}, child:Column(children:[Container(padding:const EdgeInsets.all(3), decoration:BoxDecoration(shape:BoxShape.circle, color:p.own?const Color(0xFF24C6DC):const Color(0xFFFF5573), border:Border.all(color:Colors.white,width:2)), child:PlayerAvatar(p:p.player ?? _dummyPlayer(p), size:52)), Container(padding:const EdgeInsets.symmetric(horizontal:7,vertical:3), decoration:BoxDecoration(color:Colors.black.withOpacity(.55), borderRadius:BorderRadius.circular(999)), child:Text(p.player?.name.split(' ').last ?? p.id, maxLines:1, overflow:TextOverflow.ellipsis, style:const TextStyle(color:Colors.white,fontSize:10,fontWeight:FontWeight.w900)))])));}),
+          ]))));
+        })),
+        const SizedBox(height:12),
+        Wrap(spacing:8, runSpacing:8, children:[
+          FilledButton.icon(onPressed:(){_setTargets(); ctrl.forward(from:0);}, icon:const Icon(Icons.play_arrow_rounded), label:const Text('Play')),
+          OutlinedButton.icon(onPressed:()=>setState(()=>_saveFrame('Frame ${frames.length+1} — positions')), icon:const Icon(Icons.add), label:const Text('Keyframe')),
+          OutlinedButton.icon(onPressed:()=>setState(()=>frames.add(_BoardFrame('Groupe ${frames.length+1} — simultané', {for(final p in boardPlayers) p.id:p.target}, ballTarget))), icon:const Icon(Icons.group_work_rounded), label:const Text('Groupe')),
+          OutlinedButton.icon(onPressed:()=>setState(_buildPreset), icon:const Icon(Icons.restart_alt), label:const Text('Reset')),
+        ])
       ]))),
-      ProBox(title:'Timeline & groupes simultanés', subtitle:'Keyframes, actions et export idée tactique', icon:Icons.timeline_rounded, child:Column(crossAxisAlignment:CrossAxisAlignment.start, children:[
-        ...timeline.asMap().entries.map((e)=>ListTile(selected:e.key==currentFrame, leading:CircleAvatar(child:Text('${e.key+1}')), title:Text(e.value), subtitle:Text(e.key==0?'Positions de départ':e.key==1?'Appel + passe en même temps':'Finalisation / duel'), onTap:()=>setState(()=>currentFrame=e.key))),
-        Wrap(spacing:8, children:[ActionChip(label:const Text('+ Keyframe'), onPressed:()=>setState(()=>timeline.add('Frame ${timeline.length+1} — action custom'))), ActionChip(label:const Text('Groupe simultané'), onPressed:()=>setState(()=>timeline.add('Groupe ${timeline.length} — mouvements synchronisés'))), ActionChip(label:const Text('Exporter JSON'), onPressed:()=>ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content:Text('Export prêt dans la prochaine build connectée au stockage local'))))]),
+      ProBox(title:'Timeline / export', subtitle:'Clique une frame pour revenir à l’état sauvegardé', icon:Icons.timeline_rounded, child:Column(children:[
+        ...frames.asMap().entries.map((e)=>ListTile(selected:e.key==currentFrame, leading:CircleAvatar(child:Text('${e.key+1}')), title:Text(e.value.name), subtitle:Text(e.key==0?'Départ':e.value.name.contains('Groupe')?'Actions simultanées':'Keyframe'), trailing:e.key==currentFrame?const Icon(Icons.check_circle, color:AppTheme.green):null, onTap:()=>_goFrame(e.key))),
+        Wrap(spacing:8, children:[FilterChip(label:const Text('Voir JSON'), selected:showJson, onSelected:(v)=>setState(()=>showJson=v)), ActionChip(label:const Text('Copier export'), onPressed:()=>Clipboard.setData(ClipboardData(text:_json())))]),
+        if(showJson) Padding(padding:const EdgeInsets.only(top:10), child:SelectableText(_json(), style:const TextStyle(fontSize:12))),
       ])),
-      ProBox(title:'Lecture coach de la situation', subtitle:'Analyse rapide pour appliquer en match FC24', icon:Icons.psychology_rounded, child:Column(crossAxisAlignment:CrossAxisAlignment.start, children:[
-        Text(_studioAdvice(), style:const TextStyle(fontWeight:FontWeight.w800, height:1.35)),
-        const SizedBox(height:10),
-        Wrap(spacing:8, runSpacing:8, children:['Déclencheur','Action','Risque','Duel gagnant','Espace cible','Timing passe/tir'].map((x)=>Chip(label:Text(x))).toList()),
-      ])),
+      ProBox(title:'Duel dans la situation', subtitle:'Lecture coach de la scène comme dans le plugin', icon:Icons.psychology_alt_rounded, child:Text(_studioAdvice(), style:const TextStyle(height:1.45, fontWeight:FontWeight.w700))),
     ]);
   }
-
   String _studioAdvice(){
-    if(preset=='3v2') return '3v2 : fixer le premier défenseur, déclencher l’appel extérieur, puis cutback ou passe diagonale. Le porteur ne doit pas courir face au CB.';
-    if(preset=='rondo') return 'Rondo : crée un triangle permanent, une passe de sécurité et un troisième homme. La perte arrive si les angles sont plats.';
-    if(preset=='counter') return 'Contre-attaque : première passe verticale, appel dans le dos, puis finition avant replacement du bloc.';
-    if(preset=='build') return 'Sortie de balle : attire le pressing sur un côté, trouve le 6/8 libre, puis change le côté.';
-    return 'Overload : crée supériorité sur un côté, attire, puis trouve l’espace libre opposé.';
+    if(preset=='3v2') return '3v2 : fixe le premier défenseur, déclenche appel extérieur + passe en retrait. Profiter : attirer le CB avant de donner. Contrer : ne pas sortir avec les deux défenseurs, couper le cutback.';
+    if(preset=='rondo') return 'Rondo 4v2 : angles constants, troisième homme et passe sécurité. Profiter : jouer en une touche. Contrer : fermer le joueur libre plutôt que courir vers le ballon.';
+    if(preset=='counter') return 'Contre-attaque : première passe verticale puis appel dans le dos. Profiter : jouer avant replacement. Contrer : temporiser avec le CDM et protéger axe.';
+    if(preset=='build') return 'Sortie de balle : attire pressing côté fort puis trouve le 6/8 libre. Profiter : passe courte + triangle. Contrer : marquer le pivot et forcer long ballon.';
+    return 'Overload : crée supériorité, attire, renverse. Contrer : coulisser sans casser la ligne.';
   }
-  Player _dummyPlayer(_BoardPlayer bp)=>Player(id:bp.id,name:bp.id,team:bp.own?'Moi':'Adv',pos:bp.own?'ATT':'DEF',pos2:'',image:'',ovr:70,pot:70,height:180,weight:75,body:'Average',accel:'Controlled',foot:'Right',attWr:'Medium',defWr:'Medium',skill:3,weakFoot:3,playstyles:const[],s:const{});
+  Player _dummyPlayer(_BoardPlayer bp)=>Player(id:bp.id,name:bp.id,team:bp.own?'Moi':'Adversaire',pos:bp.own?'ATT':'DEF',pos2:'',image:'',ovr:70,pot:70,height:180,weight:75,body:'Average',accel:'Controlled',foot:'Right',attWr:'Medium',defWr:'Medium',skill:3,weakFoot:3,playstyles:const[],s:const{});
 }
 
 class _TacticBoardPainter extends CustomPainter{
-  final List<_BoardPlayer> players; final double t; final String tool, preset;
-  _TacticBoardPainter(this.players,this.t,this.tool,this.preset);
+  final List<_BoardPlayer> players; final double t; final String tool, preset; final Offset ball, ballTarget;
+  _TacticBoardPainter(this.players,this.t,this.tool,this.preset,this.ball,this.ballTarget);
   @override void paint(Canvas canvas, Size size){
-    final bg=Paint()..shader=const LinearGradient(begin:Alignment.topCenter,end:Alignment.bottomCenter,colors:[Color(0xFF0B7A3B),Color(0xFF075E2F)]).createShader(Offset.zero & size);
-    final r=RRect.fromRectAndRadius(Offset.zero & size, const Radius.circular(28)); canvas.drawRRect(r,bg);
-    final line=Paint()..color=Colors.white.withOpacity(.28)..style=PaintingStyle.stroke..strokeWidth=2;
+    final bg=Paint()..shader=const LinearGradient(begin:Alignment.topCenter,end:Alignment.bottomCenter,colors:[Color(0xFF08743E),Color(0xFF064D30)]).createShader(Offset.zero & size);
+    canvas.drawRRect(RRect.fromRectAndRadius(Offset.zero & size, const Radius.circular(30)),bg);
+    final line=Paint()..color=Colors.white.withOpacity(.30)..style=PaintingStyle.stroke..strokeWidth=2;
     canvas.drawRRect(RRect.fromRectAndRadius(Rect.fromLTWH(18,18,size.width-36,size.height-36), const Radius.circular(22)), line);
     canvas.drawLine(Offset(18,size.height/2), Offset(size.width-18,size.height/2), line);
     canvas.drawCircle(Offset(size.width/2,size.height/2), 58, line);
-    canvas.drawRect(Rect.fromCenter(center:Offset(size.width/2,18), width:size.width*.42, height:80), line);
-    canvas.drawRect(Rect.fromCenter(center:Offset(size.width/2,size.height-18), width:size.width*.42, height:80), line);
-    final arrow=Paint()..color=Colors.white.withOpacity(.88)..strokeWidth=3..strokeCap=StrokeCap.round;
-    for(final p in players.where((e)=>e.own)){
-      final a=Offset(p.pos.dx*size.width,p.pos.dy*size.height); final b=Offset.lerp(a,Offset(p.target.dx*size.width,p.target.dy*size.height), max(t,.18))!;
-      canvas.drawLine(a,b,arrow); final ang=atan2(b.dy-a.dy,b.dx-a.dx); canvas.drawLine(b,b-Offset(cos(ang-.5)*10,sin(ang-.5)*10),arrow); canvas.drawLine(b,b-Offset(cos(ang+.5)*10,sin(ang+.5)*10),arrow);
-    }
-    if(tool=='zone' || preset=='3v2' || preset=='cutback'){
-      final z=Paint()..color=AppTheme.blue.withOpacity(.18)..style=PaintingStyle.fill; canvas.drawRRect(RRect.fromRectAndRadius(Rect.fromCenter(center:Offset(size.width*.68,size.height*.34), width:120, height:70), const Radius.circular(18)), z);
-    }
+    canvas.drawRect(Rect.fromCenter(center:Offset(size.width/2,18), width:size.width*.42, height:92), line);
+    canvas.drawRect(Rect.fromCenter(center:Offset(size.width/2,size.height-18), width:size.width*.42, height:92), line);
+    if(tool=='zone' || preset=='3v2' || preset=='build') canvas.drawRRect(RRect.fromRectAndRadius(Rect.fromCenter(center:Offset(size.width*.68,size.height*.36), width:140, height:78), const Radius.circular(18)), Paint()..color=AppTheme.blue.withOpacity(.18));
+    for(final p in players){ final a=Offset(p.pos.dx*size.width,p.pos.dy*size.height); final b=Offset.lerp(a,Offset(p.target.dx*size.width,p.target.dy*size.height),max(t,.14))!; final col=p.own?const Color(0xFFFFD166):Colors.white.withOpacity(.75); _arrow(canvas,a,b,col,p.own?3.6:2.4); }
+    _arrow(canvas, Offset(ball.dx*size.width, ball.dy*size.height), Offset(ballTarget.dx*size.width, ballTarget.dy*size.height), const Color(0xFFFFFFFF), 3.4, dashed:true);
   }
+  void _arrow(Canvas c, Offset a, Offset b, Color col, double w,{bool dashed=false}){ final p=Paint()..color=col..strokeWidth=w..strokeCap=StrokeCap.round; if(!dashed){c.drawLine(a,b,p);} else { const n=12; for(int i=0;i<n;i+=2){ final s=i/n, e=(i+1)/n; c.drawLine(Offset.lerp(a,b,s)!,Offset.lerp(a,b,e)!,p);} } final ang=atan2(b.dy-a.dy,b.dx-a.dx); c.drawLine(b,b-Offset(cos(ang-.55)*12,sin(ang-.55)*12),p); c.drawLine(b,b-Offset(cos(ang+.55)*12,sin(ang+.55)*12),p); }
   @override bool shouldRepaint(covariant _TacticBoardPainter old)=>true;
 }
 
