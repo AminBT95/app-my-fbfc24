@@ -25,6 +25,16 @@ jobs:
           flutter create --platforms=android --org com.fc24coachai fc24_build_app
           rm -rf /tmp/fc24_build_app
           mv fc24_build_app /tmp/fc24_build_app
+      - name: Enable Android internet permission
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          manifest = Path("/tmp/fc24_build_app/android/app/src/main/AndroidManifest.xml")
+          txt = manifest.read_text()
+          if "android.permission.INTERNET" not in txt:
+              txt = txt.replace("<manifest xmlns:android=\"http://schemas.android.com/apk/res/android\">", "<manifest xmlns:android=\"http://schemas.android.com/apk/res/android\">\n    <uses-permission android:name=\"android.permission.INTERNET\" />")
+              manifest.write_text(txt)
+          PY
       - name: Copy app source
         run: |
           rm -rf /tmp/fc24_build_app/lib

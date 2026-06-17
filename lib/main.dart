@@ -7,16 +7,16 @@ import 'package:flutter/services.dart';
 
 
 class AppTheme {
-  static const bg = Color(0xFFF3F5FA);
+  static const bg = Color(0xFFF7F7FC);
   static const card = Color(0xFFFFFFFF);
-  static const ink = Color(0xFF10132B);
-  static const muted = Color(0xFF7B8194);
-  static const pink = Color(0xFFFF2C86);
-  static const purple = Color(0xFF6D3DF5);
-  static const blue = Color(0xFF1D65F2);
-  static const dark = Color(0xFF111232);
-  static const line = Color(0xFFE7EAF2);
-  static const green = Color(0xFF31B36B);
+  static const ink = Color(0xFF101026);
+  static const muted = Color(0xFF73788D);
+  static const pink = Color(0xFFE83E6D);
+  static const purple = Color(0xFF5A48F5);
+  static const blue = Color(0xFF1E9BFF);
+  static const dark = Color(0xFF15152E);
+  static const line = Color(0xFFE8E9F1);
+  static const green = Color(0xFF38C979);
 }
 
 
@@ -41,7 +41,7 @@ class FC24CoachApp extends StatelessWidget {
         brightness: Brightness.light,
         scaffoldBackgroundColor: AppTheme.bg,
         fontFamily: 'Roboto',
-        colorScheme: ColorScheme.fromSeed(seedColor: AppTheme.pink, brightness: Brightness.light).copyWith(
+        colorScheme: ColorScheme.fromSeed(seedColor: AppTheme.purple, brightness: Brightness.light).copyWith(
           primary: AppTheme.pink,
           secondary: AppTheme.purple,
           surface: AppTheme.card,
@@ -71,7 +71,7 @@ class FC24CoachApp extends StatelessWidget {
         ),
         navigationBarTheme: NavigationBarThemeData(
           backgroundColor: Colors.white,
-          indicatorColor: AppTheme.pink.withOpacity(.12),
+          indicatorColor: AppTheme.pink.withOpacity(.14),
           labelTextStyle: MaterialStateProperty.all(const TextStyle(fontSize: 11, fontWeight: FontWeight.w800)),
         ),
         chipTheme: ChipThemeData(
@@ -352,32 +352,45 @@ class PlayerAvatar extends StatelessWidget {
   final double size;
   const PlayerAvatar({super.key, required this.p, this.size = 54});
 
+  String get _digits => RegExp(r'\d+').firstMatch(p.id)?.group(0) ?? '';
+  String get _url {
+    final explicit = p.image.trim();
+    if (explicit.startsWith('http')) return explicit;
+    if (_digits.isNotEmpty) return 'https://eep-fifa.de/Minifaces/p$_digits.png';
+    return explicit;
+  }
+
   @override
   Widget build(BuildContext context) {
-    final explicit = p.image.trim();
-    final digits = RegExp(r'\d+').firstMatch(p.id)?.group(0) ?? '';
-    final img = explicit.isNotEmpty ? explicit : (digits.isNotEmpty ? 'https://eep-fifa.de/Minifaces/p$digits.png' : '');
+    final img = _url;
+    final initials = p.name.startsWith('Player ') ? '#${_digits.isEmpty ? '?' : _digits.substring(max(0, _digits.length-3))}' : p.name.trim().split(RegExp(r'\s+')).where((x)=>x.isNotEmpty).take(2).map((x)=>x[0].toUpperCase()).join();
     final fallback = Container(
       width: size,
       height: size,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
-        color: Colors.white, border: Border.all(color: AppTheme.line, width: 2),
+        gradient: const LinearGradient(colors:[Color(0xFFFDFDFE), Color(0xFFEFF2FA)]),
+        border: Border.all(color: AppTheme.line, width: 2.2),
+        boxShadow: [BoxShadow(color: Colors.black.withOpacity(.05), blurRadius: 10, offset: const Offset(0,4))],
       ),
-      child: Center(
-        child: Text(
-          p.name.isEmpty ? '?' : p.name.substring(0, 1).toUpperCase(),
-          style: TextStyle(fontSize: size * .38, fontWeight: FontWeight.w900, color: Colors.white),
-        ),
-      ),
+      child: Center(child: Text(initials.isEmpty ? '?' : initials, textAlign: TextAlign.center, style: TextStyle(fontSize: size * .23, fontWeight: FontWeight.w900, color: AppTheme.ink))),
     );
     if (img.isEmpty) return fallback;
-    return ClipOval(
-      child: SizedBox(
-        width: size,
-        height: size,
+    return Container(
+      width: size,
+      height: size,
+      padding: const EdgeInsets.all(2),
+      decoration: BoxDecoration(shape: BoxShape.circle, color: Colors.white, border: Border.all(color: AppTheme.line, width: 1.5)),
+      child: ClipOval(
         child: img.startsWith('http')
-            ? Image.network(img, fit: BoxFit.cover, headers: const {'User-Agent':'Mozilla/5.0','Referer':'https://eep-fifa.de/'}, loadingBuilder: (c,w,p)=>p==null?w:Container(color:Colors.white, child:Center(child:SizedBox(width:size*.35,height:size*.35,child:const CircularProgressIndicator(strokeWidth:2)))), errorBuilder: (_, __, ___) => fallback)
+            ? Image.network(
+                img,
+                fit: BoxFit.cover,
+                filterQuality: FilterQuality.high,
+                headers: const {'User-Agent':'Mozilla/5.0 (Android) AppleWebKit/537.36','Accept':'image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8'},
+                loadingBuilder: (c,w,progress)=>progress==null?w:Stack(fit:StackFit.expand, children:[fallback, Center(child:SizedBox(width:size*.28,height:size*.28,child:const CircularProgressIndicator(strokeWidth:2)))]),
+                errorBuilder: (_, __, ___) => fallback,
+              )
             : Image.asset(img, fit: BoxFit.cover, errorBuilder: (_, __, ___) => fallback),
       ),
     );
@@ -1428,7 +1441,7 @@ class PlayerDetailsSheet extends StatelessWidget {
       builder: (_, controller) => ListView(controller: controller, padding: const EdgeInsets.all(16), children: [
         Container(
           padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(borderRadius: BorderRadius.circular(30), gradient: const LinearGradient(colors:[Color(0xFF14532D), Color(0xFF0EA5E9)])),
+          decoration: BoxDecoration(borderRadius: BorderRadius.circular(30), gradient: const LinearGradient(begin:Alignment.topLeft,end:Alignment.bottomRight,colors:[AppTheme.purple, AppTheme.blue])),
           child: Row(children:[
             PlayerAvatar(p:p, size:104),
             const SizedBox(width:16),
@@ -1505,7 +1518,7 @@ class PlayerTile extends StatelessWidget {
       Container(width:52, height:52, decoration:BoxDecoration(shape:BoxShape.circle, gradient: const LinearGradient(colors:[Color(0xFF22C55E), Color(0xFF38BDF8)])), child:Center(child:Text('${p.ovr}', style: const TextStyle(color:Color(0xFF052E16), fontWeight:FontWeight.w900, fontSize:18)))),
     ])),
   ));
-  Widget _tiny(String t)=>Container(padding: const EdgeInsets.symmetric(horizontal:8, vertical:4), decoration:BoxDecoration(color: const Color(0xFF101F35), borderRadius:BorderRadius.circular(999), border:Border.all(color: const Color(0xFF263A55))), child:Text(t, style: const TextStyle(fontSize:11)));
+  Widget _tiny(String t)=>Container(padding: const EdgeInsets.symmetric(horizontal:8, vertical:4), decoration:BoxDecoration(color: const Color(0xFFF5F6FB), borderRadius:BorderRadius.circular(999), border:Border.all(color: AppTheme.line)), child:Text(t, style: const TextStyle(fontSize:11, color:AppTheme.ink, fontWeight:FontWeight.w800)));
 }
 
 
@@ -2105,7 +2118,7 @@ class TeamCard extends StatelessWidget {
             const SizedBox(height: 8),
             Row(children: [Expanded(child: MiniScore('OVR', team.overall, 'team')), const SizedBox(width: 8), Expanded(child: MiniScore('ATT', team.attack, 'attack')), const SizedBox(width: 8), Expanded(child: MiniScore('DEF', team.defense, 'def'))]),
             if (squad.isNotEmpty) const Divider(),
-            ...squad.map((p) => ListTile(dense: true, contentPadding: EdgeInsets.zero, leading: PlayerAvatar(p: p, size: 36), title: Text(p.name), subtitle: Text('${p.pos} • OVR ${p.ovr}'), trailing: Text(p.accel, style: const TextStyle(fontSize:11)))),
+            ...squad.map((p) => ListTile(dense: true, contentPadding: EdgeInsets.zero, leading: PlayerAvatar(p: p, size: 36), title: Text(p.name), subtitle: Text('${p.pos} • OVR ${p.ovr}'), trailing: Text(p.accel, style: const TextStyle(fontSize:11, color:AppTheme.ink, fontWeight:FontWeight.w800)))),
           ]),
         ),
       ),
@@ -2197,7 +2210,72 @@ const advancedScenarios = <AdvancedScenario>[
   AdvancedScenario('box_header','Centre surface / tête','box_header',['Heading','Jumping','Strength','Height','Aerial+'],'Timing + taille + Aerial/Power Header décident souvent l’animation.'),
   AdvancedScenario('hold_up_play','Pivot / jouer dos au but','hold_up_play',['Strength','Balance','Ball Control','Composure','Press Proven+'],'Fixer le CB, protéger, remise courte, puis appel du troisième homme.'),
   AdvancedScenario('first_touch_turn','Contrôle orienté + demi-tour','first_touch_turn',['First Touch+','Ball Control','Agility','Balance','Reactions'],'Premier contrôle propre sous pression puis sortie côté faible.'),
+  AdvancedScenario('manual_jockey','Jockey défensif / contenir','jockey',['Def. Awareness','Agility','Balance','Standing Tackle','Reactions','Jockey+'],'Ne pas tacler trop tôt : contenir, fermer l’angle, attendre la mauvaise touche.'),
+  AdvancedScenario('second_ball','Deuxième ballon / duel milieu','pressing',['Reactions','Aggression','Stamina','Interceptions','Strength','Balance'],'Après dégagement ou ballon repoussé, réactions + agressivité gagnent la deuxième action.'),
+  AdvancedScenario('overlap_fullback','Overlap latéral / appel extérieur','speed_long',['Sprint Speed','Stamina','Crossing','Acceleration','Short Passing'],'Latéral qui double : course longue, répétition d’efforts, centre ou cutback.'),
+  AdvancedScenario('inside_forward','Ailier inversé qui rentre intérieur','dribble_central',['Dribbling','Agility','Balance','Finishing','Finesse+','Technical+'],'Attaque l’espace entre latéral et CB : crochet intérieur, pied fort, finesse ou passe cassante.'),
 ];
+
+class ScenarioTacticalBoard extends StatelessWidget {
+  final AdvancedScenario scenario;
+  final Player a, b;
+  final List<Player> squad;
+  const ScenarioTacticalBoard({super.key, required this.scenario, required this.a, required this.b, required this.squad});
+  @override Widget build(BuildContext context){
+    final attack = scenario.key.contains('cutback') || scenario.key.contains('transition') || scenario.key.contains('inside') || scenario.key.contains('overlap') || scenario.key.contains('low_block');
+    final pts=[const Offset(.50,.86), const Offset(.20,.68), const Offset(.38,.69), const Offset(.62,.69), const Offset(.80,.68), const Offset(.30,.50), const Offset(.50,.48), const Offset(.70,.50), const Offset(.24,.27), const Offset(.50,.22), const Offset(.76,.27)];
+    return LayoutBuilder(builder:(context,c){
+      return Container(height: 360, decoration:BoxDecoration(borderRadius:BorderRadius.circular(30), gradient: const LinearGradient(begin:Alignment.topLeft,end:Alignment.bottomRight,colors:[Color(0xFF6C4CF6), Color(0xFF12152F)]), boxShadow:[BoxShadow(color:AppTheme.purple.withOpacity(.16), blurRadius:28, offset:Offset(0,14))]), child:Stack(children:[
+        Positioned.fill(child:CustomPaint(painter:_PitchLines())),
+        Positioned(left:22, top:20, child:_boardTag(scenario.label)),
+        Positioned(right:22, top:20, child:_boardTag(attack?'Phase attaque':'Phase défense')),
+        if(scenario.key.contains('cutback')) ...[
+          _arrow(c, const Offset(.80,.35), const Offset(.62,.44), 'cutback'),
+          _zone(c, const Offset(.58,.44), 'Point penalty'),
+        ] else if(scenario.key.contains('press')) ...[
+          _arrow(c, const Offset(.34,.48), const Offset(.50,.48), 'press'),
+          _arrow(c, const Offset(.66,.48), const Offset(.50,.48), 'trap'),
+        ] else if(scenario.key.contains('transition')) ...[
+          _arrow(c, const Offset(.22,.65), const Offset(.78,.28), 'appel'),
+          _arrow(c, const Offset(.42,.58), const Offset(.70,.30), 'passe'),
+        ] else if(scenario.key.contains('low_block')) ...[
+          _zone(c, const Offset(.50,.32), 'Bloc bas'),
+          _arrow(c, const Offset(.40,.54), const Offset(.50,.34), 'passe cassante'),
+        ] else ...[
+          _arrow(c, const Offset(.36,.54), const Offset(.58,.42), 'duel'),
+        ],
+        for(int i=0;i<squad.length && i<pts.length;i++) Positioned(left:pts[i].dx*c.maxWidth-24, top:pts[i].dy*c.maxHeight-24, child:Column(children:[PlayerAvatar(p:squad[i],size:46), Container(padding:const EdgeInsets.symmetric(horizontal:5,vertical:2), decoration:BoxDecoration(color:Colors.white.withOpacity(.95), borderRadius:BorderRadius.circular(99)), child:Text(squad[i].name.replaceFirst('Player ','#'), maxLines:1, overflow:TextOverflow.ellipsis, style:const TextStyle(fontSize:9,fontWeight:FontWeight.w900,color:AppTheme.ink)))])),
+        Positioned(left:c.maxWidth*.22, bottom:18, child:_duelChip(a, 'A')),
+        Positioned(right:c.maxWidth*.22, bottom:18, child:_duelChip(b, 'B')),
+      ]));
+    });
+  }
+  Widget _boardTag(String t)=>Container(padding:const EdgeInsets.symmetric(horizontal:10,vertical:7), decoration:BoxDecoration(color:Colors.white.withOpacity(.90), borderRadius:BorderRadius.circular(99)), child:Text(t, style:const TextStyle(fontSize:11,fontWeight:FontWeight.w900,color:AppTheme.ink)));
+  Widget _duelChip(Player p, String side)=>Container(width:118, padding:const EdgeInsets.all(8), decoration:BoxDecoration(color:Colors.white.withOpacity(.94), borderRadius:BorderRadius.circular(18)), child:Row(children:[PlayerAvatar(p:p,size:34), const SizedBox(width:6), Expanded(child:Text('$side • ${p.name}', maxLines:1, overflow:TextOverflow.ellipsis, style:const TextStyle(fontSize:11,fontWeight:FontWeight.w900,color:AppTheme.ink)))]));
+  Widget _zone(BoxConstraints c, Offset o, String text)=>Positioned(left:o.dx*c.maxWidth-55, top:o.dy*c.maxHeight-26, child:Container(width:110,height:52, decoration:BoxDecoration(color:AppTheme.pink.withOpacity(.26), borderRadius:BorderRadius.circular(18), border:Border.all(color:Colors.white.withOpacity(.55))), child:Center(child:Text(text, textAlign:TextAlign.center, style:const TextStyle(color:Colors.white,fontWeight:FontWeight.w900,fontSize:11)))));
+  Widget _arrow(BoxConstraints c, Offset a, Offset b, String text)=>Positioned.fill(child:CustomPaint(painter:_ArrowPainter(Offset(a.dx*c.maxWidth,a.dy*c.maxHeight), Offset(b.dx*c.maxWidth,b.dy*c.maxHeight), text)));
+}
+
+class _ArrowPainter extends CustomPainter{
+  final Offset a,b; final String label;
+  _ArrowPainter(this.a,this.b,this.label);
+  @override void paint(Canvas c, Size s){
+    final p=Paint()..color=Colors.white.withOpacity(.85)..strokeWidth=3.2..strokeCap=StrokeCap.round;
+    c.drawLine(a,b,p);
+    final ang=atan2(b.dy-a.dy,b.dx-a.dx);
+    final p1=b-Offset(cos(ang-.55)*12,sin(ang-.55)*12), p2=b-Offset(cos(ang+.55)*12,sin(ang+.55)*12);
+    c.drawLine(b,p1,p); c.drawLine(b,p2,p);
+    final tp=TextPainter(text:TextSpan(text:label, style:const TextStyle(color:Colors.white,fontWeight:FontWeight.w900,fontSize:11)), textDirection:TextDirection.ltr)..layout();
+    tp.paint(c, Offset((a.dx+b.dx)/2-tp.width/2, (a.dy+b.dy)/2-20));
+  }
+  @override bool shouldRepaint(covariant _ArrowPainter old)=>old.a!=a||old.b!=b||old.label!=label;
+}
+
+class ScenarioStepCard extends StatelessWidget{
+  final int n; final String title, body;
+  const ScenarioStepCard(this.n,this.title,this.body,{super.key});
+  @override Widget build(BuildContext context)=>Container(margin:const EdgeInsets.only(bottom:10), padding:const EdgeInsets.all(14), decoration:BoxDecoration(color:Colors.white, borderRadius:BorderRadius.circular(20), border:Border.all(color:AppTheme.line), boxShadow:[BoxShadow(color:Colors.black.withOpacity(.035), blurRadius:18, offset:Offset(0,8))]), child:Row(crossAxisAlignment:CrossAxisAlignment.start, children:[Container(width:34,height:34, decoration:const BoxDecoration(shape:BoxShape.circle, gradient:LinearGradient(colors:[AppTheme.pink,AppTheme.purple])), child:Center(child:Text('$n', style:const TextStyle(color:Colors.white,fontWeight:FontWeight.w900)))), const SizedBox(width:10), Expanded(child:Column(crossAxisAlignment:CrossAxisAlignment.start, children:[Text(title, style:const TextStyle(fontWeight:FontWeight.w900,fontSize:15)), const SizedBox(height:3), Text(body, style:const TextStyle(color:AppTheme.muted,height:1.35))]))]));
+}
 
 class AiSimulatorPage extends StatefulWidget {
   final List<Player> players;
@@ -2210,60 +2288,79 @@ class _AiSimulatorPageState extends State<AiSimulatorPage> {
   String scenarioKey='build_up_under_press';
   TeamInfo? team;
   Player? a,b;
+  bool showGuide=false;
 
   @override Widget build(BuildContext context) {
-    team ??= widget.teams.isNotEmpty ? widget.teams.first : null;
-    a ??= widget.players.first;
-    b ??= widget.players.length>1 ? widget.players[1] : widget.players.first;
+    final cleanTeams = widget.teams.where((t){ final n=t.name.toLowerCase(); return !(n.contains('soccer aid')||n.contains('women')||n.contains('female')||n.contains('classic xi')); }).toList();
+    team ??= cleanTeams.isNotEmpty ? cleanTeams.first : (widget.teams.isNotEmpty ? widget.teams.first : null);
+    a ??= widget.players.firstWhere((p)=>p.name.toLowerCase().contains('mbapp'), orElse:()=>widget.players.first);
+    b ??= widget.players.firstWhere((p)=>p.name.toLowerCase().contains('walker'), orElse:()=>widget.players.length>1 ? widget.players[1] : widget.players.first);
     final sc=advancedScenarios.firstWhere((x)=>x.key==scenarioKey);
     final mode=modes.firstWhere((m)=>m.key==sc.duel, orElse:()=>modes.first);
     final sa=score(a!, mode), sb=score(b!, mode);
     final squad=team==null ? <Player>[] : _teamSquad(team!, widget.players);
+    final winner=sa.total>=sb.total?a!:b!;
     return ListView(padding: const EdgeInsets.all(14), children:[
-      Header('IA Simulator Pro', 'Situations tactiques du plugin : pressing, cutback, bloc bas, transitions'),
-      Container(padding: const EdgeInsets.all(18), decoration: BoxDecoration(borderRadius: BorderRadius.circular(30), gradient: const LinearGradient(colors:[AppTheme.pink, AppTheme.purple])), child: Column(crossAxisAlignment:CrossAxisAlignment.start, children:[
-        const Text('Simulation coach', style: TextStyle(color:Colors.white, fontSize:26, fontWeight:FontWeight.w900)),
-        const SizedBox(height:6),
-        Text(sc.label, style: const TextStyle(color:Colors.white70, fontWeight:FontWeight.w700)),
+      Header('IA Simulator Pro', 'Même logique que le plugin : situation → duel → critères → lecture coach'),
+      Container(padding: const EdgeInsets.all(18), decoration: BoxDecoration(borderRadius: BorderRadius.circular(30), color: Colors.white, border: Border.all(color:AppTheme.line), boxShadow:[BoxShadow(color:Colors.black.withOpacity(.04), blurRadius:24, offset:Offset(0,10))]), child: Column(crossAxisAlignment:CrossAxisAlignment.start, children:[
+        Row(children:[Container(width:50,height:50, decoration:const BoxDecoration(shape:BoxShape.circle, gradient:LinearGradient(colors:[AppTheme.pink,AppTheme.purple])), child:const Icon(Icons.auto_awesome_rounded,color:Colors.white)), const SizedBox(width:12), Expanded(child:Column(crossAxisAlignment:CrossAxisAlignment.start, children:[const Text('Simulation tactique', style: TextStyle(fontSize:24, fontWeight:FontWeight.w900, color:AppTheme.ink)), Text(sc.label, style: const TextStyle(color:AppTheme.muted, fontWeight:FontWeight.w700))]))]),
         const SizedBox(height:14),
-        DropdownButtonFormField<String>(value:scenarioKey, isExpanded:true, dropdownColor: Colors.white, decoration: const InputDecoration(labelText:'Mode IA avancé'), items:advancedScenarios.map((x)=>DropdownMenuItem(value:x.key, child:Text(x.label, overflow:TextOverflow.ellipsis))).toList(), onChanged:(v)=>setState(()=>scenarioKey=v!)),
+        DropdownButtonFormField<String>(value:scenarioKey, isExpanded:true, decoration: const InputDecoration(labelText:'Mode IA avancé du plugin'), items:advancedScenarios.map((x)=>DropdownMenuItem(value:x.key, child:Text(x.label, overflow:TextOverflow.ellipsis))).toList(), onChanged:(v)=>setState(()=>scenarioKey=v!)),
+        const SizedBox(height:10),
+        Wrap(spacing:8, runSpacing:8, children:[Chip(label:Text('Duel moteur : ${mode.label}')), Chip(label:Text('Gagnant profil : ${winner.name}')), ActionChip(label:Text(showGuide?'Masquer guide':'Afficher guide complet'), onPressed:()=>setState(()=>showGuide=!showGuide))]),
       ])),
       const SizedBox(height:12),
-      ProBox(title:'Contexte équipe', subtitle:'Formation + XI + remplaçants', icon:Icons.shield_rounded, child:Column(children:[
-        DropdownButtonFormField<String>(value:team?.id, isExpanded:true, items:widget.teams.take(300).map((t)=>DropdownMenuItem(value:t.id, child:Text(t.name, overflow:TextOverflow.ellipsis))).toList(), onChanged:(v)=>setState(()=>team=widget.teams.firstWhere((t)=>t.id==v)), decoration: const InputDecoration(labelText:'Équipe')),
+      if(showGuide) ProBox(title:'Guide modes IA du plugin', subtitle:'Tous les scénarios disponibles et leurs conseils', icon:Icons.menu_book_rounded, child:Column(crossAxisAlignment:CrossAxisAlignment.start, children:advancedScenarios.map((x)=>Padding(padding:const EdgeInsets.only(bottom:10), child:Text('• ${x.label}\n${x.advice}', style:const TextStyle(height:1.35)))).toList())),
+      ProBox(title:'Terrain tactique interactif', subtitle:'Zone, flèches, joueurs, duel et intention de jeu', icon:Icons.sports_soccer_rounded, child:Column(children:[
+        if(team!=null) DropdownButtonFormField<String>(value:team?.id, isExpanded:true, items:cleanTeams.take(500).map((t)=>DropdownMenuItem(value:t.id, child:Text(t.name, overflow:TextOverflow.ellipsis))).toList(), onChanged:(v)=>setState(()=>team=cleanTeams.firstWhere((t)=>t.id==v)), decoration: const InputDecoration(labelText:'Équipe')),
         const SizedBox(height:10),
-        SizedBox(height:410, child:TeamPitchView(players:squad.take(11).toList())),
+        ScenarioTacticalBoard(scenario:sc, a:a!, b:b!, squad:squad.take(11).toList()),
         const SizedBox(height:10),
-        Align(alignment:Alignment.centerLeft, child:Text('Remplaçants', style:Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight:FontWeight.w900))),
+        Align(alignment:Alignment.centerLeft, child:Text('Banc / remplaçants', style:Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight:FontWeight.w900))),
         const SizedBox(height:6),
-        SizedBox(height:96, child:ListView(scrollDirection:Axis.horizontal, children:squad.skip(11).take(14).map((p)=>Container(width:108, margin:const EdgeInsets.only(right:8), child:Column(children:[PlayerAvatar(p:p,size:52), Text(p.name, maxLines:1, overflow:TextOverflow.ellipsis, textAlign:TextAlign.center, style:const TextStyle(fontSize:12,fontWeight:FontWeight.w800)), Text('${p.pos} • ${p.ovr}', style:const TextStyle(fontSize:11,color:AppTheme.muted))]))).toList())),
+        SizedBox(height:96, child:ListView(scrollDirection:Axis.horizontal, children:squad.skip(11).take(18).map((p)=>Container(width:108, margin:const EdgeInsets.only(right:8), child:Column(children:[PlayerAvatar(p:p,size:52), Text(p.name, maxLines:1, overflow:TextOverflow.ellipsis, textAlign:TextAlign.center, style:const TextStyle(fontSize:12,fontWeight:FontWeight.w800)), Text('${p.pos} • ${p.ovr}', style:const TextStyle(fontSize:11,color:AppTheme.muted))]))).toList())),
       ])),
-      ProBox(title:'Duel simulé', subtitle:'Choisis 2 joueurs et l’app applique le mode IA', icon:Icons.compare_arrows_rounded, child:Column(children:[
+      ProBox(title:'Duel du scénario', subtitle:'Compare exactement comme le Duel Engine Pro Plus', icon:Icons.compare_arrows_rounded, child:Column(children:[
         PlayerPicker(title:'Joueur A', players:widget.players, value:a!, onChanged:(p)=>setState(()=>a=p)),
         PlayerPicker(title:'Joueur B', players:widget.players, value:b!, onChanged:(p)=>setState(()=>b=p)),
         ScoreSummary(a:a!, b:b!, sa:sa, sb:sb),
       ])),
-      ProBox(title:'Lecture IA Coach', subtitle:'Conseils actionnables', icon:Icons.psychology_alt_rounded, child:Column(crossAxisAlignment:CrossAxisAlignment.start, children:[
-        Text(sc.advice, style: const TextStyle(fontWeight:FontWeight.w800)),
-        const SizedBox(height:8),
+      ProBox(title:'Lecture IA Coach', subtitle:'Critères, PlayStyles utiles, décision terrain', icon:Icons.psychology_alt_rounded, child:Column(crossAxisAlignment:CrossAxisAlignment.start, children:[
+        Text(sc.advice, style: const TextStyle(fontWeight:FontWeight.w900, height:1.35)),
+        const SizedBox(height:10),
         Wrap(spacing:8, runSpacing:8, children:sc.focus.map((x)=>Chip(label:Text(x))).toList()),
-        const Divider(),
-        Text(_simPlan(sc, a!, b!, sa, sb), style: const TextStyle(color:AppTheme.ink, height:1.45)),
+        const Divider(height:22),
+        ScenarioStepCard(1, 'Déclencheur', _trigger(sc)),
+        ScenarioStepCard(2, 'Action recommandée', _action(sc, winner)),
+        ScenarioStepCard(3, 'Risque à éviter', _risk(sc)),
       ])),
       ProDuelBreakdown(a:a!, b:b!, mode:mode),
     ]);
   }
 
-  String _simPlan(AdvancedScenario sc, Player a, Player b, DuelScore sa, DuelScore sb){
-    final win=sa.total>=sb.total?a:b;
-    final lose=sa.total>=sb.total?b:a;
-    if(sc.key.contains('cutback')) return 'Plan : utilise ${win.name} pour attaquer/couvrir la zone de cutback. Contre ${lose.name}, force le jeu vers la ligne et ferme le point de penalty.';
-    if(sc.key.contains('press')) return 'Plan : ${win.name} a le meilleur profil pressing. Déclenche quand la première touche adverse est longue, puis couvre la passe courte.';
-    if(sc.key.contains('transition')) return 'Plan : dès récupération, cherche ${win.name} dans l’espace. Si tu défends, recule tôt et coupe la trajectoire avant le sprint.';
-    if(sc.key.contains('low_block')) return 'Plan : patience. Attire un joueur, cherche la passe cassante ou le troisième homme. ${win.name} est le profil le plus fiable dans cette situation.';
-    return 'Plan : ${win.name} gagne ce scénario ${sa.total}-${sb.total}. Exploite ses PlayStyles actifs et évite de jouer sur le point fort de ${lose.name}.';
+  String _trigger(AdvancedScenario sc){
+    if(sc.key.contains('press')) return 'Première touche longue, joueur dos au jeu, passe latérale faible ou contrôle orienté mauvais.';
+    if(sc.key.contains('cutback')) return 'Ailier/latéral entre dans la surface côté ligne, défense attire vers le but.';
+    if(sc.key.contains('transition')) return 'Récupération au milieu, défense adverse haute ou latéral sorti.';
+    if(sc.key.contains('low_block')) return 'Bloc regroupé dans l’axe, peu d’espace entre CB et CDM.';
+    return 'Situation de duel où l’angle du corps et le timing décident l’animation.';
+  }
+  String _action(AdvancedScenario sc, Player win){
+    if(sc.key.contains('press')) return 'Utilise ${win.name} pour fermer l’axe, puis force la passe côté faible.';
+    if(sc.key.contains('cutback')) return 'Cherche la zone point de penalty ; en défense, coupe la ligne de passe avant le tacle.';
+    if(sc.key.contains('transition')) return 'Joue vite dans l’espace et évite les touches inutiles. La première passe doit casser la ligne.';
+    if(sc.key.contains('low_block')) return 'Attire un joueur, joue court, puis passe cassante ou troisième homme.';
+    return 'Joue sur le point fort de ${win.name} et évite le type de duel qui active les PlayStyles adverses.';
+  }
+  String _risk(AdvancedScenario sc){
+    if(sc.key.contains('press')) return 'Se jeter trop tôt ouvre la passe dans le dos du pressing.';
+    if(sc.key.contains('cutback')) return 'Courir vers le porteur laisse libre la passe en retrait.';
+    if(sc.key.contains('transition')) return 'Temporiser trop longtemps permet au bloc adverse de se replacer.';
+    if(sc.key.contains('low_block')) return 'Forcer le dribble central déclenche souvent interception ou contre.';
+    return 'Mauvais angle de corps, fatigue et timing tardif changent le résultat.';
   }
 }
+
 
 
 /* === v8.3 full CRUD/content constants === */
