@@ -2227,7 +2227,7 @@ class _ExportImportPageState extends State<ExportImportPage> {
 }
 
 
-class TacticalPage extends StatefulWidget {
+class TacticalPage extends StatelessWidget {
   final Player a,b; final Mode mode;
   const TacticalPage({super.key, required this.a, required this.b, required this.mode});
   @override Widget build(BuildContext context) {
