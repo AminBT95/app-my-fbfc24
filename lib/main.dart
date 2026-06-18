@@ -144,7 +144,8 @@ class Player {
       'defaw': n(j['defaw']), 'tackle': n(j['standtackle']), 'slide': n(j['slidetackle']), 'inter': n(j['interceptions']),
       'finish': n(j['finishing']), 'shot': n(j['shotpower']), 'longshot': n(j['longshots']), 'comp': n(j['composure']), 'stam': n(j['stamina']),
       'jump': n(j['jumping']), 'head': n(j['heading']), 'cross': n(j['crossing']), 'shortp': n(j['shortpass']), 'longp': n(j['longpass']),
-      'vision': n(j['vision']), 'curve': n(j['curve']), 'fk': n(j['fk']), 'posi': n(j['positioning']), 'volleys': n(j['volleys']), 'penalties': n(j['penalties']),
+      'vision': n(j['vision']), 'curve': n(j['curve']), 'fk': n(j['fk']), 'posi': n(j['positioning']), 'attpos': n(j['positioning']), 'volleys': n(j['volleys']), 'penalties': n(j['penalties']),
+      'marking': n(j['marking'], n(j['defaw'])), 'recovery': n(j['reactions']), 'workrate': n(j['stamina']),
       'gkdiv': n(j['gkdiving']), 'gkhan': n(j['gkhandling']), 'gkkick': n(j['gkkicking']), 'gkpos': n(j['gkpositioning']), 'gkref': n(j['gkreflexes']),
     };
     final ps = <String>[
@@ -780,13 +781,24 @@ const modes = <Mode>[
   Mode('box_header', 'Centre surface / tête', 'IA Simulator', 'Attaquer le centre dans la surface : timing, taille, tête, force.', {'head':.30,'jump':.24,'str':.16,'react':.10,'finish':.10,'agg':.06,'bal':.04}),
   Mode('hold_up_play', 'Pivot / dos au but', 'IA Simulator', 'Fixer le CB, protéger et remettre proprement.', {'str':.26,'bal':.22,'ball':.20,'comp':.12,'shortp':.08,'react':.07,'agg':.05}),
   Mode('first_touch_turn', 'Contrôle orienté + demi-tour', 'IA Simulator', 'Premier contrôle sous pression puis changement de direction.', {'ball':.30,'agi':.20,'bal':.18,'react':.14,'drib':.12,'comp':.06}),
+  Mode('att_positioning', 'Positionnement offensif / appel', 'Poste vs poste', 'Attacking positioning, timing d’appel et présence zone dangereuse.', {'attpos':.30,'react':.18,'acc':.16,'finish':.14,'ball':.10,'comp':.08,'vision':.04}),
+  Mode('marking_cover', 'Marquage + couverture', 'Poste vs poste', 'Défenseur qui suit appel, ferme angle et couvre la zone.', {'marking':.28,'defaw':.26,'inter':.16,'react':.12,'tackle':.10,'str':.08}),
+  Mode('fb_vs_winger', 'Latéral vs ailier', 'Poste vs poste', 'RB/LB contre LW/RW : vitesse, jockey, tacle, centres coupés.', {'acc':.16,'sprint':.16,'defaw':.18,'tackle':.18,'agi':.12,'inter':.10,'stam':.10}),
+  Mode('winger_vs_fb', 'Ailier vs latéral', 'Poste vs poste', 'LW/RW contre RB/LB : 1v1, crochet, accélération, centre/cutback.', {'acc':.20,'sprint':.16,'drib':.20,'agi':.16,'cross':.10,'ball':.10,'comp':.08}),
+  Mode('st_vs_cb', 'BU vs défenseur central', 'Poste vs poste', 'ST/CF contre CB : profondeur, contact, finition et défense du dos.', {'sprint':.18,'acc':.15,'str':.16,'finish':.15,'attpos':.12,'react':.10,'head':.08,'comp':.06}),
+  Mode('cb_vs_st', 'CB vs BU', 'Poste vs poste', 'CB contre ST/CF : marquage, contact, couverture profondeur, duel aérien.', {'defaw':.22,'marking':.20,'str':.16,'tackle':.14,'inter':.10,'sprint':.08,'head':.06,'react':.04}),
+  Mode('cam_vs_cdm', 'CAM vs CDM', 'Poste vs poste', 'Créateur entre lignes contre sentinelle : vision, contrôle, interception.', {'vision':.20,'shortp':.18,'ball':.18,'drib':.12,'comp':.12,'react':.10,'inter':.06,'defaw':.04}),
+  Mode('cdm_vs_cam', 'CDM vs CAM', 'Poste vs poste', 'Sentinelle contre meneur : interception, awareness, pressing et tacle.', {'inter':.24,'defaw':.22,'tackle':.16,'react':.12,'stam':.10,'agg':.08,'shortp':.08}),
+  Mode('fullback_overlap', 'Overlap latéral', 'Poste vs poste', 'Latéral qui dédouble : volume, centre, vitesse et retour défensif.', {'stam':.20,'sprint':.18,'acc':.14,'cross':.18,'shortp':.10,'defaw':.10,'inter':.05,'react':.05}),
+  Mode('inside_forward', 'Inside forward / rentrer pied fort', 'Poste vs poste', 'Ailier qui rentre intérieur pour tir/passe : dribble, finition, composure.', {'drib':.20,'agi':.16,'acc':.14,'finish':.18,'shot':.12,'comp':.10,'vision':.10}),
+  Mode('gk_vs_st', 'GK vs ST face-à-face', 'Poste vs poste', 'Gardien face à attaquant : réflexes/positioning contre finition/composure.', {'gkref':.25,'gkpos':.20,'gkdiv':.16,'react':.14,'gkhan':.10,'sprint':.06,'comp':.05,'str':.04}),
 ];
 
 String labelStat(String k) => {
   'acc':'Acceleration','sprint':'Sprint Speed','str':'Strength','agg':'Aggression','bal':'Balance','agi':'Agility','react':'Reactions',
   'ball':'Ball Control','drib':'Dribbling','defaw':'Def. Awareness','tackle':'Standing Tackle','slide':'Slide Tackle','inter':'Interceptions',
   'finish':'Finishing','shot':'Shot Power','longshot':'Long Shots','comp':'Composure','stam':'Stamina','jump':'Jumping','head':'Heading',
-  'cross':'Crossing','shortp':'Short Passing','longp':'Long Passing','vision':'Vision','curve':'Curve','fk':'Free Kick','posi':'Positioning','volleys':'Volleys','penalties':'Penalties','gkdiv':'GK Diving','gkhan':'GK Handling','gkkick':'GK Kicking','gkpos':'GK Positioning','gkref':'GK Reflexes'
+  'cross':'Crossing','shortp':'Short Passing','longp':'Long Passing','vision':'Vision','curve':'Curve','fk':'Free Kick','posi':'Att. Positioning','attpos':'Att. Positioning','marking':'Marking','recovery':'Recovery runs','workrate':'Work rate impact','volleys':'Volleys','penalties':'Penalties','gkdiv':'GK Diving','gkhan':'GK Handling','gkkick':'GK Kicking','gkpos':'GK Positioning','gkref':'GK Reflexes'
 }[k] ?? k;
 
 class DuelScore {
@@ -1182,7 +1194,7 @@ class ProComparisonHero extends StatelessWidget {
     final total=max(1, sa.total+sb.total), pa=(sa.total/total*100).round();
     return Container(
       padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(borderRadius: BorderRadius.circular(32), gradient: const LinearGradient(colors:[Color(0xFF1D4ED8), Color(0xFF0B1728)]), boxShadow:[BoxShadow(color:Colors.black.withOpacity(.25), blurRadius:28, offset:Offset(0,14))]),
+      decoration: BoxDecoration(borderRadius: BorderRadius.circular(32), gradient: const LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight, colors:[Color(0xFF073B82), Color(0xFF061426), Color(0xFF020617)]), boxShadow:[BoxShadow(color:Colors.black.withOpacity(.25), blurRadius:28, offset:Offset(0,14))]),
       child: Column(crossAxisAlignment:CrossAxisAlignment.start, children:[
         Row(children:[
           Expanded(child:_heroPlayer(a, sa.total, true)),
@@ -1232,31 +1244,151 @@ class _MiniSlider extends StatelessWidget {
   @override Widget build(BuildContext context)=>Row(children:[SizedBox(width:58, child:Text('$label ≥ ${value.round()}', style: const TextStyle(fontSize:12, fontWeight:FontWeight.w800))), Expanded(child:Slider(value:value,min:0,max:99,divisions:99,onChanged:onChanged))]);
 }
 
-class ComparePage extends StatelessWidget {
+
+class MatchupSpec {
+  final String key, label, desc;
+  final List<String> modeKeys;
+  const MatchupSpec(this.key, this.label, this.desc, this.modeKeys);
+}
+
+const matchupSpecs = <MatchupSpec>[
+  MatchupSpec('all', 'Tous les duels', 'Affiche tous les modes de comparaison disponibles.', []),
+  MatchupSpec('st_cb', 'ST / CF vs CB', 'Attaquant axial contre défenseur central : profondeur, contact, aérien, finition.', ['st_vs_cb','cb_vs_st','through_ball','shoulder','aerial','finish_pressure','att_positioning','marking_cover']),
+  MatchupSpec('cb_st', 'CB vs ST / CF', 'Défenseur central qui doit contrôler un buteur.', ['cb_vs_st','st_vs_cb','marking_cover','tackle','aerial','speed_long','shoulder','low_block_defend']),
+  MatchupSpec('lw_rb', 'LW vs RB', 'Ailier gauche contre latéral droit : 1v1, cutback, centre, retour défensif.', ['winger_vs_fb','fb_vs_winger','dribble_wing','speed_short','crossing','cutback','inside_forward','jockey']),
+  MatchupSpec('rw_lb', 'RW vs LB', 'Ailier droit contre latéral gauche : mêmes critères avec pied fort/crochet intérieur.', ['winger_vs_fb','fb_vs_winger','dribble_wing','speed_short','crossing','cutback','inside_forward','jockey']),
+  MatchupSpec('rb_lw', 'RB vs LW', 'Latéral droit contre ailier gauche : contenir, bloquer centre, gérer la profondeur.', ['fb_vs_winger','winger_vs_fb','jockey','tackle','interception','speed_long','cutback_def','fullback_overlap']),
+  MatchupSpec('lb_rw', 'LB vs RW', 'Latéral gauche contre ailier droit : contenir, anticiper cutback et intérieur.', ['fb_vs_winger','winger_vs_fb','jockey','tackle','interception','speed_long','cutback_def','fullback_overlap']),
+  MatchupSpec('cam_cdm', 'CAM vs CDM', 'Meneur entre les lignes contre sentinelle.', ['cam_vs_cdm','cdm_vs_cam','pass_break','dribble_central','pressing','interception','first_touch_turn','low_block_break']),
+  MatchupSpec('cm_cm', 'CM vs CM', 'Milieu contre milieu : pressing, passe, volume et lecture.', ['pressing','pass_break','interception','physical','first_touch_turn','transition_attack','transition_defense','cdm_vs_cam']),
+  MatchupSpec('st_gk', 'ST vs GK', 'Face-à-face attaquant/gardien.', ['keeper_1v1','gk_vs_st','finish','finish_pressure','long_shot','aerial','box_header']),
+  MatchupSpec('gk_st', 'GK vs ST', 'Gardien contre buteur : réflexes, sortie, placement.', ['gk_vs_st','gk_shot_stop','gk_sweeper','keeper_1v1','aerial']),
+  MatchupSpec('wing_cutback', 'Aile / cutback', 'Situation de côté : gagner ligne, cutback ou défendre la passe en retrait.', ['winger_vs_fb','fb_vs_winger','cutback','cutback_def','crossing','wing_cross','inside_forward']),
+  MatchupSpec('press_resist', 'Pressing vs sortie de balle', 'Porteur sous pression contre joueur qui presse.', ['pressing','shield','pass_break','first_touch_turn','physical','low_block_break','transition_defense']),
+];
+
+List<Mode> modesForMatchup(String key) {
+  final spec = matchupSpecs.firstWhere((m)=>m.key==key, orElse:()=>matchupSpecs.first);
+  if (spec.modeKeys.isEmpty) return modes;
+  final result = <Mode>[];
+  for (final k in spec.modeKeys) {
+    final found = modes.where((m)=>m.key==k).toList();
+    if (found.isNotEmpty) result.add(found.first);
+  }
+  return result.isEmpty ? modes : result;
+}
+
+String autoMatchupFromPositions(Player a, Player b) {
+  final pa='${a.pos} ${a.pos2}'.toUpperCase();
+  final pb='${b.pos} ${b.pos2}'.toUpperCase();
+  bool has(String s, String x)=>s.split(RegExp(r'[/, ]')).contains(x);
+  if ((has(pa,'ST')||has(pa,'CF')) && has(pb,'CB')) return 'st_cb';
+  if (has(pa,'CB') && (has(pb,'ST')||has(pb,'CF'))) return 'cb_st';
+  if (has(pa,'LW') && (has(pb,'RB')||has(pb,'RWB'))) return 'lw_rb';
+  if (has(pa,'RW') && (has(pb,'LB')||has(pb,'LWB'))) return 'rw_lb';
+  if ((has(pa,'RB')||has(pa,'RWB')) && has(pb,'LW')) return 'rb_lw';
+  if ((has(pa,'LB')||has(pa,'LWB')) && has(pb,'RW')) return 'lb_rw';
+  if (has(pa,'CAM') && (has(pb,'CDM')||has(pb,'CM'))) return 'cam_cdm';
+  if ((has(pa,'CM')||has(pa,'CDM')) && (has(pb,'CM')||has(pb,'CAM')||has(pb,'CDM'))) return 'cm_cm';
+  if ((has(pa,'ST')||has(pa,'CF')) && has(pb,'GK')) return 'st_gk';
+  if (has(pa,'GK') && (has(pb,'ST')||has(pb,'CF'))) return 'gk_st';
+  return 'all';
+}
+
+String matchupCoachText(String key, Player a, Player b) {
+  final spec = matchupSpecs.firstWhere((m)=>m.key==key, orElse:()=>matchupSpecs.first);
+  return '${spec.desc}\nPriorité coach : utilise les modes filtrés ci-dessous, puis ouvre le détail pour voir stats core/support/context, comment profiter et comment contrer.';
+}
+
+class ComparePage extends StatefulWidget {
   final List<Player> players; final Player a,b; final Mode mode;
   final ValueChanged<Player> onA,onB; final ValueChanged<Mode> onMode; final ValueChanged<Map<String,dynamic>> onSaveHistory;
   const ComparePage({super.key, required this.players, required this.a, required this.b, required this.mode, required this.onA, required this.onB, required this.onMode, required this.onSaveHistory});
-  @override Widget build(BuildContext context) {
-    final sa=score(a,mode), sb=score(b,mode), win=sa.total>=sb.total?a:b;
-    return ListView(padding: const EdgeInsets.all(14), children: [
-      Header('Comparateur Pro+', 'Gagnant prévu : ${win.name}'),
-      ProComparisonHero(a:a,b:b,sa:sa,sb:sb,mode:mode),
-      const SizedBox(height: 10),
-      PlayerPicker(title:'Joueur A', players:players, value:a, onChanged:onA),
-      PlayerPicker(title:'Joueur B', players:players, value:b, onChanged:onB),
-      ModePicker(mode: mode, onChanged: onMode),
-      TacticalSituationCard(mode:mode, a:a, b:b),
-      const SizedBox(height: 10),
-      ScoreSummary(a:a,b:b,sa:sa,sb:sb),
-      FilledButton.icon(onPressed: () => onSaveHistory({'date': DateTime.now().toIso8601String(), 'a': a.name, 'b': b.name, 'mode': mode.label, 'scoreA': sa.total, 'scoreB': sb.total, 'winner': win.name}), icon: const Icon(Icons.save), label: const Text('Sauvegarder dans historique')),
-      const SizedBox(height: 10),
-      ProDuelBreakdown(a:a,b:b,mode:mode),
-      const SizedBox(height: 10),
-      DetailCard(a:a,b:b,sa:sa,sb:sb,mode:mode),
-      const SizedBox(height: 10),
-      AllComparisonModesPanel(a:a, b:b, selected:mode, onMode:onMode),
-    ]);
+  @override State<ComparePage> createState()=>_ComparePageState();
+}
+
+class _ComparePageState extends State<ComparePage> {
+  String matchupKey = 'all';
+  bool autoApplied = false;
+
+  @override void didUpdateWidget(covariant ComparePage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.a.id != widget.a.id || oldWidget.b.id != widget.b.id) {
+      autoApplied = false;
+      final k = autoMatchupFromPositions(widget.a, widget.b);
+      if (k != 'all') matchupKey = k;
+    }
   }
+
+  @override Widget build(BuildContext context) {
+    if (!autoApplied) { final k=autoMatchupFromPositions(widget.a, widget.b); if(k!='all') matchupKey=k; autoApplied=true; }
+    final modeList = modesForMatchup(matchupKey);
+    final effectiveMode = modeList.any((m)=>m.key==widget.mode.key) ? widget.mode : modeList.first;
+    final sa=score(widget.a,effectiveMode), sb=score(widget.b,effectiveMode), win=sa.total>=sb.total?widget.a:widget.b;
+    final spec = matchupSpecs.firstWhere((m)=>m.key==matchupKey, orElse:()=>matchupSpecs.first);
+    return Container(
+      decoration: const BoxDecoration(gradient: LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors:[Color(0xFF071225), Color(0xFF0B1728), Color(0xFFF3F7FB)])),
+      child: ListView(padding: const EdgeInsets.all(14), children: [
+        Header('Comparateur Pro+', 'Gagnant prévu : ${win.name}'),
+        ProComparisonHero(a:widget.a,b:widget.b,sa:sa,sb:sb,mode:effectiveMode),
+        const SizedBox(height: 12),
+        _MatchupSelector(value: matchupKey, onChanged: (v){ setState(()=>matchupKey=v); final ml=modesForMatchup(v); if(ml.isNotEmpty) widget.onMode(ml.first); }),
+        const SizedBox(height: 10),
+        _DarkCoachPanel(title: 'Poste vs poste : ${spec.label}', body: matchupCoachText(matchupKey, widget.a, widget.b), icon: Icons.route_rounded),
+        const SizedBox(height: 10),
+        PlayerPicker(title:'Joueur A', players:widget.players, value:widget.a, onChanged:widget.onA),
+        PlayerPicker(title:'Joueur B', players:widget.players, value:widget.b, onChanged:widget.onB),
+        _ModeChipsPanel(modes: modeList, selected: effectiveMode, onMode: widget.onMode),
+        TacticalSituationCard(mode:effectiveMode, a:widget.a, b:widget.b),
+        const SizedBox(height: 10),
+        ScoreSummary(a:widget.a,b:widget.b,sa:sa,sb:sb),
+        FilledButton.icon(onPressed: () => widget.onSaveHistory({'date': DateTime.now().toIso8601String(), 'a': widget.a.name, 'b': widget.b.name, 'matchup': spec.label, 'mode': effectiveMode.label, 'scoreA': sa.total, 'scoreB': sb.total, 'winner': win.name}), icon: const Icon(Icons.save), label: const Text('Sauvegarder dans historique')),
+        const SizedBox(height: 10),
+        ProDuelBreakdown(a:widget.a,b:widget.b,mode:effectiveMode),
+        const SizedBox(height: 10),
+        DetailCard(a:widget.a,b:widget.b,sa:sa,sb:sb,mode:effectiveMode),
+        const SizedBox(height: 10),
+        AllComparisonModesPanel(a:widget.a, b:widget.b, selected:effectiveMode, onMode:widget.onMode, modeList:modeList, matchupLabel:spec.label),
+      ]),
+    );
+  }
+}
+
+class _MatchupSelector extends StatelessWidget {
+  final String value; final ValueChanged<String> onChanged;
+  const _MatchupSelector({required this.value, required this.onChanged});
+  @override Widget build(BuildContext context)=>Container(
+    padding: const EdgeInsets.all(14),
+    decoration: BoxDecoration(borderRadius:BorderRadius.circular(26), color: const Color(0xFF071225), border: Border.all(color: const Color(0xFF1D4ED8).withOpacity(.45)), boxShadow:[BoxShadow(color:Colors.black.withOpacity(.18), blurRadius:20, offset:const Offset(0,10))]),
+    child: Column(crossAxisAlignment:CrossAxisAlignment.start, children:[
+      Row(children: const [Icon(Icons.swap_horiz_rounded, color:Color(0xFF34D399)), SizedBox(width:8), Expanded(child:Text('Poste vs poste', style:TextStyle(color:Colors.white, fontSize:18, fontWeight:FontWeight.w900)))]),
+      const SizedBox(height:8),
+      DropdownButtonFormField<String>(value:value, dropdownColor: const Color(0xFF0B1728), style: const TextStyle(color:Colors.white, fontWeight:FontWeight.w800), decoration: const InputDecoration(labelText:'Matchup', fillColor:Color(0xFF0B1728)), items: matchupSpecs.map((m)=>DropdownMenuItem(value:m.key, child:Text(m.label, overflow:TextOverflow.ellipsis))).toList(), onChanged:(v){ if(v!=null) onChanged(v); }),
+    ]),
+  );
+}
+
+class _ModeChipsPanel extends StatelessWidget {
+  final List<Mode> modes; final Mode selected; final ValueChanged<Mode> onMode;
+  const _ModeChipsPanel({required this.modes, required this.selected, required this.onMode});
+  @override Widget build(BuildContext context)=>Container(
+    margin: const EdgeInsets.only(bottom:10), padding: const EdgeInsets.all(12),
+    decoration: BoxDecoration(color:Colors.white, borderRadius:BorderRadius.circular(24), border:Border.all(color:AppTheme.line)),
+    child: Column(crossAxisAlignment:CrossAxisAlignment.start, children:[
+      const Text('Modes adaptés au matchup', style:TextStyle(fontWeight:FontWeight.w900, fontSize:16)),
+      const SizedBox(height:8),
+      Wrap(spacing:8, runSpacing:8, children:modes.map((m)=>ChoiceChip(label:Text(m.label), selected:m.key==selected.key, onSelected:(_)=>onMode(m))).toList()),
+    ]),
+  );
+}
+
+class _DarkCoachPanel extends StatelessWidget {
+  final String title, body; final IconData icon;
+  const _DarkCoachPanel({required this.title, required this.body, required this.icon});
+  @override Widget build(BuildContext context)=>Container(
+    padding: const EdgeInsets.all(16), decoration: BoxDecoration(color: const Color(0xFF061426), borderRadius:BorderRadius.circular(24), border:Border.all(color: const Color(0xFF284766))),
+    child: Row(crossAxisAlignment:CrossAxisAlignment.start, children:[Icon(icon,color:const Color(0xFF34D399)), const SizedBox(width:10), Expanded(child:Column(crossAxisAlignment:CrossAxisAlignment.start, children:[Text(title, style:const TextStyle(color:Colors.white,fontWeight:FontWeight.w900,fontSize:17)), const SizedBox(height:6), Text(body, style:const TextStyle(color:Color(0xFFB7C9E8),height:1.35,fontWeight:FontWeight.w700))]))]),
+  );
 }
 
 
@@ -1264,12 +1396,14 @@ class AllComparisonModesPanel extends StatelessWidget {
   final Player a, b;
   final Mode selected;
   final ValueChanged<Mode> onMode;
-  const AllComparisonModesPanel({super.key, required this.a, required this.b, required this.selected, required this.onMode});
+  final List<Mode>? modeList;
+  final String matchupLabel;
+  const AllComparisonModesPanel({super.key, required this.a, required this.b, required this.selected, required this.onMode, this.modeList, this.matchupLabel='Tous les duels'});
 
   @override
   Widget build(BuildContext context) {
     int winsA = 0, winsB = 0, draws = 0;
-    for (final m in modes) {
+    for (final m in (modeList ?? modes)) {
       final sa = score(a, m).total;
       final sb = score(b, m).total;
       if (sa > sb) winsA++; else if (sb > sa) winsB++; else draws++;
@@ -1290,7 +1424,7 @@ class AllComparisonModesPanel extends StatelessWidget {
           Expanded(child: Text('Tous les modes de comparaison', style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w900))),
         ]),
         const SizedBox(height: 6),
-        const Text('Clique sur un mode pour voir le détail du calcul, les stats utilisées et la lecture coach.', style: TextStyle(color: Color(0xFFB7C9E8), height: 1.35)),
+        Text('Matchup : $matchupLabel • clique sur un mode pour voir détail, stats core/support/context et conseils coach.', style: const TextStyle(color: Color(0xFFB7C9E8), height: 1.35)),
         const SizedBox(height: 14),
         _GlobalScoreBar(a:a,b:b,winsA:winsA,winsB:winsB,draws:draws,winner:globalWinner),
         const SizedBox(height: 14),
@@ -1301,7 +1435,7 @@ class AllComparisonModesPanel extends StatelessWidget {
 
   List<Widget> _groupedModes(BuildContext context) {
     final groups = <String, List<Mode>>{};
-    for (final m in modes) {
+    for (final m in (modeList ?? modes)) {
       groups.putIfAbsent(m.group, () => <Mode>[]).add(m);
     }
     return groups.entries.map((entry) => Padding(
@@ -1486,7 +1620,7 @@ class _ModeDetailSheet extends StatelessWidget {
   Widget _coachBox(String win)=>Container(
     padding: const EdgeInsets.all(14),
     decoration: BoxDecoration(color: const Color(0xFF092B24), borderRadius: BorderRadius.circular(20), border: Border.all(color: const Color(0xFF1FBF75))),
-    child: Text('Lecture coach : $win est le profil le plus adapté pour ce mode. Pour profiter : joue sur les critères forts affichés. Pour contrer : ferme la zone liée au mode, évite le duel direct si l’écart est grand, et force le joueur vers ses stats faibles.', style: const TextStyle(color:Colors.white, fontWeight:FontWeight.w700, height:1.35)),
+    child: Text('Lecture coach : $win est le profil le plus adapté pour ce mode.\n\nComment profiter : provoque ce duel, oriente le jeu vers les stats vertes et utilise les PlayStyles activés.\n\nComment contrer : évite le duel direct, force le joueur vers son mauvais pied/mauvais angle, ferme la zone du mode et demande une couverture proche.\n\nÀ éviter : courir tout droit si l’adversaire gagne vitesse/contact, centrer si l’adversaire gagne aérien, presser seul si l’adversaire gagne Press Proven/Composure.', style: const TextStyle(color:Colors.white, fontWeight:FontWeight.w700, height:1.35)),
   );
   Widget _impactBox(String title, List<ImpactRow> ra, List<ImpactRow> rb)=>Container(
     padding: const EdgeInsets.all(14),
@@ -1982,54 +2116,85 @@ class TeamVsTeamPage extends StatefulWidget {
 }
 class _TeamVsTeamPageState extends State<TeamVsTeamPage> {
   TeamInfo? a,b;
+  String scenario='equal';
   @override Widget build(BuildContext context) {
     final teams=cleanTeamList(widget.teams);
     a ??= teams.isNotEmpty ? teams.first : null;
     b ??= teams.length > 1 ? teams[1] : a;
     final ta=a, tb=b;
     if(ta==null || tb==null) return const Center(child: Text('Aucune équipe'));
-    final modesLine = [
-      ('Attack', ta.attack, tb.defense),
-      ('Midfield', ta.midfield, tb.midfield),
-      ('Defense', ta.defense, tb.attack),
-      ('Overall', ta.overall, tb.overall),
-    ];
-    return ListView(padding: const EdgeInsets.all(14), children:[
-      Header('Team vs Team', 'Compare deux équipes comme dans le plugin'),
-      LayoutBuilder(builder:(context,c){
-        Widget fieldA()=>TeamAutocomplete(teams:teams, value:ta.name, label:'Équipe A', onSelected:(name){final m=teams.where((t)=>t.name.toLowerCase()==name.toLowerCase()).toList(); if(m.isNotEmpty) setState(()=>a=m.first);});
-        Widget fieldB()=>TeamAutocomplete(teams:teams, value:tb.name, label:'Équipe B', onSelected:(name){final m=teams.where((t)=>t.name.toLowerCase()==name.toLowerCase()).toList(); if(m.isNotEmpty) setState(()=>b=m.first);});
-        if(c.maxWidth<520) return Column(children:[fieldA(), const SizedBox(height:8), fieldB()]);
-        return Row(children:[Expanded(child:fieldA()), const SizedBox(width:8), Expanded(child:fieldB())]);
-      }),
-      const SizedBox(height:12),
-      Card(child: Padding(padding: const EdgeInsets.all(16), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children:[
-        Text('${ta.name} vs ${tb.name}', style: const TextStyle(fontSize:22, fontWeight:FontWeight.w900)),
-        const SizedBox(height:10),
-        ...modesLine.map((x){
-          final diff=x.$2-x.$3;
-          return ListTile(dense:true, contentPadding:EdgeInsets.zero, title:Text(x.$1), subtitle:LinearProgressIndicator(value:(x.$2/(x.$2+x.$3).clamp(1,999))), trailing:Text('${x.$2} - ${x.$3}  ${diff>0?"+":""}$diff', style:TextStyle(fontWeight:FontWeight.w900, color:diff>=0?const Color(0xFF86EFAC):const Color(0xFFFB7185))));
+    return Container(
+      decoration: const BoxDecoration(gradient: LinearGradient(begin:Alignment.topCenter,end:Alignment.bottomCenter,colors:[Color(0xFF071225),Color(0xFF0B1728),Color(0xFFF3F7FB)])),
+      child: ListView(padding: const EdgeInsets.all(14), children:[
+        Header('Team vs Team Coach AI Pro', 'Plan complet : attaque, défense, pressing, weak links, game state'),
+        _TeamVersusHero(a:ta,b:tb),
+        const SizedBox(height:12),
+        LayoutBuilder(builder:(context,c){
+          Widget fieldA()=>TeamAutocomplete(teams:teams, value:ta.name, label:'Ton équipe', onSelected:(name){final m=teams.where((t)=>t.name.toLowerCase()==name.toLowerCase()).toList(); if(m.isNotEmpty) setState(()=>a=m.first);});
+          Widget fieldB()=>TeamAutocomplete(teams:teams, value:tb.name, label:'Adversaire', onSelected:(name){final m=teams.where((t)=>t.name.toLowerCase()==name.toLowerCase()).toList(); if(m.isNotEmpty) setState(()=>b=m.first);});
+          if(c.maxWidth<520) return Column(children:[fieldA(), const SizedBox(height:8), fieldB(), const SizedBox(height:8), _scenario()]);
+          return Row(children:[Expanded(child:fieldA()), const SizedBox(width:8), Expanded(child:fieldB()), const SizedBox(width:8), Expanded(child:_scenario())]);
         }),
-      ]))),
-      ProBox(title:'Diagnostic match', subtitle:'Forces, faiblesses, comment attaquer / défendre', icon:Icons.auto_graph_rounded, child:Text('A — ${teamCoachReport(ta, widget.players)}\n\nB — ${teamCoachReport(tb, widget.players)}', style:const TextStyle(height:1.45, fontWeight:FontWeight.w700))),
-      LayoutBuilder(builder:(context,c){ final aCard=TeamMiniAnalysis(team:ta, players:widget.players); final bCard=TeamMiniAnalysis(team:tb, players:widget.players); if(c.maxWidth<560) return Column(children:[aCard,const SizedBox(height:10),bCard]); return Row(crossAxisAlignment: CrossAxisAlignment.start, children:[Expanded(child:aCard), const SizedBox(width:10), Expanded(child:bCard)]); }),
-    ]);
+        const SizedBox(height:12),
+        _TeamPhaseCard(a:ta,b:tb),
+        const SizedBox(height:12),
+        _TeamCoachPlanCard(a:ta,b:tb,players:widget.players,scenario:scenario),
+        const SizedBox(height:12),
+        _TeamWeakLinksCard(a:ta,b:tb,players:widget.players),
+        const SizedBox(height:12),
+        _TeamLineupCompare(a:ta,b:tb,players:widget.players),
+      ]),
+    );
   }
+  Widget _scenario()=>DropdownButtonFormField<String>(value:scenario, decoration:const InputDecoration(labelText:'Scenario'), items:const [DropdownMenuItem(value:'equal',child:Text('Niveau proche')), DropdownMenuItem(value:'weak',child:Text('Adversaire plus faible')), DropdownMenuItem(value:'strong',child:Text('Adversaire plus fort'))], onChanged:(v)=>setState(()=>scenario=v??'equal'));
 }
-class TeamMiniAnalysis extends StatelessWidget {
-  final TeamInfo team; final List<Player> players;
-  const TeamMiniAnalysis({super.key, required this.team, required this.players});
-  @override Widget build(BuildContext context) {
-    final squad=_teamSquad(team, cleanPlayerList(players)).take(7).toList();
-    return ProBox(title:team.name, subtitle:'OVR ${team.overall} • ${team.manager}', icon:Icons.shield, child:Column(crossAxisAlignment:CrossAxisAlignment.start, children:[
-      Wrap(spacing:6, runSpacing:6, children:[...team.strongTraits.take(3).map((x)=>Chip(label:Text('Force: $x', overflow:TextOverflow.ellipsis))), ...team.weakTraits.take(2).map((x)=>Chip(label:Text('Faible: $x', overflow:TextOverflow.ellipsis)))]),
-      const SizedBox(height:8),
-      Text(teamCoachReport(team, players), maxLines:5, overflow:TextOverflow.ellipsis, style:const TextStyle(height:1.35, color:AppTheme.muted, fontWeight:FontWeight.w700)),
-      const Divider(),
-      ...squad.map((p)=>ListTile(dense:true, contentPadding:EdgeInsets.zero, leading:PlayerAvatar(p:p, size:36), title:Text(p.name, maxLines:1, overflow:TextOverflow.ellipsis), subtitle:Text('${p.pos} • ${coachStrengths(p)}', maxLines:1, overflow:TextOverflow.ellipsis), trailing:Text('${p.ovr}'), onTap:()=>openPlayer(context,p))),
-    ]));
-  }
+
+class _TeamVersusHero extends StatelessWidget {
+  final TeamInfo a,b; const _TeamVersusHero({required this.a, required this.b});
+  @override Widget build(BuildContext context)=>Container(padding:const EdgeInsets.all(18), decoration:BoxDecoration(borderRadius:BorderRadius.circular(30), gradient:const LinearGradient(colors:[Color(0xFF101828),Color(0xFF111827)]), boxShadow:[BoxShadow(color:Colors.black.withOpacity(.25), blurRadius:28, offset:Offset(0,12))]), child:Column(children:[
+    Row(children:[Expanded(child:_team(a,Colors.redAccent)), Container(padding:const EdgeInsets.all(10), decoration:BoxDecoration(color:Colors.white10,borderRadius:BorderRadius.circular(16)), child:const Text('VS',style:TextStyle(color:Colors.white,fontWeight:FontWeight.w900))), Expanded(child:_team(b,const Color(0xFF2F80FF), right:true))]),
+    const SizedBox(height:14),
+    _dual('Attaque vs Défense', a.attack, b.defense),
+    _dual('Milieu vs Milieu', a.midfield, b.midfield),
+    _dual('Défense vs Attaque', a.defense, b.attack),
+    _dual('Overall', a.overall, b.overall),
+  ]));
+  Widget _team(TeamInfo t, Color color, {bool right=false})=>Column(crossAxisAlignment:right?CrossAxisAlignment.end:CrossAxisAlignment.start, children:[Container(width:54,height:54,alignment:Alignment.center,decoration:BoxDecoration(shape:BoxShape.circle,color:color.withOpacity(.25),border:Border.all(color:color,width:2)),child:Text(t.name.substring(0,1).toUpperCase(),style:TextStyle(color:color,fontWeight:FontWeight.w900,fontSize:24))), const SizedBox(height:8), Text(t.name,maxLines:2,overflow:TextOverflow.ellipsis,textAlign:right?TextAlign.right:TextAlign.left,style:const TextStyle(color:Colors.white,fontWeight:FontWeight.w900,fontSize:20)), Text('OVR ${t.overall} • ${t.manager}',maxLines:1,overflow:TextOverflow.ellipsis,style:const TextStyle(color:Color(0xFFB7C9E8)))]);
+  Widget _dual(String label, int av, int bv){ final total=max(1,av+bv); final pa=(av/total*100).round(); return Padding(padding:const EdgeInsets.only(top:10), child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[Row(children:[Expanded(child:Text(label,style:const TextStyle(color:Colors.white70,fontWeight:FontWeight.w800))), Text('$av - $bv',style:const TextStyle(color:Colors.white,fontWeight:FontWeight.w900))]), const SizedBox(height:5), ClipRRect(borderRadius:BorderRadius.circular(99), child:SizedBox(height:8, child:Row(children:[Expanded(flex:max(1,pa),child:Container(color:Colors.redAccent)), Expanded(flex:max(1,100-pa),child:Container(color:const Color(0xFF2F80FF)))]))) ])); }
 }
+
+class _TeamPhaseCard extends StatelessWidget { final TeamInfo a,b; const _TeamPhaseCard({required this.a, required this.b});
+  @override Widget build(BuildContext context)=>ProBox(title:'Comparaison par phase', subtitle:'Attack plan • Pressing targets • Game state', icon:Icons.bar_chart_rounded, child:Column(children:[
+    _line('Construire / relance', a.midfield+a.defense, b.midfield+b.attack),
+    _line('Attaquer bloc bas', a.attack+a.midfield, b.defense+b.midfield),
+    _line('Défendre transitions', a.defense+a.midfield, b.attack+b.midfield),
+    _line('Centres / surface', a.attack+a.defense, b.defense+b.attack),
+    _line('Pressing / récupération', a.midfield+a.attack, b.midfield+b.defense),
+  ]));
+  Widget _line(String label,int av,int bv){ final total=max(1,av+bv); final pa=(av/total*100).round(); final diff=av-bv; return Padding(padding:const EdgeInsets.only(bottom:14), child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[Row(children:[Expanded(child:Text(label,style:const TextStyle(fontWeight:FontWeight.w900))), Text('${diff>=0?'+':''}$diff',style:TextStyle(fontWeight:FontWeight.w900,color:diff>=0?AppTheme.green:Colors.redAccent))]), const SizedBox(height:6), ClipRRect(borderRadius:BorderRadius.circular(99),child:SizedBox(height:9,child:Row(children:[Expanded(flex:max(1,pa),child:Container(color:AppTheme.green)), Expanded(flex:max(1,100-pa),child:Container(color:const Color(0xFFDDE7F0)))]))) ])); }
+}
+
+class _TeamCoachPlanCard extends StatelessWidget { final TeamInfo a,b; final List<Player> players; final String scenario; const _TeamCoachPlanCard({required this.a,required this.b,required this.players,required this.scenario});
+  @override Widget build(BuildContext context)=>_dark(title:'Plan Coach AI', icon:Icons.psychology_alt_rounded, children:[
+    _section('Forces à exploiter', '${a.name}: ${teamCoachReport(a, players).split('Faiblesses').first.trim()}'),
+    _section('Faiblesses adverses à viser', 'Cible les latéraux/CB les moins rapides, attaque espace CB-LB/RB, force ${b.name} à défendre les cutbacks.'),
+    _section('Comment attaquer', scenario=='strong'?'Bloc médian, transitions rapides, cherche 3e homme et évite pertes axiales.':'Possession agressive, isole ailier fort, provoque 1v1 puis cutback.'),
+    _section('Comment défendre', 'CDM devant les CB, latéral côté ballon prudent, ne presse pas seul. Ferme passe verticale et protège zone penalty spot.'),
+    _section('Game state', 'Si tu mènes : baisse rythme, garde largeur. Si tu perds : augmente pressing et attaque côté faible avec overlap.'),
+  ]);
+  Widget _section(String t,String b)=>Padding(padding:const EdgeInsets.only(bottom:10), child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[Text(t,style:const TextStyle(color:Color(0xFF8EEBC2),fontWeight:FontWeight.w900)),const SizedBox(height:3),Text(b,style:const TextStyle(color:Color(0xFFB7C9E8),height:1.35,fontWeight:FontWeight.w700))]));
+  Widget _dark({required String title, required IconData icon, required List<Widget> children})=>Container(padding:const EdgeInsets.all(16), decoration:BoxDecoration(color:const Color(0xFF061426),borderRadius:BorderRadius.circular(26),border:Border.all(color:const Color(0xFF284766))), child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[Row(children:[Icon(icon,color:const Color(0xFF34D399)),const SizedBox(width:8),Expanded(child:Text(title,style:const TextStyle(color:Colors.white,fontSize:20,fontWeight:FontWeight.w900)))]),const SizedBox(height:12),...children]));
+}
+
+class _TeamWeakLinksCard extends StatelessWidget { final TeamInfo a,b; final List<Player> players; const _TeamWeakLinksCard({required this.a,required this.b,required this.players});
+  @override Widget build(BuildContext context){ final bp=_teamSquad(b, cleanPlayerList(players)).take(18).toList(); final weak=[...bp]..sort((x,y)=>(x.s['pac']??0)+(x.s['phy']??0)+(x.s['def']??0) - ((y.s['pac']??0)+(y.s['phy']??0)+(y.s['def']??0))); return ProBox(title:'Pressing targets / weak links', subtitle:'Joueurs adverses à cibler', icon:Icons.location_searching_rounded, child:Column(children:weak.take(5).map((p)=>ListTile(leading:PlayerAvatar(p:p,size:42),title:Text(p.name,maxLines:1,overflow:TextOverflow.ellipsis),subtitle:Text('Faiblesse : ${coachWeaknesses(p)}',maxLines:2,overflow:TextOverflow.ellipsis),trailing:Text('${p.ovr}',style:const TextStyle(fontWeight:FontWeight.w900)),onTap:()=>openPlayer(context,p))).toList())); }
+}
+
+class _TeamLineupCompare extends StatelessWidget { final TeamInfo a,b; final List<Player> players; const _TeamLineupCompare({required this.a,required this.b,required this.players});
+  @override Widget build(BuildContext context){ final pa=_teamSquad(a,cleanPlayerList(players)).take(11).toList(); final pb=_teamSquad(b,cleanPlayerList(players)).take(11).toList(); return ProBox(title:'XI clés comparés', subtitle:'Clique joueur pour détail', icon:Icons.groups_rounded, child:Column(children:List.generate(max(pa.length,pb.length),(i){ final x=i<pa.length?pa[i]:null, y=i<pb.length?pb[i]:null; return Padding(padding:const EdgeInsets.only(bottom:8), child:Row(children:[Expanded(child:x==null?const SizedBox():_miniPlayer(context,x)), const SizedBox(width:8), Expanded(child:y==null?const SizedBox():_miniPlayer(context,y))])); }))); }
+  Widget _miniPlayer(BuildContext context, Player p)=>InkWell(onTap:()=>openPlayer(context,p), child:Container(padding:const EdgeInsets.all(8), decoration:BoxDecoration(color:const Color(0xFFF7F9FC),borderRadius:BorderRadius.circular(16),border:Border.all(color:AppTheme.line)), child:Row(children:[PlayerAvatar(p:p,size:32),const SizedBox(width:6),Expanded(child:Text(p.name,maxLines:1,overflow:TextOverflow.ellipsis,style:const TextStyle(fontWeight:FontWeight.w800))),Text('${p.ovr}',style:const TextStyle(fontWeight:FontWeight.w900))])));
+}
+
 
 class TacticalIdeasPage extends StatefulWidget {
   final List<Player> players;
