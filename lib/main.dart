@@ -1253,8 +1253,258 @@ class ComparePage extends StatelessWidget {
       ProDuelBreakdown(a:a,b:b,mode:mode),
       const SizedBox(height: 10),
       DetailCard(a:a,b:b,sa:sa,sb:sb,mode:mode),
+      const SizedBox(height: 10),
+      AllComparisonModesPanel(a:a, b:b, selected:mode, onMode:onMode),
     ]);
   }
+}
+
+
+class AllComparisonModesPanel extends StatelessWidget {
+  final Player a, b;
+  final Mode selected;
+  final ValueChanged<Mode> onMode;
+  const AllComparisonModesPanel({super.key, required this.a, required this.b, required this.selected, required this.onMode});
+
+  @override
+  Widget build(BuildContext context) {
+    int winsA = 0, winsB = 0, draws = 0;
+    for (final m in modes) {
+      final sa = score(a, m).total;
+      final sb = score(b, m).total;
+      if (sa > sb) winsA++; else if (sb > sa) winsB++; else draws++;
+    }
+    final globalWinner = winsA == winsB ? 'Égalité globale' : (winsA > winsB ? a.name : b.name);
+    return Container(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(28),
+        gradient: const LinearGradient(colors: [Color(0xFF061426), Color(0xFF0B2340)]),
+        border: Border.all(color: Color(0xFF284766)),
+        boxShadow: [BoxShadow(color: Colors.black.withOpacity(.22), blurRadius: 24, offset: const Offset(0, 12))],
+      ),
+      padding: const EdgeInsets.all(16),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(children: const [
+          Icon(Icons.analytics_rounded, color: Color(0xFF34D399)),
+          SizedBox(width: 8),
+          Expanded(child: Text('Tous les modes de comparaison', style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w900))),
+        ]),
+        const SizedBox(height: 6),
+        const Text('Clique sur un mode pour voir le détail du calcul, les stats utilisées et la lecture coach.', style: TextStyle(color: Color(0xFFB7C9E8), height: 1.35)),
+        const SizedBox(height: 14),
+        _GlobalScoreBar(a:a,b:b,winsA:winsA,winsB:winsB,draws:draws,winner:globalWinner),
+        const SizedBox(height: 14),
+        ..._groupedModes(context),
+      ]),
+    );
+  }
+
+  List<Widget> _groupedModes(BuildContext context) {
+    final groups = <String, List<Mode>>{};
+    for (final m in modes) {
+      groups.putIfAbsent(m.group, () => <Mode>[]).add(m);
+    }
+    return groups.entries.map((entry) => Padding(
+      padding: const EdgeInsets.only(bottom: 14),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Text(entry.key, style: const TextStyle(color: Color(0xFF8EEBC2), fontWeight: FontWeight.w900, fontSize: 15)),
+        const SizedBox(height: 8),
+        ...entry.value.map((m) => _ModeResultTile(a:a,b:b,mode:m,selected:m.key==selected.key,onTap:(){
+          onMode(m);
+          showModalBottomSheet(
+            context: context,
+            isScrollControlled: true,
+            backgroundColor: Colors.transparent,
+            builder: (_) => _ModeDetailSheet(a:a,b:b,mode:m),
+          );
+        })),
+      ]),
+    )).toList();
+  }
+}
+
+class _GlobalScoreBar extends StatelessWidget {
+  final Player a,b; final int winsA,winsB,draws; final String winner;
+  const _GlobalScoreBar({required this.a, required this.b, required this.winsA, required this.winsB, required this.draws, required this.winner});
+  @override Widget build(BuildContext context) {
+    final total = max(1, winsA + winsB + draws);
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(color: const Color(0xFF0B1B31), borderRadius: BorderRadius.circular(22), border: Border.all(color: const Color(0xFF284766))),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(children: [
+          Expanded(child: _winColumn('A', a.name, winsA, const Color(0xFF2F80FF))),
+          Container(width:1,height:48,color:const Color(0xFF284766)),
+          Expanded(child: _winColumn('=', 'Égalités', draws, const Color(0xFF94A3B8))),
+          Container(width:1,height:48,color:const Color(0xFF284766)),
+          Expanded(child: _winColumn('B', b.name, winsB, const Color(0xFF45D06D))),
+        ]),
+        const SizedBox(height: 12),
+        ClipRRect(
+          borderRadius: BorderRadius.circular(99),
+          child: SizedBox(height: 12, child: Row(children: [
+            Expanded(flex: max(1,winsA), child: Container(color: const Color(0xFF2F80FF))),
+            if(draws>0) Expanded(flex: draws, child: Container(color: const Color(0xFF64748B))),
+            Expanded(flex: max(1,winsB), child: Container(color: const Color(0xFF45D06D))),
+          ])),
+        ),
+        const SizedBox(height: 10),
+        Text('Gagnant global : $winner • $winsA - $winsB, $draws égalités sur $total modes', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900)),
+      ]),
+    );
+  }
+  Widget _winColumn(String tag, String name, int n, Color color)=>Padding(
+    padding: const EdgeInsets.symmetric(horizontal:8),
+    child: Column(crossAxisAlignment: CrossAxisAlignment.center, children: [
+      Container(width:34,height:34,alignment:Alignment.center,decoration:BoxDecoration(shape:BoxShape.circle,color:color),child:Text(tag, style: const TextStyle(color:Colors.white,fontWeight:FontWeight.w900))),
+      const SizedBox(height:6),
+      Text('$n victoires', style: const TextStyle(color:Colors.white,fontWeight:FontWeight.w900)),
+      Text(name, maxLines:1, overflow:TextOverflow.ellipsis, style: const TextStyle(color:Color(0xFFB7C9E8), fontSize:12)),
+    ]),
+  );
+}
+
+class _ModeResultTile extends StatelessWidget {
+  final Player a,b; final Mode mode; final bool selected; final VoidCallback onTap;
+  const _ModeResultTile({required this.a, required this.b, required this.mode, required this.selected, required this.onTap});
+  @override Widget build(BuildContext context) {
+    final sa=score(a,mode), sb=score(b,mode);
+    final total=max(1,sa.total+sb.total);
+    final pa=(sa.total/total*100).clamp(0,100).round();
+    final win = sa.total == sb.total ? 'Égalité' : (sa.total > sb.total ? 'A' : 'B');
+    final winColor = win=='A' ? const Color(0xFF2F80FF) : win=='B' ? const Color(0xFF45D06D) : const Color(0xFF94A3B8);
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(18),
+      child: Container(
+        margin: const EdgeInsets.only(bottom:8),
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: selected ? const Color(0xFF123A66) : const Color(0xFF0D2038),
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: selected ? const Color(0xFF34D399) : const Color(0xFF284766)),
+        ),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Row(children: [
+            Expanded(child: Text(mode.label, maxLines:1, overflow:TextOverflow.ellipsis, style: const TextStyle(color:Colors.white, fontWeight:FontWeight.w900, fontSize:15))),
+            Container(padding: const EdgeInsets.symmetric(horizontal:10, vertical:6), decoration:BoxDecoration(color:winColor.withOpacity(.18),borderRadius:BorderRadius.circular(999),border:Border.all(color:winColor.withOpacity(.7))), child:Text(win, style:TextStyle(color:winColor, fontWeight:FontWeight.w900))),
+          ]),
+          const SizedBox(height: 4),
+          Text(mode.desc, maxLines:1, overflow:TextOverflow.ellipsis, style: const TextStyle(color:Color(0xFFB7C9E8), fontSize:12)),
+          const SizedBox(height: 9),
+          Row(children: [
+            SizedBox(width:44, child:Text('${sa.total}', style: const TextStyle(color:Colors.white, fontWeight:FontWeight.w900))),
+            Expanded(child: ClipRRect(borderRadius:BorderRadius.circular(99), child:SizedBox(height:10, child:Row(children:[
+              Expanded(flex:max(1,pa), child:Container(color:const Color(0xFF2F80FF))),
+              Expanded(flex:max(1,100-pa), child:Container(color:const Color(0xFF45D06D))),
+            ])))),
+            SizedBox(width:44, child:Text('${sb.total}', textAlign:TextAlign.end, style: const TextStyle(color:Colors.white, fontWeight:FontWeight.w900))),
+            const SizedBox(width:6),
+            const Icon(Icons.keyboard_arrow_right_rounded, color:Color(0xFFB7C9E8)),
+          ]),
+        ]),
+      ),
+    );
+  }
+}
+
+class _ModeDetailSheet extends StatelessWidget {
+  final Player a,b; final Mode mode;
+  const _ModeDetailSheet({required this.a, required this.b, required this.mode});
+  @override Widget build(BuildContext context) {
+    final sa=score(a,mode), sb=score(b,mode);
+    final win = sa.total == sb.total ? 'Égalité' : (sa.total > sb.total ? a.name : b.name);
+    final h = MediaQuery.of(context).size.height;
+    return Container(
+      constraints: BoxConstraints(maxHeight: h * .88),
+      decoration: const BoxDecoration(color: Color(0xFF061426), borderRadius: BorderRadius.vertical(top: Radius.circular(32))),
+      child: ListView(padding: const EdgeInsets.fromLTRB(18, 12, 18, 24), children: [
+        Center(child: Container(width:44,height:5,decoration:BoxDecoration(color:const Color(0xFF46627F), borderRadius:BorderRadius.circular(99)))),
+        const SizedBox(height: 14),
+        Row(children:[
+          Expanded(child: Text(mode.label, style: const TextStyle(color:Colors.white, fontSize:22, fontWeight:FontWeight.w900))),
+          IconButton(onPressed:()=>Navigator.pop(context), icon: const Icon(Icons.close_rounded, color:Colors.white)),
+        ]),
+        Text(mode.group, style: const TextStyle(color:Color(0xFF34D399), fontWeight:FontWeight.w900)),
+        const SizedBox(height: 6),
+        Text(mode.desc, style: const TextStyle(color:Color(0xFFB7C9E8), height:1.35)),
+        const SizedBox(height: 14),
+        _detailScore(a,b,sa,sb,win),
+        const SizedBox(height: 14),
+        const Text('Stats utilisées dans ce mode', style: TextStyle(color:Colors.white, fontSize:18, fontWeight:FontWeight.w900)),
+        const SizedBox(height: 8),
+        ...mode.w.entries.map((e)=>_statDetailRow(e.key, e.value, a.s[e.key]??0, b.s[e.key]??0)),
+        const SizedBox(height: 14),
+        _coachBox(win),
+        const SizedBox(height: 14),
+        _impactBox('Profil / body / AcceleRATE', sa.profileRows, sb.profileRows),
+        const SizedBox(height: 10),
+        _impactBox('PlayStyles & traits activés', sa.playRows.where((x)=>x.active).toList(), sb.playRows.where((x)=>x.active).toList()),
+      ]),
+    );
+  }
+  Widget _detailScore(Player a, Player b, DuelScore sa, DuelScore sb, String win)=>Container(
+    padding: const EdgeInsets.all(14),
+    decoration: BoxDecoration(color: const Color(0xFF0D2038), borderRadius: BorderRadius.circular(22), border: Border.all(color: const Color(0xFF284766))),
+    child: Column(children:[
+      Row(children:[
+        Expanded(child:_playerScore(a,sa,const Color(0xFF2F80FF))),
+        Container(width:1,height:72,color:const Color(0xFF284766)),
+        Expanded(child:_playerScore(b,sb,const Color(0xFF45D06D))),
+      ]),
+      const SizedBox(height: 12),
+      Text('Gagnant du mode : $win', style: const TextStyle(color:Color(0xFF8EEBC2), fontWeight:FontWeight.w900, fontSize:16)),
+    ]),
+  );
+  Widget _playerScore(Player p, DuelScore s, Color c)=>Padding(
+    padding: const EdgeInsets.symmetric(horizontal:8),
+    child: Row(children:[
+      PlayerAvatar(p:p,size:50),
+      const SizedBox(width:8),
+      Expanded(child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
+        Text(p.name,maxLines:1,overflow:TextOverflow.ellipsis,style:const TextStyle(color:Colors.white,fontWeight:FontWeight.w900)),
+        Text('${s.total} pts • core ${s.core} • profil ${s.profile} • styles ${s.play}', style: const TextStyle(color:Color(0xFFB7C9E8), fontSize:12)),
+      ])),
+    ]),
+  );
+  Widget _statDetailRow(String key, double w, int va, int vb) {
+    final maxv=max(1,max(va,vb));
+    return Container(
+      margin: const EdgeInsets.only(bottom:8),
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(color: const Color(0xFF0D2038), borderRadius: BorderRadius.circular(16), border: Border.all(color: const Color(0xFF284766))),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children:[
+        Row(children:[Expanded(child:Text('${labelStat(key)} • poids ${(w*100).round()}%', style: const TextStyle(color:Colors.white,fontWeight:FontWeight.w800))), Text('$va - $vb', style: const TextStyle(color:Colors.white,fontWeight:FontWeight.w900))]),
+        const SizedBox(height:8),
+        ClipRRect(borderRadius:BorderRadius.circular(99), child:SizedBox(height:10, child:Row(children:[
+          Expanded(flex:max(1,(va/maxv*100).round()), child:Container(color:const Color(0xFF2F80FF))),
+          Expanded(flex:max(1,(vb/maxv*100).round()), child:Container(color:const Color(0xFF45D06D))),
+        ]))),
+      ]),
+    );
+  }
+  Widget _coachBox(String win)=>Container(
+    padding: const EdgeInsets.all(14),
+    decoration: BoxDecoration(color: const Color(0xFF092B24), borderRadius: BorderRadius.circular(20), border: Border.all(color: const Color(0xFF1FBF75))),
+    child: Text('Lecture coach : $win est le profil le plus adapté pour ce mode. Pour profiter : joue sur les critères forts affichés. Pour contrer : ferme la zone liée au mode, évite le duel direct si l’écart est grand, et force le joueur vers ses stats faibles.', style: const TextStyle(color:Colors.white, fontWeight:FontWeight.w700, height:1.35)),
+  );
+  Widget _impactBox(String title, List<ImpactRow> ra, List<ImpactRow> rb)=>Container(
+    padding: const EdgeInsets.all(14),
+    decoration: BoxDecoration(color: const Color(0xFF0D2038), borderRadius: BorderRadius.circular(20), border: Border.all(color: const Color(0xFF284766))),
+    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children:[
+      Text(title, style: const TextStyle(color:Colors.white,fontWeight:FontWeight.w900)),
+      const SizedBox(height:8),
+      Row(crossAxisAlignment:CrossAxisAlignment.start,children:[
+        Expanded(child:_impactList(ra)),
+        const SizedBox(width:10),
+        Expanded(child:_impactList(rb)),
+      ]),
+    ]),
+  );
+  Widget _impactList(List<ImpactRow> rows)=>Column(crossAxisAlignment:CrossAxisAlignment.start,children: rows.take(6).map((r)=>Padding(
+    padding: const EdgeInsets.only(bottom:6),
+    child: Text('${r.points>=0?'+':''}${r.points} ${r.name}', maxLines:2, overflow:TextOverflow.ellipsis, style: const TextStyle(color:Color(0xFFB7C9E8), fontSize:12, fontWeight:FontWeight.w700)),
+  )).toList());
 }
 
 class Header extends StatelessWidget {
