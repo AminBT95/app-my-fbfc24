@@ -8,79 +8,134 @@ on:
 jobs:
   build-apk:
     runs-on: ubuntu-latest
+
     steps:
       - uses: actions/checkout@v4
+
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: "17"
+
       - uses: subosito/flutter-action@v2
         with:
           flutter-version: "3.24.5"
           channel: stable
           cache: true
+
+      - name: Install Python dependencies
+        run: |
+          python3 -m pip install --upgrade pip
+          python3 -m pip install Pillow
+
       - name: Create clean Flutter Android project
         run: |
           rm -rf /tmp/fc24_build_app
-          flutter create --platforms=android --org com.fc24coachai fc24_build_app
-          rm -rf /tmp/fc24_build_app
-          mv fc24_build_app /tmp/fc24_build_app
+          flutter create --platforms=android --org com.fc24coachai /tmp/fc24_build_app
 
       - name: Add FC24 Coach AI launcher icon
         run: |
           python3 - <<'PY'
           from pathlib import Path
           from PIL import Image, ImageDraw, ImageFont
+
           base = Path('/tmp/fc24_build_app/android/app/src/main/res')
-          sizes = {'mipmap-mdpi':48,'mipmap-hdpi':72,'mipmap-xhdpi':96,'mipmap-xxhdpi':144,'mipmap-xxxhdpi':192}
+          sizes = {
+              'mipmap-mdpi': 48,
+              'mipmap-hdpi': 72,
+              'mipmap-xhdpi': 96,
+              'mipmap-xxhdpi': 144,
+              'mipmap-xxxhdpi': 192
+          }
+
           def font(size):
-              for f in ['/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf','/usr/share/fonts/truetype/liberation2/LiberationSans-Bold.ttf']:
-                  if Path(f).exists(): return ImageFont.truetype(f, size)
+              for f in [
+                  '/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf',
+                  '/usr/share/fonts/truetype/liberation2/LiberationSans-Bold.ttf'
+              ]:
+                  if Path(f).exists():
+                      return ImageFont.truetype(f, size)
               return ImageFont.load_default()
+
           for folder, size in sizes.items():
               d = base / folder
               d.mkdir(parents=True, exist_ok=True)
-              img = Image.new('RGBA', (size,size), (0,0,0,0))
+
+              img = Image.new('RGBA', (size, size), (0, 0, 0, 0))
               draw = ImageDraw.Draw(img)
-              # gradient circle
+
               for y in range(size):
                   for x in range(size):
-                      dx=x-size/2; dy=y-size/2
-                      if dx*dx+dy*dy <= (size*0.45)**2:
-                          r=int(16 + 12*x/size)
-                          g=int(184 + 45*y/size)
-                          b=int(129 + 90*x/size)
-                          img.putpixel((x,y),(r,g,b,255))
-              draw.ellipse((size*.08,size*.08,size*.92,size*.92), outline=(255,255,255,235), width=max(2,size//22))
-              draw.text((size*.5,size*.49),'24',anchor='mm',font=font(int(size*.32)),fill=(255,255,255,255))
-              draw.text((size*.5,size*.74),'AI',anchor='mm',font=font(int(size*.18)),fill=(8,20,40,255))
-              img.save(d/'ic_launcher.png')
-              img.save(d/'ic_launcher_foreground.png')
+                      dx = x - size / 2
+                      dy = y - size / 2
+                      if dx * dx + dy * dy <= (size * 0.45) ** 2:
+                          r = int(16 + 12 * x / size)
+                          g = int(184 + 45 * y / size)
+                          b = int(129 + 90 * x / size)
+                          img.putpixel((x, y), (r, g, b, 255))
+
+              draw.ellipse(
+                  (size * .08, size * .08, size * .92, size * .92),
+                  outline=(255, 255, 255, 235),
+                  width=max(2, size // 22)
+              )
+              draw.text(
+                  (size * .5, size * .49),
+                  '24',
+                  anchor='mm',
+                  font=font(int(size * .32)),
+                  fill=(255, 255, 255, 255)
+              )
+              draw.text(
+                  (size * .5, size * .74),
+                  'AI',
+                  anchor='mm',
+                  font=font(int(size * .18)),
+                  fill=(8, 20, 40, 255)
+              )
+
+              img.save(d / 'ic_launcher.png')
+              img.save(d / 'ic_launcher_foreground.png')
           PY
+
       - name: Enable Android internet permission
         run: |
           python3 - <<'PY'
           from pathlib import Path
+
           manifest = Path("/tmp/fc24_build_app/android/app/src/main/AndroidManifest.xml")
           txt = manifest.read_text()
+
           if "android.permission.INTERNET" not in txt:
-              txt = txt.replace("<manifest xmlns:android=\"http://schemas.android.com/apk/res/android\">", "<manifest xmlns:android=\"http://schemas.android.com/apk/res/android\">\n    <uses-permission android:name=\"android.permission.INTERNET\" />")
+              txt = txt.replace(
+                  '<manifest xmlns:android="http://schemas.android.com/apk/res/android">',
+                  '<manifest xmlns:android="http://schemas.android.com/apk/res/android">\n    <uses-permission android:name="android.permission.INTERNET" />'
+              )
               manifest.write_text(txt)
           PY
+
       - name: Copy app source
         run: |
           rm -rf /tmp/fc24_build_app/lib
           cp -R lib /tmp/fc24_build_app/lib
-          if [ -d "assets" ]; then cp -R assets /tmp/fc24_build_app/assets; fi
+
+          if [ -d "assets" ]; then
+            rm -rf /tmp/fc24_build_app/assets
+            cp -R assets /tmp/fc24_build_app/assets
+          fi
+
           cp pubspec.yaml /tmp/fc24_build_app/pubspec.yaml
+
       - name: Flutter pub get
         working-directory: /tmp/fc24_build_app
         run: flutter pub get
+
       - name: Build APK release
         working-directory: /tmp/fc24_build_app
         run: flutter build apk --release
+
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: fc24-coach-ai-pro-v5-apk
+          name: fc24-coach-ai-pro-v19-apk
           path: /tmp/fc24_build_app/build/app/outputs/flutter-apk/app-release.apk
