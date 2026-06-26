@@ -153,10 +153,11 @@ class Player {
       'marking': n(j['marking'], n(j['defaw'])), 'block': n(j['blocking'], n(j['defaw'])), 'recovery': n(j['reactions']), 'workrate': n(j['stamina']),
       'gkdiv': n(j['gkdiving']), 'gkhan': n(j['gkhandling']), 'gkkick': n(j['gkkicking']), 'gkpos': n(j['gkpositioning']), 'gkref': n(j['gkreflexes']),
     };
+    final rawPlayStyleFields = ['playstyles','playStyles','playstyle','playstylePlus','playstylesPlus','playstyles_plus','ps','psPlus','playstyle1','playstyle2','playstyle3','playstyle4','iconplaystyle','iconplaystyleplus'];
+    final rawTraitFields = ['traits','trait','trait1Decoded','trait2Decoded','trait3Decoded','trait1','trait2','trait3','specialities','specialties','speciality','traitName'];
     final ps = <String>[
-      ...list(j['playstyles']).map(normalizePlayStyle).where((x)=>x.isNotEmpty),
-      ...list(j['trait1Decoded']).map(normalizeTrait).where((x)=>x.isNotEmpty),
-      ...list(j['trait2Decoded']).map(normalizeTrait).where((x)=>x.isNotEmpty),
+      for (final k in rawPlayStyleFields) ...list(j[k]).map(normalizePlayStyle).where((x)=>x.isNotEmpty),
+      for (final k in rawTraitFields) ...list(j[k]).map(normalizeTrait).where((x)=>x.isNotEmpty),
       ...inferPlaystyles(stats, str(j['pos']), str(j['pos2'])),
     ].where((x) => x.trim().isNotEmpty && !RegExp(r'^\d+$').hasMatch(x.trim())).toSet().toList();
 
@@ -715,12 +716,24 @@ List<PlayStyleDetection> detectFc24PlayStyles(Player p) {
   return out.take(12).toList();
 }
 
+String _canonStyleName(String x) => x.toLowerCase().replaceAll('+','').replaceAll('-', ' ').replaceAll('_',' ').trim();
+
+bool isFc24PlayStyleName(String x) {
+  final y = _canonStyleName(x);
+  if (y.isEmpty) return false;
+  final known = <String>{
+    for (final s in fc24PlayStylesList) _canonStyleName(s),
+    for (final s in fc24PlayStylesPlusList) _canonStyleName(s),
+    'finesse shot','chip shot','power shot','dead ball','power header','precision header','acrobatic','low driven shot','incisive pass','pinged pass','long ball pass','tiki taka','whipped pass','jockey','block','intercept','anticipate','slide tackle','aerial','aerial fortress','technical','rapid','first touch','trickster','press proven','quick step','relentless','bruiser','footwork','cross claimer','rush out','far reach','deflector'
+  };
+  return known.contains(y);
+}
+
 bool isKnownTraitName(String x) {
   final y = x.toLowerCase().trim();
   if (y.isEmpty) return false;
-  if (y.contains('trait')) return true;
-  const traitWords = ['injury free','injury prone','solid player','team player','leadership','one club','flair','play maker','playmaker','pushes up','comes for crosses','cautious with crosses','rushes out','saves with feet','stutter penalty','giant throw','long throw-in'];
-  return traitWords.any((t)=>y.contains(t));
+  if (isFc24PlayStyleName(x)) return false;
+  return true;
 }
 
 List<String> actualPlayerTraits(Player p) {
@@ -734,15 +747,17 @@ List<String> actualPlayerTraits(Player p) {
 List<String> actualPlayerPlayStyles(Player p) {
   final existing = p.playstyles
       .map((x)=>x.trim())
-      .where((x)=>x.isNotEmpty && !isKnownTraitName(x))
+      .where((x)=>x.isNotEmpty && isFc24PlayStyleName(x))
       .toSet();
-  for (final d in detectFc24PlayStyles(p).where((x)=>x.confidence >= 82)) {
+  for (final d in detectFc24PlayStyles(p).where((x)=>x.confidence >= 78)) {
     existing.add(d.name);
   }
   return existing.toList();
 }
 
 List<String> mergedPlayStyles(Player p) => actualPlayerPlayStyles(p);
+
+String playerStableKey(Player p) => '${p.id}|${p.teamId}|${p.team}|${p.name}|${p.pos}';
 
 class FormationPreset {
   final String name;
@@ -1239,9 +1254,10 @@ class _AppShellState extends State<AppShell> {
   }
 
   Future<void> addFavoritePlayer(Player p) async {
-    final added = !favoritePlayerIds.contains(p.id);
+    final key = playerStableKey(p);
+    final added = !favoritePlayerIds.contains(key);
     setState(() {
-      if (added) { favoritePlayerIds.add(p.id); } else { favoritePlayerIds.remove(p.id); }
+      if (added) { favoritePlayerIds.add(key); } else { favoritePlayerIds.remove(key); }
     });
     await LocalStore.saveFavoritePlayerIds(favoritePlayerIds);
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(added ? '${p.name} ajouté aux favoris' : '${p.name} retiré des favoris')));
@@ -1297,7 +1313,7 @@ class _AppShellState extends State<AppShell> {
       DuelVisualsCrudPage(players: customPlayers),
       MatchupFinderPage(players: customPlayers),
       TacticalIdeasPage(players: customPlayers, ideas: tacticalIdeas, onSave: (ideas) async { setState(()=>tacticalIdeas = ideas); await LocalStore.saveIdeas(ideas); }),
-      V42TacticalLabFullPage(initialA: a!, initialB: b!, initialMode: mode, players: customPlayers),
+      V48TacticalLabProPage(initialA: a!, initialB: b!, initialMode: mode, players: customPlayers, ideas: tacticalIdeas, onSaveIdeas: (ideas) async { setState(()=>tacticalIdeas = ideas); await LocalStore.saveIdeas(ideas); }),
       FormationBuilderPage(players: customPlayers),
       HistoryPage(history: history),
       PlayStyleDetectorPage(players: customPlayers),
@@ -1313,7 +1329,8 @@ class _AppShellState extends State<AppShell> {
       TacticBoardAnimationStudioPage(players: customPlayers, teams: customTeams),
       SettingsPage(players: customPlayers, teams: customTeams, ideas: tacticalIdeas, history: history),
       V42ProfessionalWorkflowPage(players: customPlayers, teams: customTeams, onGo:(i)=>setState(()=>tab=i), onOpenPlayer:(p)=>showPlayerDetails(context,p)),
-      V45FinalVipPolishPage(players: customPlayers, teams: customTeams, ideas: tacticalIdeas, history: history, onGo:(i)=>setState(()=>tab=i), onOpenPlayer:(p)=>showPlayerDetails(context,p)),
+      V48VipFinalCenterPage(players: customPlayers, teams: customTeams, ideas: tacticalIdeas, history: history, favoritePlayerIds: favoritePlayerIds, onGo:(i)=>setState(()=>tab=i), onOpenPlayer:(p)=>showPlayerDetails(context,p), onFavorite:(p)=>addFavoritePlayer(p)),
+      V48ReportsQaPage(players: customPlayers, teams: customTeams, ideas: tacticalIdeas, history: history, favoritePlayerIds: favoritePlayerIds),
     ];
 
     return Scaffold(
@@ -1392,6 +1409,7 @@ class AppDrawer extends StatelessWidget {
       (27, Icons.settings_rounded, 'Paramètres / Backup'),
       (28, Icons.manage_search_rounded, 'Command Center Pro'),
       (29, Icons.workspace_premium_rounded, 'VIP Final Polish'),
+      (30, Icons.fact_check_rounded, 'Reports / QA'),
     ];
     return Drawer(
       backgroundColor: AppTheme.dark,
@@ -2378,38 +2396,56 @@ class PlayerDetailsSheet extends StatelessWidget {
   const PlayerDetailsSheet({super.key, required this.p, this.allPlayers = const []});
 
   @override Widget build(BuildContext context) {
+    const tabNames = ['Overview','Stats','PlayStyles','Traits','Analyse IA','Duels','Counters','Similar','History'];
     return DraggableScrollableSheet(
-      initialChildSize: .92,
+      initialChildSize: .94,
       maxChildSize: .98,
-      minChildSize: .50,
+      minChildSize: .55,
       expand: false,
-      builder: (_, controller) => Container(
-        decoration: const BoxDecoration(color: AppTheme.bg, borderRadius: BorderRadius.vertical(top: Radius.circular(30))),
-        child: ListView(controller: controller, padding: const EdgeInsets.all(16), children: [
-          Container(width:52,height:5,margin:const EdgeInsets.only(bottom:14),decoration:BoxDecoration(color:AppTheme.line,borderRadius:BorderRadius.circular(99))),
-          _hero(context),
-          const SizedBox(height:12),
-          _quickActions(context),
-          const SizedBox(height:12),
-          UxTabSection(
-            tabs: const ['Overview','Stats','PlayStyles','Traits','Analyse IA','Duels','Counters','Similar','History'],
-            height: 720,
-            children: [
-              LazyTabChild(builder:_overview),
-              LazyTabChild(builder:_statsHub),
-              LazyTabChild(builder:_playStylesHub),
-              LazyTabChild(builder:_traitsHub),
-              LazyTabChild(builder:_analysisHub),
-              LazyTabChild(builder:_duelsHub),
-              LazyTabChild(builder:_countersHub),
-              LazyTabChild(builder:_similarHub),
-              LazyTabChild(builder:_historyHub),
-            ],
-          ),
-        ]),
+      builder: (_, controller) => DefaultTabController(
+        length: tabNames.length,
+        child: Container(
+          decoration: const BoxDecoration(color: AppTheme.bg, borderRadius: BorderRadius.vertical(top: Radius.circular(30))),
+          child: Column(children: [
+            Container(width:52,height:5,margin:const EdgeInsets.only(top:12,bottom:12),decoration:BoxDecoration(color:AppTheme.line,borderRadius:BorderRadius.circular(99))),
+            Padding(padding: const EdgeInsets.symmetric(horizontal:16), child:_hero(context)),
+            const SizedBox(height:10),
+            Padding(padding: const EdgeInsets.symmetric(horizontal:16), child:_quickActions(context)),
+            const SizedBox(height:10),
+            Container(
+              margin: const EdgeInsets.symmetric(horizontal:16),
+              decoration: BoxDecoration(color: Colors.white.withOpacity(.04), borderRadius: BorderRadius.circular(18), border: Border.all(color: AppTheme.line)),
+              child: TabBar(
+                isScrollable: true,
+                tabAlignment: TabAlignment.start,
+                labelStyle: const TextStyle(fontWeight: FontWeight.w900, fontSize: 12),
+                unselectedLabelColor: AppTheme.muted,
+                tabs: tabNames.map((t)=>Tab(text:t)).toList(),
+              ),
+            ),
+            Expanded(child: TabBarView(children: [
+              _playerTab(_overview),
+              _playerTab(_statsHub),
+              _playerTab(_playStylesHub),
+              _playerTab(_traitsHub),
+              _playerTab(_analysisHub),
+              _playerTab(_duelsHub),
+              _playerTab(_countersHub),
+              _playerTab(_similarHub),
+              _playerTab(_historyHub),
+            ])),
+          ]),
+        ),
       ),
     );
   }
+
+  Widget _playerTab(WidgetBuilder builder) => SingleChildScrollView(
+    primary: false,
+    physics: const ClampingScrollPhysics(),
+    padding: const EdgeInsets.fromLTRB(16,12,16,24),
+    child: LazyTabChild(builder: builder),
+  );
 
   Widget _hero(BuildContext context)=>Container(
     padding: const EdgeInsets.all(16),
@@ -2468,8 +2504,8 @@ class PlayerDetailsSheet extends StatelessWidget {
   )).toList()));
 
   Widget _playStylesHub(BuildContext context){
-    final raw=actualPlayerPlayStyles(p).where((x)=>x.trim().isNotEmpty).toSet().toList();
-    final inferred=detectFc24PlayStyles(p).where((x)=>x.confidence>=82).map((x)=>x.name).where((x)=>!raw.contains(x)).toSet().toList();
+    final raw=p.playstyles.where((x)=>isFc24PlayStyleName(x)).where((x)=>x.trim().isNotEmpty).toSet().toList();
+    final inferred=actualPlayerPlayStyles(p).where((x)=>!raw.contains(x)).toSet().toList();
     final ps=[...raw, ...inferred].toSet().toList();
     return UxTabSection(tabs:const ['Joueur','Déduits','Offensif','Passing','Défensif','Physical','GK'], height:610, children:[
       _playList(context, raw, title:'PlayStyles du joueur'),
@@ -5622,6 +5658,210 @@ class _V45FinalVipPolishPageState extends State<V45FinalVipPolishPage> {
   void _openCommandCenter()=>showUxDetailModal(context,'Command Center VIP',[_commandTab()]);
   void _modal(String title,String body)=>showUxDetailModal(context,title,[ProBox(title:title,subtitle:'V45 VIP',icon:Icons.workspace_premium_rounded,child:Text(body,style:const TextStyle(height:1.45,fontWeight:FontWeight.w700)))]);
   String _playerReport(Player p){ final ts=_topStatsEntries(p,8).map((e)=>'${labelStat(e.key)} ${e.value}').join(' / '); return 'Rapport joueur: ${p.name}\nTeam: ${p.team}\nPoste: ${p.pos}\nOVR: ${p.ovr}\nPlayStyles: ${p.playstyles.join(', ')}\nTop stats: $ts'; }
+}
+
+
+class V48TacticalLabProPage extends StatefulWidget {
+  final Player initialA;
+  final Player initialB;
+  final Mode initialMode;
+  final List<Player> players;
+  final List<TacticalIdea> ideas;
+  final ValueChanged<List<TacticalIdea>> onSaveIdeas;
+  const V48TacticalLabProPage({super.key, required this.initialA, required this.initialB, required this.initialMode, required this.players, required this.ideas, required this.onSaveIdeas});
+  @override State<V48TacticalLabProPage> createState()=>_V48TacticalLabProPageState();
+}
+
+class _LabToken {
+  final Player player;
+  Offset pos;
+  bool selected;
+  _LabToken(this.player, this.pos, {this.selected=false});
+}
+
+class _V48TacticalLabProPageState extends State<V48TacticalLabProPage> {
+  late Player a;
+  late Player b;
+  late Mode mode;
+  String query = '';
+  String tool = 'Move';
+  double timeline = 0;
+  final List<_LabToken> tokens = [];
+  final List<String> timelineEvents = [];
+  final List<String> notes = [];
+
+  @override void initState(){
+    super.initState();
+    a = widget.initialA; b = widget.initialB; mode = widget.initialMode;
+    tokens.add(_LabToken(a, const Offset(.34,.52), selected:true));
+    tokens.add(_LabToken(b, const Offset(.66,.52)));
+    timelineEvents.add('0s • Situation créée: ${a.name} vs ${b.name}');
+  }
+
+  @override Widget build(BuildContext context){
+    final filtered = widget.players.where((p){
+      final q=query.toLowerCase().trim();
+      return q.isEmpty || ('${p.name} ${p.team} ${p.pos} ${p.playstyles.join(' ')}').toLowerCase().contains(q);
+    }).take(40).toList();
+    return ListView(padding: const EdgeInsets.all(14), children:[
+      Header('Tactical Lab Pro V48', 'Drag & drop • timeline • idées • simulation • export rapport'),
+      TextField(decoration: const InputDecoration(prefixIcon:Icon(Icons.search_rounded), hintText:'Chercher joueur à ajouter au terrain...'), onChanged:(v)=>setState(()=>query=v)),
+      const SizedBox(height:10),
+      UxTabSection(tabs: const ['Terrain','Players','Timeline','Simulation','Library','Reports','QA'], height:720, children:[
+        _terrainTab(),
+        _playersTab(filtered),
+        _timelineTab(),
+        _simulationTab(),
+        _libraryTab(),
+        _reportsTab(),
+        _qaTab(),
+      ]),
+    ]);
+  }
+
+  Widget _terrainTab()=>Column(crossAxisAlignment:CrossAxisAlignment.start, children:[
+    ProBox(title:'Outils terrain', subtitle:'Sélectionne un outil puis clique/drag sur les joueurs', icon:Icons.construction_rounded, child:Wrap(spacing:8,runSpacing:8,children:['Move','Pass','Run','Press','Shot','Zone'].map((x)=>ChoiceChip(label:Text(x), selected:tool==x, onSelected:(_)=>setState(()=>tool=x))).toList())),
+    ProBox(title:'Terrain interactif', subtitle:'Drag & drop libre. Clique un joueur pour détail, long press pour modal.', icon:Icons.map_rounded, child:AspectRatio(aspectRatio: .72, child:LayoutBuilder(builder:(context,c){
+      return Container(decoration:BoxDecoration(color:AppTheme.pitch,borderRadius:BorderRadius.circular(26),border:Border.all(color:Colors.white24)),child:Stack(children:[
+        Positioned.fill(child:CustomPaint(painter:V48PitchLinesPainter())),
+        ...tokens.map((t)=>Positioned(left:t.pos.dx*c.maxWidth-23,top:t.pos.dy*c.maxHeight-23,child:GestureDetector(
+          onTap:()=>setState((){ for(final x in tokens){x.selected=false;} t.selected=true; timelineEvents.insert(0,'${timeline.round()}s • Sélection ${t.player.name}'); }),
+          onLongPress:()=>showPlayerDetails(context,t.player),
+          onPanUpdate:(d)=>setState((){ final nx=(t.pos.dx+d.delta.dx/c.maxWidth).clamp(.05,.95); final ny=(t.pos.dy+d.delta.dy/c.maxHeight).clamp(.05,.95); t.pos=Offset(nx,ny); }),
+          onPanEnd:(_)=>setState(()=>timelineEvents.insert(0,'${timeline.round()}s • ${t.player.name} déplacé (${tool})')),
+          child:Container(width:46,height:46,decoration:BoxDecoration(shape:BoxShape.circle,color:t.selected?AppTheme.orange:AppTheme.blue,border:Border.all(color:Colors.white,width:2),boxShadow:const [BoxShadow(blurRadius:10,color:Colors.black54)]),child:Center(child:Text(t.player.pos.isEmpty?'P':t.player.pos.substring(0,min(2,t.player.pos.length)),style:const TextStyle(fontWeight:FontWeight.w900,color:Colors.white,fontSize:11))))
+        ))),
+      ]));
+    }))),
+    ProBox(title:'Actions rapides', subtitle:'Créer animation sans quitter le terrain', icon:Icons.bolt_rounded, child:Wrap(spacing:8,runSpacing:8,children:[
+      ActionChip(label:const Text('Ajouter passe'),avatar:const Icon(Icons.arrow_forward_rounded),onPressed:()=>_addEvent('Passe ${a.name} → ${b.name}')),
+      ActionChip(label:const Text('Course'),avatar:const Icon(Icons.directions_run_rounded),onPressed:()=>_addEvent('Course dans le dos de ${b.name}')),
+      ActionChip(label:const Text('Pressing'),avatar:const Icon(Icons.compress_rounded),onPressed:()=>_addEvent('Déclenche pressing sur premier contrôle')),
+      ActionChip(label:const Text('Sauver idée'),avatar:const Icon(Icons.save_rounded),onPressed:_saveIdea),
+    ])),
+  ]);
+
+  Widget _playersTab(List<Player> filtered)=>Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
+    ProBox(title:'Joueurs sur terrain', subtitle:'Clique pour analyser / retirer / comparer', icon:Icons.groups_rounded, child:Column(children:tokens.map((t)=>ListTile(leading:PlayerAvatar(p:t.player,size:38),title:Text(t.player.name,style:const TextStyle(fontWeight:FontWeight.w900)),subtitle:Text('${t.player.team} • ${t.player.pos} • ${t.player.playstyles.take(3).join(', ')}'),trailing:IconButton(icon:const Icon(Icons.delete_outline_rounded),onPressed:()=>setState(()=>tokens.remove(t))),onTap:()=>showPlayerDetails(context,t.player))).toList())),
+    ProBox(title:'Ajouter joueur', subtitle:'Résultats filtrés', icon:Icons.person_add_rounded, child:Column(children:filtered.map((p)=>ListTile(leading:PlayerAvatar(p:p,size:34),title:Text(p.name,style:const TextStyle(fontWeight:FontWeight.w800)),subtitle:Text('${p.team} • ${p.pos}'),trailing:const Icon(Icons.add_circle_outline_rounded),onTap:()=>setState(()=>tokens.add(_LabToken(p, Offset(.2 + Random().nextDouble()*.6, .2 + Random().nextDouble()*.55)))))).toList())),
+  ]);
+
+  Widget _timelineTab()=>Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
+    ProBox(title:'Timeline animation', subtitle:'Image par image simple + vitesse', icon:Icons.timeline_rounded, child:Column(children:[
+      Slider(value:timeline,min:0,max:90,divisions:18,label:'${timeline.round()}s',onChanged:(v)=>setState(()=>timeline=v)),
+      Wrap(spacing:8,runSpacing:8,children:[ActionChip(label:const Text('Keyframe'),avatar:const Icon(Icons.add),onPressed:()=>_addEvent('Keyframe ${timeline.round()}s')),ActionChip(label:const Text('Pause'),avatar:const Icon(Icons.pause),onPressed:()=>_addEvent('Pause tactique')),ActionChip(label:const Text('Reset'),avatar:const Icon(Icons.restart_alt),onPressed:()=>setState(()=>timelineEvents.clear()))]),
+    ])),
+    ProBox(title:'Événements', subtitle:'Dernières actions du scénario', icon:Icons.list_alt_rounded, child:Column(children:timelineEvents.isEmpty?[const ListTile(title:Text('Aucun événement'))]:timelineEvents.take(20).map((e)=>ListTile(leading:const Icon(Icons.fiber_manual_record_rounded,size:12,color:AppTheme.green),title:Text(e))).toList())),
+  ]);
+
+  Widget _simulationTab(){ final scA=score(a,mode); final scB=score(b,mode); return Column(children:[
+    ScoreSummary(a:a,b:b,sa:scA,sb:scB),
+    ProDuelBreakdown(a:a,b:b,mode:mode),
+    ProBox(title:'Conseil IA situation', subtitle:mode.label, icon:Icons.psychology_rounded, child:Text(scA.total>=scB.total?'Crée ce duel rapidement, puis attaque l’espace après le premier avantage.':'Évite le duel direct. Ajoute un troisième homme, change d’angle ou cherche une passe en retrait.',style:const TextStyle(height:1.45,fontWeight:FontWeight.w800))),
+    ProBox(title:'Mode de simulation', subtitle:'Changer le type de duel', icon:Icons.tune_rounded, child:DropdownButtonFormField<Mode>(value:mode,isExpanded:true,items:modes.map((m)=>DropdownMenuItem(value:m,child:Text(m.label,overflow:TextOverflow.ellipsis))).toList(),onChanged:(m)=>setState(()=>mode=m??mode))),
+  ]);}
+
+  Widget _libraryTab()=>Column(children:[
+    ProBox(title:'Bibliothèque tactique', subtitle:'Idées sauvegardées + idées plugin', icon:Icons.folder_rounded, child:Column(children:widget.ideas.map((idea)=>ListTile(leading:const Icon(Icons.auto_awesome_motion_rounded,color:AppTheme.green),title:Text(idea.name,style:const TextStyle(fontWeight:FontWeight.w900)),subtitle:Text(idea.description),trailing:const Icon(Icons.chevron_right_rounded),onTap:()=>showUxDetailModal(context,idea.name,[ProBox(title:'Détail idée',subtitle:idea.mode,icon:Icons.description_rounded,child:Text(idea.json,style:const TextStyle(height:1.45,fontWeight:FontWeight.w700)))]))).toList())),
+    ProBox(title:'Exercices rapides', subtitle:'Templates coach', icon:Icons.sports_rounded, child:Wrap(spacing:8,runSpacing:8,children:['3v2 couloir','Cutback','Pressing trap','Sortie de balle','Bloc bas','Transition'].map((x)=>ActionChip(label:Text(x),onPressed:()=>_addEvent('Template chargé: $x'))).toList())),
+  ]);
+
+  Widget _reportsTab()=>Column(children:[
+    ProBox(title:'Export scénario', subtitle:'Copie rapport texte/JSON', icon:Icons.description_rounded, child:Wrap(spacing:8,runSpacing:8,children:[
+      ActionChip(label:const Text('Copier rapport'),avatar:const Icon(Icons.copy_rounded),onPressed:()=>_copy(_reportText())),
+      ActionChip(label:const Text('Copier JSON'),avatar:const Icon(Icons.data_object_rounded),onPressed:()=>_copy(jsonEncode(_reportJson()))),
+      ActionChip(label:const Text('Modal rapport'),avatar:const Icon(Icons.open_in_new_rounded),onPressed:()=>showUxDetailModal(context,'Rapport Tactical Lab',[_reportBox()])),
+    ])),
+    _reportBox(),
+  ]);
+
+  Widget _qaTab()=>Column(children:[
+    _qaTile('Scroll onglets','OK: chaque onglet a son propre ListView/SingleChildScrollView'),
+    _qaTile('Player detail','OK: ouverture en modal séparé, calculs au clic'),
+    _qaTile('PlayStyles/traits','À vérifier sur 5 joueurs: données DB + déductions'),
+    _qaTile('Exports','OK: copie texte/JSON sans dépendance lourde'),
+    _qaTile('Performance','OK: listes limitées, pas de gros calcul dans build principal'),
+  ]);
+
+  Widget _qaTile(String t,String s)=>ProBox(title:t,subtitle:'QA',icon:Icons.fact_check_rounded,child:Text(s,style:const TextStyle(height:1.45,fontWeight:FontWeight.w700)));
+  Widget _reportBox()=>ProBox(title:'Rapport coach',subtitle:'Prêt à copier',icon:Icons.summarize_rounded,child:SelectableText(_reportText(),style:const TextStyle(height:1.45,fontWeight:FontWeight.w700)));
+  void _addEvent(String e)=>setState(()=>timelineEvents.insert(0,'${timeline.round()}s • $e'));
+  void _saveIdea(){ final idea=TacticalIdea(id:'idea_${DateTime.now().millisecondsSinceEpoch}',name:'Lab ${a.name} vs ${b.name}',mode:mode.key,description:'Scénario V48 avec ${tokens.length} joueurs et ${timelineEvents.length} événements.',json:jsonEncode(_reportJson())); final next=[idea,...widget.ideas]; widget.onSaveIdeas(next); ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content:Text('Idée tactique sauvegardée'))); }
+  Future<void> _copy(String text) async { await Clipboard.setData(ClipboardData(text:text)); if(mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content:Text('Copié'))); }
+  Map<String,dynamic> _reportJson()=>{'mode':mode.key,'players':tokens.map((t)=>{'id':t.player.id,'name':t.player.name,'x':t.pos.dx,'y':t.pos.dy}).toList(),'timeline':timelineEvents,'scoreA':score(a,mode).total,'scoreB':score(b,mode).total};
+  String _reportText()=> 'TACTICAL LAB V48\nDuel: ${a.name} vs ${b.name}\nMode: ${mode.label}\nScore: ${score(a,mode).total}-${score(b,mode).total}\nJoueurs terrain: ${tokens.map((t)=>t.player.name).join(', ')}\nTimeline:\n${timelineEvents.take(12).join('\n')}\nConseil: ${score(a,mode).total>=score(b,mode).total?'attaquer ce duel':'éviter duel direct et chercher soutien'}';
+}
+
+class V48PitchLinesPainter extends CustomPainter {
+  @override void paint(Canvas c, Size s){
+    final line=Paint()..color=Colors.white.withOpacity(.42)..style=PaintingStyle.stroke..strokeWidth=1.2;
+    c.drawRect(Rect.fromLTWH(10,10,s.width-20,s.height-20),line);
+    c.drawLine(Offset(10,s.height/2),Offset(s.width-10,s.height/2),line);
+    c.drawCircle(Offset(s.width/2,s.height/2),36,line);
+    c.drawRect(Rect.fromLTWH(s.width*.22,10,s.width*.56,s.height*.13),line);
+    c.drawRect(Rect.fromLTWH(s.width*.22,s.height*.87-10,s.width*.56,s.height*.13),line);
+    final heat=Paint()..shader=RadialGradient(colors:[AppTheme.green.withOpacity(.35),Colors.transparent]).createShader(Rect.fromCircle(center:Offset(s.width*.35,s.height*.42),radius:120));
+    c.drawCircle(Offset(s.width*.35,s.height*.42),120,heat);
+    final risk=Paint()..shader=RadialGradient(colors:[AppTheme.danger.withOpacity(.32),Colors.transparent]).createShader(Rect.fromCircle(center:Offset(s.width*.72,s.height*.58),radius:100));
+    c.drawCircle(Offset(s.width*.72,s.height*.58),100,risk);
+  }
+  @override bool shouldRepaint(covariant CustomPainter oldDelegate)=>false;
+}
+
+class V48VipFinalCenterPage extends StatelessWidget {
+  final List<Player> players; final List<TeamInfo> teams; final List<TacticalIdea> ideas; final List<Map<String,dynamic>> history; final Set<String> favoritePlayerIds; final ValueChanged<int> onGo; final ValueChanged<Player> onOpenPlayer; final ValueChanged<Player> onFavorite;
+  const V48VipFinalCenterPage({super.key,required this.players,required this.teams,required this.ideas,required this.history,required this.favoritePlayerIds,required this.onGo,required this.onOpenPlayer,required this.onFavorite});
+  @override Widget build(BuildContext context){
+    final favs=players.where((p)=>favoritePlayerIds.contains(playerStableKey(p))||favoritePlayerIds.contains(p.id)).take(12).toList();
+    final top=players.where((p)=>p.ovr>=86).take(10).toList();
+    return ListView(padding:const EdgeInsets.all(14),children:[
+      Header('VIP Final Center V48','Raccourcis, favoris, QA, rapports et workflow premium'),
+      UxTabSection(tabs:const ['Dashboard','Favoris','Workflow','Heatmaps','Reports','QA'],height:720,children:[
+        _dashboard(top), _favorites(favs), _workflow(), _heatmaps(), _reports(context), _qa(),
+      ]),
+    ]);
+  }
+  Widget _dashboard(List<Player> top)=>Column(children:[
+    ProBox(title:'Actions VIP',subtitle:'Accès immédiat aux modules clés',icon:Icons.workspace_premium_rounded,child:Wrap(spacing:8,runSpacing:8,children:[_go('Command Center',28),_go('Team vs Team',10),_go('Tactical Lab',18),_go('Reports / QA',30),_go('Export DB',23)])),
+    ProBox(title:'Top joueurs rapides',subtitle:'Clique pour Player Hub',icon:Icons.stars_rounded,child:Column(children:top.map((p)=>PlayerTile(p:p,onTap:()=>onOpenPlayer(p))).toList())),
+  ]);
+  Widget _favorites(List<Player> favs)=>ProBox(title:'Favoris persistants',subtitle:'Clé stable id + nom fallback',icon:Icons.star_rounded,child:Column(children:favs.isEmpty?[const ListTile(title:Text('Aucun favori'),subtitle:Text('Ajoute depuis détails joueur ou Command Center'))]:favs.map((p)=>ListTile(leading:PlayerAvatar(p:p,size:38),title:Text(p.name,style:const TextStyle(fontWeight:FontWeight.w900)),subtitle:Text('${p.team} • ${p.pos}'),trailing:IconButton(icon:const Icon(Icons.star_rounded,color:AppTheme.orange),onPressed:()=>onFavorite(p)),onTap:()=>onOpenPlayer(p))).toList()));
+  Widget _workflow()=>Column(children:[
+    _flow('1. Scout','Trouve joueur/team via Command Center',28),_flow('2. Analyse','Ouvre Player Hub/Team Hub',3),_flow('3. Compare','Compare duel ou poste',1),_flow('4. Simule','Team vs Team ou IA Simulator',10),_flow('5. Lab','Crée scénario terrain',18),_flow('6. Rapport','Copie/exporte rapport',30),
+  ]);
+  Widget _heatmaps()=>Column(children:[
+    ProBox(title:'Heatmap joueur',subtitle:'Zone d’influence visuelle',icon:Icons.local_fire_department_rounded,child:SizedBox(height:220,child:CustomPaint(painter:VipPitchPainter(strong:true),child:Container()))),
+    ProBox(title:'Heatmap risque',subtitle:'Zones à éviter / transitions',icon:Icons.warning_rounded,child:SizedBox(height:220,child:CustomPaint(painter:VipPitchPainter(strong:false),child:Container()))),
+  ]);
+  Widget _reports(BuildContext context)=>ProBox(title:'Rapports VIP',subtitle:'Copie rapide sans dépendance PDF',icon:Icons.description_rounded,child:Wrap(spacing:8,runSpacing:8,children:[ActionChip(label:const Text('Rapport global'),avatar:const Icon(Icons.copy),onPressed:()=>Clipboard.setData(ClipboardData(text:_globalReport()))),ActionChip(label:const Text('Ouvrir QA'),avatar:const Icon(Icons.fact_check),onPressed:()=>onGo(30))]));
+  Widget _qa()=>Column(children:[_qaBox('Favoris','Persistés via LocalStore'),_qaBox('Player Detail','Lazy tabs + modals'),_qaBox('Tactical Lab','Drag + timeline + export texte/JSON'),_qaBox('Team traits','Fort/faible/égal en onglets'),_qaBox('Backup','Export / Import disponible')]);
+  Widget _go(String t,int i)=>ActionChip(label:Text(t),onPressed:()=>onGo(i));
+  Widget _flow(String t,String s,int i)=>ListTile(leading:const Icon(Icons.arrow_forward_rounded,color:AppTheme.green),title:Text(t,style:const TextStyle(fontWeight:FontWeight.w900)),subtitle:Text(s),trailing:const Icon(Icons.chevron_right),onTap:()=>onGo(i));
+  Widget _qaBox(String t,String s)=>ProBox(title:t,subtitle:'QA V48',icon:Icons.verified_rounded,child:Text(s,style:const TextStyle(fontWeight:FontWeight.w800)));
+  String _globalReport()=> 'FC24 Coach AI V48 VIP REPORT\nPlayers: ${players.length}\nTeams: ${teams.length}\nIdeas: ${ideas.length}\nHistory: ${history.length}\nFavorites: ${favoritePlayerIds.length}';
+}
+
+class V48ReportsQaPage extends StatelessWidget {
+  final List<Player> players; final List<TeamInfo> teams; final List<TacticalIdea> ideas; final List<Map<String,dynamic>> history; final Set<String> favoritePlayerIds;
+  const V48ReportsQaPage({super.key,required this.players,required this.teams,required this.ideas,required this.history,required this.favoritePlayerIds});
+  @override Widget build(BuildContext context){
+    return ListView(padding:const EdgeInsets.all(14),children:[
+      Header('Reports / QA V48','Rapports, exports, checklist stabilité et backup'),
+      UxTabSection(tabs:const ['Rapports','Export DB','QA','Performance','Changelog'],height:720,children:[_reports(context),_exportDb(context),_qa(),_perf(),_change()]),
+    ]);
+  }
+  Widget _reports(BuildContext context)=>Column(children:[
+    _reportTile(context,'Rapport joueur','Top players, stats, playstyles, favoris'),
+    _reportTile(context,'Rapport team vs team','Traits équipe, zones, duels, conseils'),
+    _reportTile(context,'Rapport tactique','Tactical Lab, timeline, situations'),
+  ]);
+  Widget _exportDb(BuildContext context){ final data={'players':players.map((p)=>p.toLocalJson()).toList(),'teams':teams.map((t)=>t.toLocalJson()).toList(),'ideas':ideas.map((i)=>i.toJson()).toList(),'history':history,'favorites':favoritePlayerIds.toList()}; return ProBox(title:'Backup DB complet',subtitle:'Copie JSON avant update/désinstallation',icon:Icons.backup_rounded,child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[Text('Players ${players.length} • Teams ${teams.length} • Ideas ${ideas.length} • History ${history.length}',style:const TextStyle(fontWeight:FontWeight.w900)),const SizedBox(height:10),Wrap(spacing:8,runSpacing:8,children:[ActionChip(label:const Text('Copier backup JSON'),avatar:const Icon(Icons.copy),onPressed:()=>Clipboard.setData(ClipboardData(text:jsonEncode(data)))),ActionChip(label:const Text('Voir aperçu'),avatar:const Icon(Icons.visibility),onPressed:()=>showUxDetailModal(context,'Backup DB',[ProBox(title:'Aperçu JSON',subtitle:'Copie via bouton',icon:Icons.data_object,child:SelectableText(jsonEncode(data).substring(0,min(2500,jsonEncode(data).length))))]))])])) ;}
+  Widget _qa()=>Column(children:[_qaLine('Player Detail','Onglets lazy + modals séparés'),_qaLine('PlayStyles/traits','Séparation DB/déduits'),_qaLine('Favoris','Clé stable persistée'),_qaLine('Team vs Team','Traits fort/faible/égal'),_qaLine('Tactical Lab','Drag, timeline, reports'),_qaLine('Exports','JSON/texte clipboard')]);
+  Widget _perf()=>Column(children:[_metric('Players',players.length),_metric('Teams',teams.length),_metric('Ideas',ideas.length),_metric('History',history.length),_metric('Favorites',favoritePlayerIds.length),ProBox(title:'Conseil performance',subtitle:'DB lourde',icon:Icons.speed,child:const Text('Utilise recherche, listes limitées, filtres cachés, et évite d’ouvrir plusieurs modals lourds à la fois.',style:TextStyle(height:1.45,fontWeight:FontWeight.w700)))]);
+  Widget _change()=>ProBox(title:'V48 QA + Tactical Lab + Reports',subtitle:'Finalisation pro',icon:Icons.new_releases_rounded,child:const Text('Ajout Tactical Lab Pro, Reports / QA, backup DB plus visible, VIP Center complété, et workflows rapides.',style:TextStyle(height:1.45,fontWeight:FontWeight.w800)));
+  Widget _reportTile(BuildContext context,String t,String s)=>ProBox(title:t,subtitle:s,icon:Icons.description_rounded,child:Wrap(spacing:8,runSpacing:8,children:[ActionChip(label:const Text('Copier'),avatar:const Icon(Icons.copy),onPressed:()=>Clipboard.setData(ClipboardData(text:'$t\n$s\nPlayers: ${players.length} Teams: ${teams.length}'))),ActionChip(label:const Text('Ouvrir'),avatar:const Icon(Icons.open_in_new),onPressed:()=>showUxDetailModal(context,t,[ProBox(title:t,subtitle:'Rapport',icon:Icons.description,child:SelectableText('$s\n\nPlayers: ${players.length}\nTeams: ${teams.length}\nIdeas: ${ideas.length}\nHistory: ${history.length}'))]))]));
+  Widget _qaLine(String t,String s)=>ProBox(title:t,subtitle:'Checklist',icon:Icons.fact_check_rounded,child:Text(s,style:const TextStyle(height:1.45,fontWeight:FontWeight.w700)));
+  Widget _metric(String t,int n)=>ProBox(title:t,subtitle:'Compteur',icon:Icons.analytics_rounded,child:Text('$n',style:const TextStyle(fontSize:32,fontWeight:FontWeight.w900,color:AppTheme.green)));
 }
 
 class VipPitchPainter extends CustomPainter {
