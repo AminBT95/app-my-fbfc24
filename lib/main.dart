@@ -3232,12 +3232,93 @@ class SituationsCoachPage extends StatelessWidget { final List<Player> players; 
   }
 }
 
+
 class StatsEncyclopediaPage extends StatelessWidget { const StatsEncyclopediaPage({super.key});
   @override Widget build(BuildContext context){
-    final rows=[
-      ('Acceleration','Départ 0-10m : important pour crochet, pressing, premier appel.'),('Sprint Speed','Course longue : profondeur, retours défensifs, contre-attaques.'),('Agility','Tourner vite, changer direction, défendre en jockey.'),('Balance','Résister après contact et garder le ballon.'),('Strength','Épaule contre épaule, protection, duel CB/ST.'),('Def. Awareness','Placement auto, fermeture angle, ligne défensive.'),('Interceptions','Couper passes, surtout CDM/CB contre CAM.'),('Standing Tackle','Gagner le ballon sans faute.'),('Composure','Finition/passe sous pression.'),('Reactions','Répondre aux ballons libres et rebonds.'),('Positioning','Appels offensifs et présence surface.'),('Heading/Jumping','Duel aérien, corners, centres.'),
+    final statRows=<Map<String,String>>[
+      {'t':'Acceleration','g':'Vitesse 0-10m','i':'Impact : premier pas, pressing, crochet, appel court. Très important pour ailiers, latéraux, ST rapides et CDM qui sortent au pressing.','u':'Utilise-la pour créer l’écart sur le premier contrôle.','e':'Ne juge pas seulement la vitesse longue : un joueur avec grosse Acceleration peut gagner le duel même avec Sprint Speed plus bas.'},
+      {'t':'Sprint Speed','g':'Course longue','i':'Impact : profondeur, retour défensif, contre-attaque, poursuite sur 20-40m.','u':'Cherche les espaces derrière la ligne ou les transitions rapides.','e':'Évite les longs sprints avec joueur lent contre défenseur rapide.'},
+      {'t':'Agility','g':'Changement direction','i':'Impact : tourner vite, jockey, crochet court, sortie de pressing.','u':'Utilise petits dribbles, L1/R1 et changements courts.','e':'Évite les grands virages avec joueur peu agile.'},
+      {'t':'Balance','g':'Stabilité','i':'Impact : rester debout après contact, garder ballon en pivot, résister au tacle.','u':'Bon pour protéger ballon et dribbler sous pression.','e':'Ne force pas les contacts si Balance + Strength sont faibles.'},
+      {'t':'Ball Control','g':'Premier contrôle','i':'Impact : réception propre, contrôle orienté, demi-tour rapide.','u':'Important pour CAM/ST dos au jeu et sorties de balle.','e':'Évite passes fortes vers joueur avec Ball Control faible sous pression.'},
+      {'t':'Dribbling','g':'Conduite balle','i':'Impact : qualité du 1v1, conduite serrée, capacité à éliminer.','u':'Compare contre Standing Tackle, Def Awareness, Jockey et Interceptions adverses.','e':'Ne dribble pas dans l’axe si le défenseur gagne tacle + interception.'},
+      {'t':'Strength','g':'Physique','i':'Impact : épaule contre épaule, protection, duel CB/ST, aérien.','u':'Utilise pivot, corps entre ballon et adversaire.','e':'Évite duels physiques si ton joueur est dominé.'},
+      {'t':'Aggression','g':'Intensité duel','i':'Impact : pressing, second ballon, volonté de récupérer.','u':'Fort pour CDM/CB en pressing et duel.','e':'Peut créer fautes/espaces si tu te jettes trop.'},
+      {'t':'Def. Awareness','g':'Placement défensif','i':'Impact : marquage auto, couverture, fermeture angle, bloc bas.','u':'Très important contre cutback, appels et passes dans le dos.','e':'Évite défense manuelle trop agressive avec faible Awareness.'},
+      {'t':'Interceptions','g':'Couper passes','i':'Impact : couper ligne, défendre cutback, bloquer passe verticale.','u':'Place CDM/CB dans les lignes de passe.','e':'Ne presse pas trop loin si tu perds la zone d’interception.'},
+      {'t':'Standing Tackle','g':'Tacle debout','i':'Impact : gagner ballon proprement en face-à-face.','u':'Compare contre Dribbling, Agility, Balance et Ball Control.','e':'Évite tacle debout tardif contre Technical/Press Proven.'},
+      {'t':'Sliding Tackle','g':'Tacle glissé','i':'Impact : dernier recours, blocage latéral, couper centre/tir.','u':'Utile sur aile ou situation désespérée.','e':'À éviter dans la surface ou contre joueur très agile.'},
+      {'t':'Reactions','g':'Réactivité','i':'Impact : rebonds, ballons libres, timing défense/attaque.','u':'Très utile dans surface, pressing et duel aérien.','e':'Un joueur lent en reactions réagit moins bien aux seconds ballons.'},
+      {'t':'Composure','g':'Sang-froid','i':'Impact : tir/passe sous pression, choix dans la surface.','u':'Favorise finisseurs et créateurs fiables en match serré.','e':'Évite tirs forcés avec Composure faible.'},
+      {'t':'Finishing','g':'Finition','i':'Impact : précision face au but, surtout dans surface.','u':'Compare contre GK Reflexes/Positioning et Block des défenseurs.','e':'Ne confonds pas Shot Power et Finishing.'},
+      {'t':'Shot Power','g':'Puissance tir','i':'Impact : frappes fortes, tirs de loin, angles fermés.','u':'Utile avec Power Shot / Low Driven.','e':'Sans Composure/Finishing, la puissance seule ne suffit pas.'},
+      {'t':'Positioning','g':'Appels offensifs','i':'Impact : appels, placement dans surface, timing pour recevoir.','u':'Fort pour ST/ailiers qui attaquent le dos.','e':'Évite jeu statique si Positioning faible.'},
+      {'t':'Vision','g':'Lecture offensive','i':'Impact : passe verticale, dernière passe, casser bloc bas.','u':'Utilise avec Short/Long Passing et Incisive Pass.','e':'Ne force pas passe difficile avec Vision faible.'},
+      {'t':'Short Passing','g':'Passe courte','i':'Impact : combinaisons, sortie sous pressing, une-deux.','u':'Important pour CAM/CDM/CM.','e':'Attention aux passes rapides sous pression si stat faible.'},
+      {'t':'Long Passing','g':'Passe longue','i':'Impact : transversales, passes profondeur, changement côté.','u':'Utile pour switch contre bloc compact.','e':'Évite longues passes avec faible Long Passing.'},
+      {'t':'Crossing','g':'Centre / cutback','i':'Impact : centres, passes retrait, précision couloir.','u':'Compare contre Interceptions, Def Awareness, Aerial et Block.','e':'Ne centre pas si tes attaquants perdent aérien.'},
+      {'t':'Heading Accuracy','g':'Tête','i':'Impact : précision tête sur centre/corner.','u':'À combiner avec Jumping, Strength et Positioning.','e':'Évite centres hauts si Heading/Jumping faibles.'},
+      {'t':'Jumping','g':'Détente','i':'Impact : gagner duel aérien, corners, dégagements.','u':'Important CB/ST.','e':'Un joueur petit peut compenser un peu avec Jumping, mais pas toujours.'},
+      {'t':'Stamina','g':'Volume','i':'Impact : pressing long, retours, latéraux, fin de match.','u':'Fort pour gegenpressing et overlap.','e':'Évite pressing constant avec stamina faible.'},
+      {'t':'GK Reflexes','g':'Gardien réflexe','i':'Impact : arrêts rapides, tirs proches, face-à-face.','u':'Compare contre Finishing/Composure attaquant.','e':'Un GK bon au pied mais faible reflexes subit en surface.'},
+      {'t':'GK Positioning','g':'Placement GK','i':'Impact : angles, sorties, lecture frappe.','u':'Très utile contre finesse/face-à-face.','e':'Positioning faible = angles ouverts.'},
     ];
-    return ListView(padding:const EdgeInsets.all(14), children:[Header('Stats Encyclopedia', 'Quelle stat compte selon chaque duel'), ...rows.map((r)=>ListTile(leading:const Icon(Icons.info_outline_rounded), title:Text(r.$1, style:const TextStyle(fontWeight:FontWeight.w900)), subtitle:Text(r.$2))) ]);
+    final playRows=<Map<String,String>>[
+      {'t':'Finesse Shot','g':'Tir placé','i':'Améliore les frappes enroulées. Impact énorme avec bon Finishing, Curve, Composure.','u':'Cherche angle intérieur avec pied fort.','e':'Évite si défenseur bloque l’angle ou si mauvais pied.'},
+      {'t':'Power Shot','g':'Tir puissant','i':'Rend les frappes lourdes plus dangereuses, surtout avec Shot Power et Composure.','u':'Utilise quand tu as espace avant frappe.','e':'À éviter si défenseur proche peut bloquer.'},
+      {'t':'Chip Shot','g':'Lob','i':'Meilleur lob contre gardien sorti.','u':'À utiliser en 1v1 si GK rush out.','e':'Évite si GK reste bas.'},
+      {'t':'Dead Ball','g':'Coups francs/corners','i':'Améliore précision et courbe sur arrêtés.','u':'Choisis ce joueur pour corners et CPA.','e':'Ne gaspille pas corners avec joueur sans Crossing/Curve.'},
+      {'t':'Precision Header','g':'Têtes précises','i':'Améliore la finition de la tête.','u':'Centre sur lui, surtout 2e poteau.','e':'Évite centres bas si son avantage est aérien.'},
+      {'t':'Incisive Pass','g':'Passe qui casse ligne','i':'Améliore passes dans le dos et dernières passes.','u':'Très fort contre bloc haut/ligne lente.','e':'Évite si receveur n’a pas vitesse/positioning.'},
+      {'t':'Pinged Pass','g':'Passe tendue','i':'Passe rapide au sol, utile pour casser pressing.','u':'Joue vite entre lignes.','e':'Risque perte si receveur a mauvais contrôle.'},
+      {'t':'Long Ball Pass','g':'Ballon long','i':'Meilleures transversales/profondeur.','u':'Switch côté faible.','e':'Évite contre défense très rapide si appel mal timé.'},
+      {'t':'Tiki Taka','g':'Jeu court','i':'Améliore passes courtes rapides et remises.','u':'Combine en triangle sous pression.','e':'Ne force pas dans axe saturé.'},
+      {'t':'Whipped Pass','g':'Centre fort','i':'Centres plus tendus et dangereux.','u':'Cherche ST fort tête/positioning.','e':'Évite si défense gagne aérien.'},
+      {'t':'Technical','g':'Dribble technique','i':'Conduite plus fluide, fort en R1/dribble contrôlé.','u':'Isole contre défenseur lent/agility faible.','e':'Évite contact physique contre Bruiser/Block fort.'},
+      {'t':'Rapid','g':'Sprint balle au pied','i':'Meilleure vitesse en conduite et appels.','u':'Attaque espace derrière latéral.','e':'Évite petits espaces sans Agility.'},
+      {'t':'Quick Step','g':'Premier pas','i':'Explosion sur les premiers mètres.','u':'Utilise crochet + accélération.','e':'Si défenseur a Jockey/Anticipate, varie.'},
+      {'t':'First Touch','g':'Contrôle initial','i':'Contrôle plus propre sous pression.','u':'Reçois dos au jeu puis oriente.','e':'Évite passe forte vers joueur sans First Touch.'},
+      {'t':'Trickster','g':'Gestes techniques','i':'Animations skills plus efficaces.','u':'1v1 aile ou surface.','e':'Ne skill pas dans zone de tacle multiple.'},
+      {'t':'Press Proven','g':'Résiste pressing','i':'Meilleure protection/conservation sous pression.','u':'Utilise pour sortir pressing et pivot.','e':'Ne force pas si entouré par 2 défenseurs.'},
+      {'t':'Relentless','g':'Endurance pressing','i':'Maintient intensité plus longtemps.','u':'Parfait pressing et latéraux.','e':'Même avec Relentless, évite sprint permanent inutile.'},
+      {'t':'Jockey','g':'Contenir','i':'Meilleur déplacement défensif latéral.','u':'Contiens ailier sans te jeter.','e':'Ne spam tacle si Jockey suffit.'},
+      {'t':'Block','g':'Blocage tir','i':'Améliore blocs de tirs/centres.','u':'Place défenseur sur ligne de tir.','e':'Évite sortir trop tôt de l’axe.'},
+      {'t':'Intercept','g':'Interception','i':'Meilleure coupe de ligne de passe.','u':'Contrôle CDM dans ligne de passe.','e':'Ne casse pas la ligne si personne couvre.'},
+      {'t':'Anticipate','g':'Tacle propre','i':'Meilleur tacle debout et récupération.','u':'Attends mauvais contrôle puis tacle.','e':'Évite tacle de face contre dribbleur très agile.'},
+      {'t':'Slide Tackle','g':'Tacle glissé','i':'Glissades plus efficaces.','u':'Coupe centre ou dernier recours.','e':'Danger dans surface.'},
+      {'t':'Bruiser','g':'Duel physique','i':'Contacts plus dominants.','u':'Va au contact contre joueur faible Strength/Balance.','e':'Évite contre dribbleur qui change direction vite.'},
+      {'t':'Aerial Fortress','g':'Duel aérien','i':'Gros bonus tête/détente/présence aérienne.','u':'Centres, corners, dégagements.','e':'Évite centres contre défenseur avec ce playstyle.'},
+      {'t':'Footwork','g':'GK pied/réflexe','i':'Gardien plus fort sur déplacements courts.','u':'Utile face tirs proches.','e':'Attaque avec feinte ou tir croisé.'},
+      {'t':'Cross Claimer','g':'GK centres','i':'Gardien capte mieux les centres.','u':'Bon contre spam centre.','e':'Évite centres flottants contre lui.'},
+      {'t':'Rush Out','g':'GK sortie','i':'Gardien sort mieux sur profondeur.','u':'Utile défense haute.','e':'Contre lui, lob ou passe latérale.'},
+      {'t':'Far Reach','g':'GK détente','i':'Meilleure allonge sur tirs placés.','u':'Bon contre finesse/angles.','e':'Cherche cutback plutôt que frappe loin.'},
+      {'t':'Deflector','g':'GK déviation','i':'Meilleure gestion des tirs repoussés.','u':'Réduit danger rebonds.','e':'Suis le tir avec ST pour second ballon.'},
+    ];
+    Widget tile(Map<String,String> r)=>Card(child:ListTile(
+      leading:const Icon(Icons.info_outline_rounded),
+      title:Text(r['t']!, style:const TextStyle(fontWeight:FontWeight.w900)),
+      subtitle:Text('${r['g']}\n${r['i']}', maxLines:3, overflow:TextOverflow.ellipsis),
+      onTap:()=>showModalBottomSheet(context:context,isScrollControlled:true,backgroundColor:AppTheme.bg,builder:(_)=>DraggableScrollableSheet(expand:false,initialChildSize:.78,maxChildSize:.95,builder:(_,ctrl)=>ListView(controller:ctrl,padding:const EdgeInsets.all(16),children:[
+        Header(r['t']!, r['g']!),
+        ProBox(title:'Impact gameplay', subtitle:'Ce que ça change dans FC24', icon:Icons.bolt_rounded, child:Text(r['i']!, style:const TextStyle(height:1.45,fontWeight:FontWeight.w700))),
+        ProBox(title:'Comment l’utiliser', subtitle:'Plan terrain', icon:Icons.check_circle_rounded, child:Text(r['u']!, style:const TextStyle(height:1.45,fontWeight:FontWeight.w700))),
+        ProBox(title:'À éviter', subtitle:'Erreur fréquente', icon:Icons.warning_rounded, child:Text(r['e']!, style:const TextStyle(height:1.45,fontWeight:FontWeight.w700))),
+      ]))),
+    ));
+    return DefaultTabController(length:3, child:Column(children:[
+      Header('Encyclopédie Stats & PlayStyles', 'Explication, impact, utilisation et erreurs à éviter'),
+      const TabBar(isScrollable:true, tabs:[Tab(text:'Stats'),Tab(text:'PlayStyles'),Tab(text:'Guide duels')]),
+      Expanded(child:TabBarView(children:[
+        ListView(padding:const EdgeInsets.all(14), children:statRows.map(tile).toList()),
+        ListView(padding:const EdgeInsets.all(14), children:playRows.map(tile).toList()),
+        ListView(padding:const EdgeInsets.all(14), children:[
+          ProBox(title:'Offensif vs Défensif', subtitle:'Lire une comparaison correctement', icon:Icons.compare_arrows_rounded, child:const Text('Dribbling/Agility/Balance/Ball Control doivent être lus contre Standing Tackle/Def Awareness/Jockey/Interceptions. Si l’attaquant gagne dribble mais perd physique, évite contact et joue crochet court. Si le défenseur gagne Awareness + Interceptions, évite passes prévisibles et cherche changement de côté.', style:TextStyle(height:1.45,fontWeight:FontWeight.w700))),
+          ProBox(title:'Aérien', subtitle:'Centre ou pas ?', icon:Icons.air_rounded, child:const Text('Heading + Jumping + Strength + Aerial Fortress décident les centres. Si le défenseur gagne ces critères, joue cutback au sol plutôt que centre haut.', style:TextStyle(height:1.45,fontWeight:FontWeight.w700))),
+          ProBox(title:'Pressing', subtitle:'Sortir proprement', icon:Icons.directions_run_rounded, child:const Text('Pressing se lit avec Stamina, Aggression, Acceleration, Reactions, Def Awareness. Pour sortir : Ball Control, Composure, Short Passing, Press Proven, First Touch.', style:TextStyle(height:1.45,fontWeight:FontWeight.w700))),
+          ProBox(title:'Finition vs défense', subtitle:'Tir ou passe ?', icon:Icons.sports_soccer_rounded, child:const Text('Finishing + Composure + Shot Power doivent être lus contre Block, Def Awareness, GK Reflexes/Positioning. Si Block adverse est haut, cherche cutback ou feinte avant frappe.', style:TextStyle(height:1.45,fontWeight:FontWeight.w700))),
+        ]),
+      ])),
+    ]));
   }
 }
 
@@ -3781,7 +3862,7 @@ class TacticalPage extends StatelessWidget {
           Text('Mode actif : ${mode.label}', style:const TextStyle(fontWeight:FontWeight.w900)), const SizedBox(height:8),
           const Text('Utilise le comparateur pour changer les joueurs et le mode. Les zones terrain, flèches et consignes se recalculent selon le type de duel : vitesse, cutback, pressing, aérien, interception, finition, défense.', style:TextStyle(height:1.45,fontWeight:FontWeight.w700)),
           const SizedBox(height:10),
-          Wrap(spacing:8, runSpacing:8, children:mode.weights.keys.map((k)=>Chip(label:Text('${labelStat(k)} ${(mode.weights[k]! * 100).round()}%'))).toList()),
+          Wrap(spacing:8, runSpacing:8, children:mode.w.keys.map((k)=>Chip(label:Text('${labelStat(k)} ${(mode.w[k]! * 100).round()}%'))).toList()),
         ]))]),
       ])),
     ]));
