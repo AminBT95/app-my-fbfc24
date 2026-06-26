@@ -137,5 +137,5 @@ jobs:
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: fc24-coach-ai-pro-v19-apk
+          name: fc24-coach-ai-pro-v22-apk
           path: /tmp/fc24_build_app/build/app/outputs/flutter-apk/app-release.apk

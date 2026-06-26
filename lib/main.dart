@@ -8,22 +8,22 @@ import 'package:flutter/services.dart';
 
 class AppTheme {
   // V21 — design system audit fix: high contrast, football premium, fewer weak icons/colors.
-  static const bg = Color(0xFF06101F);
-  static const card = Color(0xFF0B1728);
-  static const surface = Color(0xFF101F35);
+  static const bg = Color(0xFF020817);
+  static const card = Color(0xFF071225);
+  static const surface = Color(0xFF0B1B31);
   static const ink = Color(0xFFF8FAFC);
   static const muted = Color(0xFF9FB2CC);
   static const pink = Color(0xFF14B881); // legacy alias used by old widgets -> now emerald
   static const purple = Color(0xFF2F80FF);
   static const blue = Color(0xFF2F80FF);
   static const dark = Color(0xFF071225);
-  static const line = Color(0xFF24364D);
+  static const line = Color(0xFF243B55);
   static const green = Color(0xFF38D996);
   static const pitch = Color(0xFF0B7A44);
   static const navy = Color(0xFF071225);
   static const orange = Color(0xFFFFC857);
   static const danger = Color(0xFFFF5D73);
-  static const chip = Color(0xFF14243A);
+  static const chip = Color(0xFF10243A);
   static const darkText = Color(0xFF071225);
 }
 
@@ -150,7 +150,7 @@ class Player {
       'finish': n(j['finishing']), 'shot': n(j['shotpower']), 'longshot': n(j['longshots']), 'comp': n(j['composure']), 'stam': n(j['stamina']),
       'jump': n(j['jumping']), 'head': n(j['heading']), 'cross': n(j['crossing']), 'shortp': n(j['shortpass']), 'longp': n(j['longpass']),
       'vision': n(j['vision']), 'curve': n(j['curve']), 'fk': n(j['fk']), 'posi': n(j['positioning']), 'attpos': n(j['positioning']), 'volleys': n(j['volleys']), 'penalties': n(j['penalties']),
-      'marking': n(j['marking'], n(j['defaw'])), 'recovery': n(j['reactions']), 'workrate': n(j['stamina']),
+      'marking': n(j['marking'], n(j['defaw'])), 'block': n(j['blocking'], n(j['defaw'])), 'recovery': n(j['reactions']), 'workrate': n(j['stamina']),
       'gkdiv': n(j['gkdiving']), 'gkhan': n(j['gkhandling']), 'gkkick': n(j['gkkicking']), 'gkpos': n(j['gkpositioning']), 'gkref': n(j['gkreflexes']),
     };
     final ps = <String>[
@@ -797,13 +797,31 @@ const modes = <Mode>[
   Mode('fullback_overlap', 'Overlap latéral', 'Poste vs poste', 'Latéral qui dédouble : volume, centre, vitesse et retour défensif.', {'stam':.20,'sprint':.18,'acc':.14,'cross':.18,'shortp':.10,'defaw':.10,'inter':.05,'react':.05}),
   Mode('inside_forward', 'Inside forward / rentrer pied fort', 'Poste vs poste', 'Ailier qui rentre intérieur pour tir/passe : dribble, finition, composure.', {'drib':.20,'agi':.16,'acc':.14,'finish':.18,'shot':.12,'comp':.10,'vision':.10}),
   Mode('gk_vs_st', 'GK vs ST face-à-face', 'Poste vs poste', 'Gardien face à attaquant : réflexes/positioning contre finition/composure.', {'gkref':.25,'gkpos':.20,'gkdiv':.16,'react':.14,'gkhan':.10,'sprint':.06,'comp':.05,'str':.04}),
+  Mode('speed_0_5', 'Explosion 0-5m', 'Vitesse', 'Premier pas, sortie de contrôle et micro espace.', {'acc':.50,'agi':.16,'react':.14,'bal':.10,'sprint':.06,'stam':.04}),
+  Mode('speed_10_20', 'Sprint 10-20m', 'Vitesse', 'Course lancée, appel profondeur et retour défensif.', {'sprint':.46,'acc':.18,'stam':.14,'str':.08,'react':.08,'agi':.06}),
+  Mode('turning', 'Virage / changement direction', 'Attaque', 'Changer d’angle sans perdre la balle.', {'agi':.32,'bal':.24,'drib':.18,'ball':.12,'acc':.08,'react':.06}),
+  Mode('first_control', 'Premier contrôle', 'Attaque', 'Réception sous pression, contrôle orienté et conservation.', {'ball':.34,'react':.20,'comp':.18,'drib':.12,'bal':.10,'agi':.06}),
+  Mode('long_dribble', 'Conduite longue', 'Attaque', 'Porter le ballon en transition sans perdre vitesse.', {'sprint':.24,'drib':.22,'ball':.16,'acc':.14,'stam':.12,'agi':.08,'comp':.04}),
+  Mode('short_pass_press', 'Passe courte sous pressing', 'Passe', 'Sortir d’un pressing par passe courte et sang froid.', {'shortp':.30,'comp':.20,'ball':.18,'vision':.16,'react':.10,'bal':.06}),
+  Mode('long_switch', 'Switch longue diagonale', 'Passe', 'Renverser le jeu côté faible.', {'longp':.36,'vision':.24,'cross':.14,'comp':.12,'shot':.06,'shortp':.08}),
+  Mode('through_pass', 'Passe profondeur', 'Passe', 'Trouver l’appel dans le dos.', {'vision':.32,'longp':.20,'shortp':.18,'comp':.14,'ball':.08,'react':.08}),
+  Mode('press_resist', 'Résister au pressing', 'Pressing', 'Recevoir, protéger, ressortir sans perdre balle.', {'comp':.24,'ball':.22,'bal':.18,'str':.14,'shortp':.10,'react':.08,'drib':.04}),
+  Mode('counter_press', 'Contre-pressing 5s', 'Pressing', 'Récupérer juste après perte.', {'stam':.26,'agg':.22,'acc':.18,'react':.14,'defaw':.10,'inter':.10}),
+  Mode('second_ball', 'Deuxième ballon', 'Lecture', 'Gagner le ballon qui traîne après duel ou dégagement.', {'react':.24,'agg':.20,'inter':.18,'stam':.14,'bal':.10,'str':.08,'vision':.06}),
+  Mode('block_shot', 'Tir vs bloc', 'Défense', 'Se placer pour bloquer la frappe.', {'defaw':.28,'react':.22,'block':.18,'inter':.12,'str':.08,'jump':.06,'tackle':.06}),
+  Mode('cover_depth', 'Couverture profondeur', 'Défense', 'Gérer l’appel dans le dos sans casser la ligne.', {'defaw':.26,'sprint':.20,'inter':.16,'react':.14,'marking':.12,'str':.06,'acc':.06}),
+  Mode('underlap', 'Underlap intérieur', 'Poste vs poste', 'Latéral/milieu attaque le demi-espace intérieur.', {'acc':.18,'stam':.18,'shortp':.16,'vision':.14,'ball':.12,'attpos':.12,'drib':.10}),
+  Mode('overlap_cross', 'Overlap + centre', 'Poste vs poste', 'Dédoublement extérieur puis centre/cutback.', {'sprint':.20,'stam':.18,'cross':.22,'acc':.14,'shortp':.10,'drib':.08,'defaw':.08}),
+  Mode('false_nine', 'Faux 9 entre lignes', 'Poste vs poste', 'Décrocher, combiner et attirer un CB.', {'vision':.22,'shortp':.20,'ball':.18,'comp':.14,'drib':.12,'attpos':.08,'react':.06}),
+  Mode('target_man', 'Target man / point d’appui', 'Poste vs poste', 'Remise dos au but, jeu aérien, contact CB.', {'str':.24,'head':.20,'jump':.16,'ball':.12,'shortp':.10,'comp':.08,'agg':.06,'bal':.04}),
+  Mode('wide_defense', 'Défendre couloir', 'Poste vs poste', 'Latéral ferme centre, crochet et profondeur.', {'defaw':.22,'tackle':.20,'acc':.16,'sprint':.14,'agi':.10,'inter':.10,'stam':.08}),
 ];
 
 String labelStat(String k) => {
   'acc':'Acceleration','sprint':'Sprint Speed','str':'Strength','agg':'Aggression','bal':'Balance','agi':'Agility','react':'Reactions',
   'ball':'Ball Control','drib':'Dribbling','defaw':'Def. Awareness','tackle':'Standing Tackle','slide':'Slide Tackle','inter':'Interceptions',
   'finish':'Finishing','shot':'Shot Power','longshot':'Long Shots','comp':'Composure','stam':'Stamina','jump':'Jumping','head':'Heading',
-  'cross':'Crossing','shortp':'Short Passing','longp':'Long Passing','vision':'Vision','curve':'Curve','fk':'Free Kick','posi':'Att. Positioning','attpos':'Att. Positioning','marking':'Marking','recovery':'Recovery runs','workrate':'Work rate impact','volleys':'Volleys','penalties':'Penalties','gkdiv':'GK Diving','gkhan':'GK Handling','gkkick':'GK Kicking','gkpos':'GK Positioning','gkref':'GK Reflexes'
+  'cross':'Crossing','shortp':'Short Passing','longp':'Long Passing','vision':'Vision','curve':'Curve','fk':'Free Kick','posi':'Att. Positioning','attpos':'Att. Positioning','marking':'Marking','recovery':'Recovery runs','workrate':'Work rate impact','volleys':'Volleys','penalties':'Penalties','block':'Block','gkdiv':'GK Diving','gkhan':'GK Handling','gkkick':'GK Kicking','gkpos':'GK Positioning','gkref':'GK Reflexes'
 }[k] ?? k;
 
 class DuelScore {
@@ -1002,7 +1020,7 @@ class _AppShellState extends State<AppShell> {
   @override Widget build(BuildContext context) {
     final loaded = db;
     final pages = loaded == null ? <Widget>[] : [
-      DashboardPage(db: GameDb(customPlayers, customTeams), onStart: ()=>setState(()=>tab=1)),
+      DashboardPage(db: GameDb(customPlayers, customTeams), onStart: ()=>setState(()=>tab=1), onGo:(i)=>setState(()=>tab=i)),
       ComparePage(players: customPlayers, a: a!, b: b!, mode: mode, onA:(p)=>setState(()=>a=p), onB:(p)=>setState(()=>b=p), onMode:(m)=>setState(()=>mode=m), onSaveHistory:(row) async { setState(()=>history.insert(0,row)); await LocalStore.saveHistory(history); }),
       DetectorPage(players: customPlayers, ref: a!, mode: mode),
       DatabasePage(players: customPlayers),
@@ -1057,14 +1075,14 @@ class _AppShellState extends State<AppShell> {
           : AnimatedSwitcher(duration: const Duration(milliseconds: 260), child: pages[tab]),
       ),
       bottomNavigationBar: loaded == null ? null : NavigationBar(
-        selectedIndex: tab == 11 ? 4 : (tab > 4 ? 3 : tab),
-        onDestinationSelected: (i)=>setState(()=>tab = [0,1,2,3,11][i]),
+        selectedIndex: [0,1,3,7,11].contains(tab) ? [0,1,3,7,11].indexOf(tab) : 0,
+        onDestinationSelected: (i)=>setState(()=>tab = [0,1,3,7,11][i]),
         destinations: const [
-          NavigationDestination(icon: Icon(Icons.dashboard_rounded), label: 'Home'),
-          NavigationDestination(icon: Icon(Icons.compare_arrows_rounded), label: 'Comparer'),
-          NavigationDestination(icon: Icon(Icons.search_rounded), label: 'Détecter'),
-          NavigationDestination(icon: Icon(Icons.storage_rounded), label: 'Joueurs'),
-          NavigationDestination(icon: Icon(Icons.sports_soccer_rounded), label: 'Terrain'),
+          NavigationDestination(icon: Icon(Icons.home_filled), label: 'Home'),
+          NavigationDestination(icon: Icon(Icons.compare_arrows_rounded), label: 'Compare'),
+          NavigationDestination(icon: Icon(Icons.groups_2_rounded), label: 'Players'),
+          NavigationDestination(icon: Icon(Icons.shield_rounded), label: 'Teams'),
+          NavigationDestination(icon: Icon(Icons.sports_soccer_rounded), label: 'Coach'),
         ],
       ),
     );
@@ -1148,7 +1166,8 @@ class StartLoader extends StatelessWidget {
 class DashboardPage extends StatelessWidget {
   final GameDb db;
   final VoidCallback onStart;
-  const DashboardPage({super.key, required this.db, required this.onStart});
+  final ValueChanged<int>? onGo;
+  const DashboardPage({super.key, required this.db, required this.onStart, this.onGo});
   @override Widget build(BuildContext context) {
     final top = cleanPlayerList(db.players).where((p)=>!p.name.startsWith('Player ')).take(8).toList();
     return ListView(padding: const EdgeInsets.all(16), children: [
@@ -1176,7 +1195,7 @@ class DashboardPage extends StatelessWidget {
       const SizedBox(height: 14),
       const UxAuditFixCard(),
       const SizedBox(height: 14),
-      const ProContentHub(),
+      ProContentHub(onGo:onGo),
       const SizedBox(height: 14),
       Text('Top joueurs DB', style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w900)),
       const SizedBox(height: 8),
@@ -2604,20 +2623,38 @@ class ProTeamWeaknessReport extends StatelessWidget {
 }
 
 class ProContentHub extends StatelessWidget {
-  const ProContentHub({super.key});
+  final ValueChanged<int>? onGo;
+  const ProContentHub({super.key, this.onGo});
 
   @override
   Widget build(BuildContext context) => ProBox(
-    title: 'Workflow Coach Pro',
-    subtitle: 'Méthode simple pour utiliser l’app',
-    icon: Icons.auto_awesome_rounded,
-    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: const [
-      ListTile(leading: Icon(Icons.person_search_rounded), title: Text('1. Choisir joueur'), subtitle: Text('Passe par CRUD Players ou Base joueurs.')),
-      ListTile(leading: Icon(Icons.compare_arrows_rounded), title: Text('2. Comparer duel'), subtitle: Text('Utilise Comparateur + Duel Engine Pro.')),
-      ListTile(leading: Icon(Icons.hub_rounded), title: Text('3. Trouver meilleur profil'), subtitle: Text('Utilise Matchup Finder / Détection meilleurs joueurs.')),
-      ListTile(leading: Icon(Icons.analytics_rounded), title: Text('4. Analyser équipe'), subtitle: Text('Team Analyzer + Team vs Team.')),
-      ListTile(leading: Icon(Icons.edit_note_rounded), title: Text('5. Sauvegarder idée'), subtitle: Text('Carnet entraîneur + Banque tactique.')),
+    title: 'Coach Control Center',
+    subtitle: 'UX V22 : 6 chemins rapides au lieu d’un long menu compliqué',
+    icon: Icons.dashboard_customize_rounded,
+    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      _hubTile(context, 'Comparer 2 joueurs', 'Tous les modes + poste vs poste + détail par clic', Icons.compare_arrows_rounded, 1),
+      _hubTile(context, 'Trouver le meilleur profil', 'Classement par situation : vitesse, pressing, cutback, bloc bas…', Icons.manage_search_rounded, 9),
+      _hubTile(context, 'Analyser une équipe', 'Forces/faiblesses, joueurs clés, comment profiter / contrer', Icons.analytics_rounded, 7),
+      _hubTile(context, 'Team vs Team', 'Plan de match, weak links, zones fortes/faibles, prediction IA', Icons.ssid_chart_rounded, 8),
+      _hubTile(context, 'Tactical Lab', 'Situation → animation → duel → lecture coach', Icons.sports_soccer_rounded, 11),
+      _hubTile(context, 'Tactic Board Studio', 'Drag/drop, timeline, keyframes, groupes, export JSON', Icons.animation_rounded, 19),
     ]),
+  );
+
+  Widget _hubTile(BuildContext context, String title, String subtitle, IconData icon, int tab) => Container(
+    margin: const EdgeInsets.only(bottom: 10),
+    decoration: BoxDecoration(
+      color: const Color(0xFF0B1B31),
+      borderRadius: BorderRadius.circular(20),
+      border: Border.all(color: const Color(0xFF243B55)),
+    ),
+    child: ListTile(
+      onTap: onGo == null ? null : () => onGo!(tab),
+      leading: Container(width:42,height:42, decoration:BoxDecoration(shape:BoxShape.circle, gradient:const LinearGradient(colors:[Color(0xFF14B881), Color(0xFF2F80FF)])), child:Icon(icon, color:Colors.white)),
+      title: Text(title, style: const TextStyle(color:Colors.white, fontWeight:FontWeight.w900)),
+      subtitle: Text(subtitle, style: const TextStyle(color:Color(0xFFB7C9E8), height:1.25, fontWeight:FontWeight.w700)),
+      trailing: const Icon(Icons.arrow_forward_ios_rounded, size:16, color:Color(0xFF34D399)),
+    ),
   );
 }
 
