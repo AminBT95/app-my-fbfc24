@@ -1150,7 +1150,7 @@ class _AppShellState extends State<AppShell> {
       DuelVisualsCrudPage(players: customPlayers),
       MatchupFinderPage(players: customPlayers),
       TacticalIdeasPage(players: customPlayers, ideas: tacticalIdeas, onSave: (ideas) async { setState(()=>tacticalIdeas = ideas); await LocalStore.saveIdeas(ideas); }),
-      TacticalPage(a: a!, b: b!, mode: mode),
+      TacticalPage(a: a!, b: b!, mode: mode, players: customPlayers),
       FormationBuilderPage(players: customPlayers),
       HistoryPage(history: history),
       PlayStyleDetectorPage(players: customPlayers),
@@ -1216,7 +1216,7 @@ class AppDrawer extends StatelessWidget {
       (11, Icons.manage_accounts_rounded, 'Managers Coach'),
       (12, Icons.account_tree_rounded, 'Formation Counter'),
       (13, Icons.sports_soccer_rounded, 'Situations Coach'),
-      (14, Icons.school_rounded, 'Stats Encyclopedia'),
+      (14, Icons.school_rounded, 'Football Knowledge'),
       (15, Icons.polyline_rounded, 'Duel Visuals CRUD'),
       (16, Icons.hub_rounded, 'Matchup Finder'),
       (17, Icons.auto_awesome_motion_rounded, 'Banque tactique'),
@@ -2102,7 +2102,7 @@ class DatabasePage extends StatefulWidget {
 
 class _DatabasePageState extends State<DatabasePage> {
   String q='', pos='all', team='all', foot='all', accel='all', body='all', play='all'; double minPac=0, minSho=0, minPas=0, minDri=0, minDef=0, minPhy=0;
-  bool showWomen=false, showSoccerAid=false, onlyNamed=false, onlyPlayStyles=false, onlyGk=false;
+  bool showWomen=false, showSoccerAid=false, onlyNamed=false, onlyPlayStyles=false, onlyGk=false, showFilters=false;
   RangeValues ovrRange = const RangeValues(40, 99);
 
   bool hidden(Player p) {
@@ -2138,45 +2138,58 @@ class _DatabasePageState extends State<DatabasePage> {
 
     return ListView(padding: const EdgeInsets.all(14), children:[
       Header('Base joueurs Pro', '${rows.length} affichés / ${widget.players.length} joueurs'),
-      ProBox(title:'Recherche avancée', subtitle:'Female & Soccer Aid cachés par défaut', icon:Icons.tune_rounded, child:Column(children:[
+      ProBox(title:'Recherche rapide', subtitle:'Filtres cachés par défaut pour éviter le scroll', icon:Icons.search_rounded, child:Column(children:[
         TextField(decoration: const InputDecoration(prefixIcon: Icon(Icons.search), hintText:'Nom, ID, équipe, poste, PlayStyle...'), onChanged:(v)=>setState(()=>q=v)),
-        const SizedBox(height:8),
+        const SizedBox(height:10),
         Row(children:[
-          Expanded(child: DropdownButtonFormField<String>(value: pos, items: ['all','ST','CF','LW','RW','CAM','CM','CDM','LM','RM','LB','RB','CB','GK'].map((x)=>DropdownMenuItem(value:x, child: Text(x))).toList(), onChanged:(v)=>setState(()=>pos=v!), decoration: const InputDecoration(labelText:'Poste'))),
-          const SizedBox(width:8),
-          Expanded(child: DropdownButtonFormField<String>(value: team, isExpanded:true, items: teams.map((x)=>DropdownMenuItem(value:x, child: Text(x, overflow: TextOverflow.ellipsis))).toList(), onChanged:(v)=>setState(()=>team=v!), decoration: const InputDecoration(labelText:'Équipe'))),
-        ]),
-        const SizedBox(height:8),
-        Row(children:[
-          Expanded(child: DropdownButtonFormField<String>(value: foot, items: ['all','Right','Left'].map((x)=>DropdownMenuItem(value:x, child: Text(x))).toList(), onChanged:(v)=>setState(()=>foot=v!), decoration: const InputDecoration(labelText:'Pied'))),
-          const SizedBox(width:8),
-          Expanded(child: DropdownButtonFormField<String>(value: accel, isExpanded:true, items: ['all','Controlled','Explosive','Mostly Explosive','Controlled Lengthy','Lengthy'].map((x)=>DropdownMenuItem(value:x, child: Text(x, overflow: TextOverflow.ellipsis))).toList(), onChanged:(v)=>setState(()=>accel=v!), decoration: const InputDecoration(labelText:'AcceleRATE'))),
-        ]),
-        const SizedBox(height:8),
-        Row(children:[
-          Expanded(child: DropdownButtonFormField<String>(value: body, isExpanded:true, items: ['all','Lean','Average','Stocky','High & Lean','High & Average','High & Stocky','Unique'].map((x)=>DropdownMenuItem(value:x, child: Text(x, overflow: TextOverflow.ellipsis))).toList(), onChanged:(v)=>setState(()=>body=v!), decoration: const InputDecoration(labelText:'Body type'))),
-          const SizedBox(width:8),
-          Expanded(child: DropdownButtonFormField<String>(value: play, isExpanded:true, items: plays.map((x)=>DropdownMenuItem(value:x, child: Text(x, overflow: TextOverflow.ellipsis))).toList(), onChanged:(v)=>setState(()=>play=v!), decoration: const InputDecoration(labelText:'PlayStyle / trait'))),
-        ]),
-        _MiniSlider(label:'PAC', value:minPac, onChanged:(v)=>setState(()=>minPac=v)),
-        _MiniSlider(label:'SHO', value:minSho, onChanged:(v)=>setState(()=>minSho=v)),
-        _MiniSlider(label:'PAS', value:minPas, onChanged:(v)=>setState(()=>minPas=v)),
-        _MiniSlider(label:'DRI', value:minDri, onChanged:(v)=>setState(()=>minDri=v)),
-        _MiniSlider(label:'DEF', value:minDef, onChanged:(v)=>setState(()=>minDef=v)),
-        _MiniSlider(label:'PHY', value:minPhy, onChanged:(v)=>setState(()=>minPhy=v)),
-        const SizedBox(height:8),
-        Row(children:[
-          Text('OVR ${ovrRange.start.round()}-${ovrRange.end.round()}', style: const TextStyle(fontWeight:FontWeight.w900)),
-          Expanded(child: RangeSlider(values: ovrRange, min: 1, max: 99, divisions: 98, labels: RangeLabels('${ovrRange.start.round()}','${ovrRange.end.round()}'), onChanged:(v)=>setState(()=>ovrRange=v))),
-        ]),
-        Wrap(spacing:8, runSpacing:8, children:[
-          FilterChip(label:const Text('Avec vrais noms'), selected:onlyNamed, onSelected:(v)=>setState(()=>onlyNamed=v)),
-          FilterChip(label:const Text('Avec PlayStyles/Traits'), selected:onlyPlayStyles, onSelected:(v)=>setState(()=>onlyPlayStyles=v)),
-          FilterChip(label:const Text('GK seulement'), selected:onlyGk, onSelected:(v)=>setState(()=>onlyGk=v)),
-          FilterChip(label:const Text('Afficher Female'), selected:showWomen, onSelected:(v)=>setState(()=>showWomen=v)),
-          FilterChip(label:const Text('Afficher Soccer Aid'), selected:showSoccerAid, onSelected:(v)=>setState(()=>showSoccerAid=v)),
+          Expanded(child: Text('Filtres actifs : poste $pos • équipe $team • OVR ${ovrRange.start.round()}-${ovrRange.end.round()}', maxLines:1, overflow:TextOverflow.ellipsis, style:const TextStyle(color:AppTheme.muted))),
+          FilledButton.tonalIcon(onPressed:()=>setState(()=>showFilters=!showFilters), icon:Icon(showFilters?Icons.expand_less_rounded:Icons.tune_rounded), label:Text(showFilters?'Masquer':'Afficher filtres')),
         ]),
       ])),
+      if(showFilters) DefaultTabController(length:4, child:ProBox(title:'Filtres avancés', subtitle:'Général, profil, stats et options', icon:Icons.filter_alt_rounded, child:Column(children:[
+        const TabBar(isScrollable:true, tabs:[Tab(text:'Général'),Tab(text:'Profil'),Tab(text:'Stats'),Tab(text:'Options')]),
+        SizedBox(height:390, child:TabBarView(children:[
+          ListView(padding:EdgeInsets.zero, children:[
+            Row(children:[
+              Expanded(child: DropdownButtonFormField<String>(value: pos, items: ['all','ST','CF','LW','RW','CAM','CM','CDM','LM','RM','LB','RB','CB','GK'].map((x)=>DropdownMenuItem(value:x, child: Text(x))).toList(), onChanged:(v)=>setState(()=>pos=v!), decoration: const InputDecoration(labelText:'Poste'))),
+              const SizedBox(width:8),
+              Expanded(child: DropdownButtonFormField<String>(value: team, isExpanded:true, items: teams.map((x)=>DropdownMenuItem(value:x, child: Text(x, overflow: TextOverflow.ellipsis))).toList(), onChanged:(v)=>setState(()=>team=v!), decoration: const InputDecoration(labelText:'Équipe'))),
+            ]),
+            const SizedBox(height:8),
+            RangeSlider(values:ovrRange,min:40,max:99,divisions:59,labels:RangeLabels('${ovrRange.start.round()}','${ovrRange.end.round()}'),onChanged:(v)=>setState(()=>ovrRange=v)),
+          ]),
+          ListView(padding:EdgeInsets.zero, children:[
+            Row(children:[
+              Expanded(child: DropdownButtonFormField<String>(value: foot, items: ['all','Right','Left'].map((x)=>DropdownMenuItem(value:x, child: Text(x))).toList(), onChanged:(v)=>setState(()=>foot=v!), decoration: const InputDecoration(labelText:'Pied'))),
+              const SizedBox(width:8),
+              Expanded(child: DropdownButtonFormField<String>(value: accel, isExpanded:true, items: ['all','Controlled','Explosive','Mostly Explosive','Controlled Lengthy','Lengthy'].map((x)=>DropdownMenuItem(value:x, child: Text(x, overflow: TextOverflow.ellipsis))).toList(), onChanged:(v)=>setState(()=>accel=v!), decoration: const InputDecoration(labelText:'AcceleRATE'))),
+            ]),
+            const SizedBox(height:8),
+            Row(children:[
+              Expanded(child: DropdownButtonFormField<String>(value: body, isExpanded:true, items: ['all','Lean','Normal','Stocky','Unique','High & Average','Short & Lean','Tall & Lean'].map((x)=>DropdownMenuItem(value:x, child: Text(x, overflow: TextOverflow.ellipsis))).toList(), onChanged:(v)=>setState(()=>body=v!), decoration: const InputDecoration(labelText:'Body type'))),
+              const SizedBox(width:8),
+              Expanded(child: DropdownButtonFormField<String>(value: play, isExpanded:true, items: plays.map((x)=>DropdownMenuItem(value:x, child: Text(x, overflow: TextOverflow.ellipsis))).toList(), onChanged:(v)=>setState(()=>play=v!), decoration: const InputDecoration(labelText:'PlayStyle'))),
+            ]),
+          ]),
+          ListView(padding:EdgeInsets.zero, children:[
+            Slider(value:minPac,min:0,max:95,divisions:19,label:'PAC ${minPac.round()}', onChanged:(v)=>setState(()=>minPac=v)),
+            Slider(value:minSho,min:0,max:95,divisions:19,label:'SHO ${minSho.round()}', onChanged:(v)=>setState(()=>minSho=v)),
+            Slider(value:minPas,min:0,max:95,divisions:19,label:'PAS ${minPas.round()}', onChanged:(v)=>setState(()=>minPas=v)),
+            Slider(value:minDri,min:0,max:95,divisions:19,label:'DRI ${minDri.round()}', onChanged:(v)=>setState(()=>minDri=v)),
+            Slider(value:minDef,min:0,max:95,divisions:19,label:'DEF ${minDef.round()}', onChanged:(v)=>setState(()=>minDef=v)),
+            Slider(value:minPhy,min:0,max:95,divisions:19,label:'PHY ${minPhy.round()}', onChanged:(v)=>setState(()=>minPhy=v)),
+          ]),
+          ListView(padding:EdgeInsets.zero, children:[
+            Wrap(spacing:8, children:[
+              FilterChip(label:const Text('Noms réels seulement'), selected:onlyNamed, onSelected:(v)=>setState(()=>onlyNamed=v)),
+              FilterChip(label:const Text('Avec PlayStyles/Traits'), selected:onlyPlayStyles, onSelected:(v)=>setState(()=>onlyPlayStyles=v)),
+              FilterChip(label:const Text('GK seulement'), selected:onlyGk, onSelected:(v)=>setState(()=>onlyGk=v)),
+              FilterChip(label:const Text('Afficher Female'), selected:showWomen, onSelected:(v)=>setState(()=>showWomen=v)),
+              FilterChip(label:const Text('Afficher Soccer Aid'), selected:showSoccerAid, onSelected:(v)=>setState(()=>showSoccerAid=v)),
+            ]),
+          ]),
+        ])),
+      ]))),
       ...rows.map((p)=>PlayerTile(p:p, onTap:()=>showPlayerDetails(context,p))),
     ]);
   }
@@ -3670,6 +3683,8 @@ class ProDuelBreakdown extends StatelessWidget {
           contentPadding: EdgeInsets.zero,
           leading: const Icon(Icons.check_circle, color: Color(0xFF86EFAC)),
           title: Text(r),
+          trailing: const Icon(Icons.open_in_new_rounded, size:18),
+          onTap:()=>showModalBottomSheet(context:context,isScrollControlled:true,backgroundColor:AppTheme.bg,builder:(_)=>DraggableScrollableSheet(expand:false,initialChildSize:.62,maxChildSize:.9,builder:(_,ctrl)=>ListView(controller:ctrl,padding:const EdgeInsets.all(16),children:[Header('Détail comparaison', mode.label), ProBox(title:'Pourquoi cette différence ?', subtitle:'Lecture IA du duel', icon:Icons.psychology_rounded, child:Text(r, style:const TextStyle(height:1.45,fontWeight:FontWeight.w700))), DetailCard(a:a,b:b,sa:sa,sb:sb,mode:mode)]))),
         )),
         const Divider(),
         Text('Plan avec ${win.name}', style: const TextStyle(fontWeight: FontWeight.w900)),
@@ -3846,28 +3861,49 @@ class _ExportImportPageState extends State<ExportImportPage> {
 
 
 
-class TacticalPage extends StatelessWidget {
-  final Player a,b; final Mode mode;
-  const TacticalPage({super.key, required this.a, required this.b, required this.mode});
+class TacticalPage extends StatefulWidget {
+  final Player a,b; final Mode mode; final List<Player> players;
+  const TacticalPage({super.key, required this.a, required this.b, required this.mode, required this.players});
+  @override State<TacticalPage> createState()=>_TacticalPageState();
+}
+class _TacticalPageState extends State<TacticalPage> {
+  late Player a,b; late Mode mode;
+  @override void initState(){ super.initState(); a=widget.a; b=widget.b; mode=widget.mode; }
   @override Widget build(BuildContext context) {
     final sa=score(a,mode), sb=score(b,mode), win=sa.total>=sb.total?a:b, lose=sa.total>=sb.total?b:a;
-    return DefaultTabController(length:4, child:Column(children:[
+    return DefaultTabController(length:5, child:Column(children:[
       Header('Tactical Lab Pro', '${mode.label} • gagnant probable : ${win.name}'),
-      const TabBar(isScrollable:true, tabs:[Tab(text:'Terrain'),Tab(text:'Stats'),Tab(text:'Plan'),Tab(text:'Contrôles')]),
+      const TabBar(isScrollable:true, tabs:[Tab(text:'Setup'),Tab(text:'Terrain'),Tab(text:'Stats'),Tab(text:'Plan'),Tab(text:'Détails')]),
       Expanded(child:TabBarView(children:[
+        ListView(padding:const EdgeInsets.all(16), children:[
+          PlayerPicker(title:'Joueur A concerné', players: widget.players, value:a, onChanged:(p)=>setState(()=>a=p)),
+          PlayerPicker(title:'Joueur B concerné', players: widget.players, value:b, onChanged:(p)=>setState(()=>b=p)),
+          ModePicker(mode:mode, onChanged:(m)=>setState(()=>mode=m)),
+        ]),
         ListView(padding:const EdgeInsets.all(16), children:[ProBox(title:'Terrain interactif de duel', subtitle:'Ligne de course, zone utile, angle et timing', icon:Icons.sports_soccer_rounded, child:Column(children:[AspectRatio(aspectRatio:1.36, child:CustomPaint(painter:PitchPainter(a.name,b.name,sa.total>=sb.total,mode.key))), const SizedBox(height:12), ScoreSummary(a:a,b:b,sa:sa,sb:sb)]))]),
         ListView(padding:const EdgeInsets.all(16), children:[ProDuelBreakdown(a:a,b:b,mode:mode)]),
         ListView(padding:const EdgeInsets.all(16), children:[ProBox(title:'Plan coach complet', subtitle:'Forces, faiblesses, profiter et contrer', icon:Icons.menu_book_rounded, child:Text('Forces ${win.name} : ${coachStrengths(win)}.\nFaiblesses ${lose.name} : ${coachWeaknesses(lose)}.\n\nComment profiter : crée ce duel en isolant ${win.name}, oriente son corps vers son pied fort et joue avant que le soutien adverse arrive.\nComment contrer : évite le duel direct, couvre la ligne de course, force ${win.name} vers la zone faible et déclenche le second défenseur seulement après contrôle.', style:const TextStyle(height:1.45, fontWeight:FontWeight.w700)))]),
-        ListView(padding:const EdgeInsets.all(16), children:[ProBox(title:'Contrôles Tactical Lab', subtitle:'Ce module devient contrôlable par modes', icon:Icons.tune_rounded, child:Column(crossAxisAlignment:CrossAxisAlignment.start, children:[
-          Text('Mode actif : ${mode.label}', style:const TextStyle(fontWeight:FontWeight.w900)), const SizedBox(height:8),
-          const Text('Utilise le comparateur pour changer les joueurs et le mode. Les zones terrain, flèches et consignes se recalculent selon le type de duel : vitesse, cutback, pressing, aérien, interception, finition, défense.', style:TextStyle(height:1.45,fontWeight:FontWeight.w700)),
-          const SizedBox(height:10),
-          Wrap(spacing:8, runSpacing:8, children:mode.w.keys.map((k)=>Chip(label:Text('${labelStat(k)} ${(mode.w[k]! * 100).round()}%'))).toList()),
-        ]))]),
+        ListView(padding:const EdgeInsets.all(16), children:[
+          ProBox(title:'Stats clés du mode', subtitle:'Clique une comparaison pour voir pourquoi', icon:Icons.tune_rounded, child:Column(crossAxisAlignment:CrossAxisAlignment.start, children:[
+            Text('Mode actif : ${mode.label}', style:const TextStyle(fontWeight:FontWeight.w900)), const SizedBox(height:8),
+            Wrap(spacing:8, runSpacing:8, children:mode.w.keys.map((k)=>ActionChip(label:Text('${labelStat(k)} ${(mode.w[k]! * 100).round()}%'), onPressed:()=>_showStatCompare(context,k))).toList()),
+          ])),
+        ]),
       ])),
     ]));
   }
+  void _showStatCompare(BuildContext context, String k){
+    final av=a.s[k]??0, bv=b.s[k]??0, diff=av-bv;
+    showModalBottomSheet(context:context,isScrollControlled:true,backgroundColor:AppTheme.bg,builder:(_)=>DraggableScrollableSheet(expand:false,initialChildSize:.70,maxChildSize:.92,builder:(_,ctrl)=>ListView(controller:ctrl,padding:const EdgeInsets.all(16),children:[
+      Header('${labelStat(k)} : ${a.name} vs ${b.name}', mode.label),
+      Row(children:[Expanded(child:MiniScore(a.name,av,labelStat(k))),const SizedBox(width:8),Expanded(child:MiniScore(b.name,bv,labelStat(k)))]),
+      const SizedBox(height:12),
+      ProBox(title:'Lecture IA', subtitle:'Pourquoi cette stat compte', icon:Icons.psychology_rounded, child:Text(diff==0?'Égalité parfaite : la décision dépend du timing, angle et soutien proche.': diff>0?'${a.name} gagne +$diff sur ${labelStat(k)}. Dans ce mode, cette stat pèse ${(mode.w[k]!*100).round()}%, donc elle influence fortement le résultat.':'${b.name} gagne +${diff.abs()} sur ${labelStat(k)}. Évite de jouer ce duel directement si cette stat est centrale.', style:const TextStyle(height:1.45,fontWeight:FontWeight.w700))),
+      ProBox(title:'Conseil terrain', subtitle:'Comment utiliser cette info', icon:Icons.sports_soccer_rounded, child:Text(diff>=0?'Crée le duel vite, avant que l’adversaire ait une couverture. Combine avec les autres stats fortes du mode.':'Change le type de duel : évite cette zone faible, joue soutien, feinte ou passe rapide.', style:const TextStyle(height:1.45,fontWeight:FontWeight.w700))),
+    ])));
+  }
 }
+
 class PitchPainter extends CustomPainter {
   final String a,b,mode; final bool aWin;
   PitchPainter(this.a,this.b,this.aWin,this.mode);
