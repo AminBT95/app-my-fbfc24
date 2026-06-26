@@ -53,6 +53,11 @@ class Player {
        'finish': stat('finish','finishing'),  'shot': stat('shot','shotpower'),  'comp': stat('comp','composure'),  'stam': stat('stam','stamina'),
        'jump': stat('jump','jumping'),  'head': stat('head','heading'),  'cross': stat('cross','crossing'),  'shortp': stat('shortp','shortpass'),  'longp': stat('longp','longpass'),  'vision': stat('vision','vision'),
        'gkdiv': stat('gkdiv','gkdiving'),  'gkhan': stat('gkhan','gkhandling'),  'gkkick': stat('gkkick','gkkicking'),  'gkpos': stat('gkpos','gkpositioning'),  'gkref': stat('gkref','gkreflexes'),
+       // v34: aliases utilisés par le plugin IA Simulator / poste vs poste.
+       'attpos': stat('attpos','attposition', stat('attpos','positioning')),
+       'marking': stat('marking','marking', stat('marking','defaw')),
+       'block': stat('block','block', stat('block','defaw')),
+       'curve': stat('curve','curve'), 'volleys': stat('volleys','volleys'), 'pen': stat('pen','penalties'),
     };
     return Player(
       id: str(j['id']), name: str(j['name'], 'Player'), team: str(j['team'], '—'), pos: str(j['pos'], 'N/A'), ovr: n(j['ovr']),
