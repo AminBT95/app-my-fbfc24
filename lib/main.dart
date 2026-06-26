@@ -301,6 +301,49 @@ extension PlayerJsonExt on Player {
   }
 }
 
+extension PlayerCopyExt on Player {
+  Player copyWith({String? team, String? teamId, String? pos, String? pos2}) => Player(
+    id: id,
+    name: name,
+    team: team ?? this.team,
+    teamId: teamId ?? this.teamId,
+    pos: pos ?? this.pos,
+    pos2: pos2 ?? this.pos2,
+    image: image,
+    ovr: ovr,
+    pot: pot,
+    height: height,
+    weight: weight,
+    body: body,
+    accel: accel,
+    foot: foot,
+    attWr: attWr,
+    defWr: defWr,
+    skill: skill,
+    weakFoot: weakFoot,
+    gender: gender,
+    playstyles: playstyles,
+    s: s,
+  );
+}
+
+extension TeamCopyExt on TeamInfo {
+  TeamInfo copyWith({List<String>? xi, String? name, String? manager}) => TeamInfo(
+    id: id,
+    name: name ?? this.name,
+    manager: manager ?? this.manager,
+    overall: overall,
+    attack: attack,
+    midfield: midfield,
+    defense: defense,
+    citylikeScore: citylikeScore,
+    weakTraits: weakTraits,
+    equalTraits: equalTraits,
+    strongTraits: strongTraits,
+    xi: xi ?? this.xi,
+  );
+}
+
 extension TeamJsonExt on TeamInfo {
   Map<String, dynamic> toLocalJson() => {
     'id': id, 'name': name, 'manager': manager, 'overall': overall, 'attack': attack,
@@ -384,15 +427,29 @@ class LocalStore {
   ];
 
   static Future<void> saveCustomPlayers(List<Player> players) async {
-    final custom = players.where((p)=>p.id.startsWith('custom_') || p.id.startsWith('local_')).map((p)=>p.toLocalJson()).toList();
+    final custom = players.map((p)=>p.toLocalJson()).toList();
     final f = await _file('players.json');
     await f.writeAsString(jsonEncode(custom));
   }
 
   static Future<void> saveCustomTeams(List<TeamInfo> teams) async {
-    final custom = teams.where((t)=>t.id.startsWith('custom_') || t.id.startsWith('local_')).map((t)=>t.toLocalJson()).toList();
+    final custom = teams.map((t)=>t.toLocalJson()).toList();
     final f = await _file('teams.json');
     await f.writeAsString(jsonEncode(custom));
+  }
+
+  static Future<void> saveTempFormations(Map<String, String> formations) async {
+    final f = await _file('temp_formations.json');
+    await f.writeAsString(jsonEncode(formations));
+  }
+
+  static Future<Map<String, String>> loadTempFormations() async {
+    try {
+      final f = await _file('temp_formations.json');
+      if (!f.existsSync()) return {};
+      final raw = jsonDecode(await f.readAsString()) as Map;
+      return raw.map((k,v)=>MapEntry(k.toString(), v.toString()));
+    } catch (_) { return {}; }
   }
 
   static Future<void> saveIdeas(List<TacticalIdea> ideas) async {
@@ -1012,10 +1069,20 @@ class _AppShellState extends State<AppShell> {
       final mergedTeams = List<TeamInfo>.from(loaded.teams);
 
       for (final p in savedPlayers) {
-        if (!mergedPlayers.any((x)=>x.id == p.id)) mergedPlayers.insert(0, p);
+        final i = mergedPlayers.indexWhere((x)=>x.id == p.id);
+        if (i >= 0) {
+          mergedPlayers[i] = p;
+        } else {
+          mergedPlayers.insert(0, p);
+        }
       }
       for (final t in savedTeams) {
-        if (!mergedTeams.any((x)=>x.id == t.id)) mergedTeams.insert(0, t);
+        final i = mergedTeams.indexWhere((x)=>x.id == t.id);
+        if (i >= 0) {
+          mergedTeams[i] = t;
+        } else {
+          mergedTeams.insert(0, t);
+        }
       }
 
       setState(() {
@@ -1058,6 +1125,15 @@ class _AppShellState extends State<AppShell> {
           LocalStore.saveCustomTeams(customTeams);
         });
       }),
+      TransferPlayerPage(players: customPlayers, teams: customTeams, onSave: (ps, ts) async {
+        setState(() { customPlayers = ps; customTeams = ts; });
+        await LocalStore.saveCustomPlayers(customPlayers);
+        await LocalStore.saveCustomTeams(customTeams);
+      }),
+      StartingXIManagerPage(players: customPlayers, teams: customTeams, onSave: (ts) async {
+        setState(() { customTeams = ts; });
+        await LocalStore.saveCustomTeams(customTeams);
+      }),
       TeamAnalyzerPage(teams: customTeams, players: customPlayers),
       TeamVsTeamPage(teams: customTeams, players: customPlayers),
       ManagersCoachPage(teams: customTeams, players: customPlayers),
@@ -1098,8 +1174,8 @@ class _AppShellState extends State<AppShell> {
           : AnimatedSwitcher(duration: const Duration(milliseconds: 260), child: pages[tab]),
       ),
       bottomNavigationBar: loaded == null ? null : NavigationBar(
-        selectedIndex: [0,1,3,8,16].contains(tab) ? [0,1,3,8,16].indexOf(tab) : 0,
-        onDestinationSelected: (i)=>setState(()=>tab = [0,1,3,8,16][i]),
+        selectedIndex: [0,1,3,10,18].contains(tab) ? [0,1,3,10,18].indexOf(tab) : 0,
+        onDestinationSelected: (i)=>setState(()=>tab = [0,1,3,10,18][i]),
         destinations: const [
           NavigationDestination(icon: Icon(Icons.home_filled), label: 'Home'),
           NavigationDestination(icon: Icon(Icons.compare_arrows_rounded), label: 'Compare'),
@@ -1125,24 +1201,26 @@ class AppDrawer extends StatelessWidget {
       (4, Icons.shield_rounded, 'Teams'),
       (5, Icons.person_add_alt_1_rounded, 'CRUD Players'),
       (6, Icons.add_business_rounded, 'CRUD Teams'),
-      (7, Icons.analytics_rounded, 'Team Analyzer'),
-      (8, Icons.compare_rounded, 'Team vs Team'),
-      (9, Icons.manage_accounts_rounded, 'Managers Coach'),
-      (10, Icons.account_tree_rounded, 'Formation Counter'),
-      (11, Icons.sports_soccer_rounded, 'Situations Coach'),
-      (12, Icons.school_rounded, 'Stats Encyclopedia'),
-      (13, Icons.polyline_rounded, 'Duel Visuals CRUD'),
-      (14, Icons.hub_rounded, 'Matchup Finder'),
-      (15, Icons.auto_awesome_motion_rounded, 'Banque tactique'),
-      (16, Icons.sports_soccer_rounded, 'Tactical Lab'),
-      (17, Icons.grid_on_rounded, 'Formation Builder'),
-      (18, Icons.history_rounded, 'Historique'),
-      (19, Icons.bolt_rounded, 'Détection PlayStyles'),
-      (20, Icons.edit_note_rounded, 'Carnet entraîneur'),
-      (21, Icons.import_export_rounded, 'Export / Import'),
-      (22, Icons.menu_book_rounded, 'Guide modes'),
-      (23, Icons.auto_awesome_rounded, 'IA Simulator Pro'),
-      (24, Icons.animation_rounded, 'Tactic Board Studio'),
+      (7, Icons.swap_horiz_rounded, 'Transfert joueur'),
+      (8, Icons.format_list_numbered_rounded, 'Gérer XI départ'),
+      (9, Icons.analytics_rounded, 'Team Analyzer'),
+      (10, Icons.compare_rounded, 'Team vs Team'),
+      (11, Icons.manage_accounts_rounded, 'Managers Coach'),
+      (12, Icons.account_tree_rounded, 'Formation Counter'),
+      (13, Icons.sports_soccer_rounded, 'Situations Coach'),
+      (14, Icons.school_rounded, 'Stats Encyclopedia'),
+      (15, Icons.polyline_rounded, 'Duel Visuals CRUD'),
+      (16, Icons.hub_rounded, 'Matchup Finder'),
+      (17, Icons.auto_awesome_motion_rounded, 'Banque tactique'),
+      (18, Icons.sports_soccer_rounded, 'Tactical Lab'),
+      (19, Icons.grid_on_rounded, 'Formation Builder'),
+      (20, Icons.history_rounded, 'Historique'),
+      (21, Icons.bolt_rounded, 'Détection PlayStyles'),
+      (22, Icons.edit_note_rounded, 'Carnet entraîneur'),
+      (23, Icons.import_export_rounded, 'Export / Import'),
+      (24, Icons.menu_book_rounded, 'Guide modes'),
+      (25, Icons.auto_awesome_rounded, 'IA Simulator Pro'),
+      (26, Icons.animation_rounded, 'Tactic Board Studio'),
     ];
     return Drawer(
       backgroundColor: AppTheme.dark,
@@ -2205,6 +2283,106 @@ class PlayerTile extends StatelessWidget {
 
 
 
+
+class TransferPlayerPage extends StatefulWidget {
+  final List<Player> players;
+  final List<TeamInfo> teams;
+  final Future<void> Function(List<Player>, List<TeamInfo>) onSave;
+  const TransferPlayerPage({super.key, required this.players, required this.teams, required this.onSave});
+  @override State<TransferPlayerPage> createState()=>_TransferPlayerPageState();
+}
+class _TransferPlayerPageState extends State<TransferPlayerPage>{
+  Player? selected;
+  TeamInfo? target;
+  String q='';
+  bool addToXI=false;
+  @override Widget build(BuildContext context){
+    final teams=cleanTeamListForPlayers(widget.teams, widget.players);
+    final players=cleanPlayerList(widget.players).where((p)=>q.trim().isEmpty || '${p.name} ${p.team} ${p.pos}'.toLowerCase().contains(q.toLowerCase())).take(120).toList();
+    target ??= teams.isNotEmpty?teams.first:null;
+    return ListView(padding:const EdgeInsets.all(14), children:[
+      Header('Transfert joueur', 'Changer l’équipe d’un joueur sans casser le XI de départ de l’ancienne équipe'),
+      ProBox(title:'Nouveau transfert', subtitle:'Le joueur est retiré du XI de l’ancienne équipe. Dans la nouvelle équipe il arrive remplaçant sauf si tu coches XI.', icon:Icons.swap_horiz_rounded, child:Column(children:[
+        TextField(decoration:const InputDecoration(prefixIcon:Icon(Icons.search), hintText:'Chercher joueur...'), onChanged:(v)=>setState(()=>q=v)),
+        const SizedBox(height:10),
+        DropdownButtonFormField<String>(isExpanded:true, value:selected?.id, decoration:const InputDecoration(labelText:'Joueur à transférer'), items:players.map((p)=>DropdownMenuItem(value:p.id, child:Text('${p.name} • ${p.team} • ${p.pos}', overflow:TextOverflow.ellipsis))).toList(), onChanged:(id)=>setState(()=>selected=widget.players.firstWhere((p)=>p.id==id))),
+        const SizedBox(height:8),
+        DropdownButtonFormField<String>(isExpanded:true, value:target?.id, decoration:const InputDecoration(labelText:'Nouvelle équipe'), items:teams.map((t)=>DropdownMenuItem(value:t.id, child:Text('${t.name} • OVR ${t.overall}', overflow:TextOverflow.ellipsis))).toList(), onChanged:(id)=>setState(()=>target=teams.firstWhere((t)=>t.id==id))),
+        SwitchListTile(value:addToXI, onChanged:(v)=>setState(()=>addToXI=v), title:const Text('Ajouter directement au XI de départ'), subtitle:const Text('Si le XI a déjà 11 joueurs, le moins bien noté du même groupe/poste sort en remplaçant.')),
+        const SizedBox(height:8),
+        FilledButton.icon(onPressed:selected==null||target==null?null:()=>_transfer(context), icon:const Icon(Icons.check_rounded), label:const Text('Valider transfert')),
+      ])),
+      const SizedBox(height:12),
+      if(selected!=null) _transferPreview(selected!, target),
+    ]);
+  }
+  Widget _transferPreview(Player p, TeamInfo? t)=>ProBox(title:'Aperçu', subtitle:'Impact équipe ancienne/nouvelle', icon:Icons.visibility_rounded, child:Column(crossAxisAlignment:CrossAxisAlignment.start, children:[
+    ListTile(contentPadding:EdgeInsets.zero, leading:PlayerAvatar(p:p,size:44), title:Text(p.name), subtitle:Text('Actuel : ${p.team} • ${p.pos} • OVR ${p.ovr}')),
+    Text('Vers : ${t?.name ?? '—'}', style:const TextStyle(fontWeight:FontWeight.w900)),
+    const SizedBox(height:6),
+    const Text('Ancienne équipe : supprimé du XI si présent. Nouvelle équipe : remplaçant par défaut, XI seulement si option cochée.', style:TextStyle(color:AppTheme.muted,fontWeight:FontWeight.w700,height:1.3)),
+  ]));
+  Future<void> _transfer(BuildContext context) async {
+    final p=selected!, t=target!;
+    final oldTeamId=p.teamId;
+    final ps=widget.players.map((x)=>x.id==p.id?x.copyWith(team:t.name, teamId:t.id):x).toList();
+    final ts=widget.teams.map((team){
+      var xi=List<String>.from(team.xi)..removeWhere((id)=>id==p.id);
+      if(team.id==t.id && addToXI){
+        if(!xi.contains(p.id)) xi.add(p.id);
+        if(xi.length>11){
+          final byId={for(final pp in ps) pp.id:pp};
+          final transferred=byId[p.id];
+          final group=transferred==null?'ATT':_roleGroup(transferred);
+          final same=xi.where((id)=>id!=p.id && byId[id]!=null && _roleGroup(byId[id]!)==group).toList();
+          String removeId;
+          if(same.isNotEmpty){ same.sort((a,b)=>(byId[a]!.ovr).compareTo(byId[b]!.ovr)); removeId=same.first; }
+          else { final others=xi.where((id)=>id!=p.id && byId[id]!=null).toList()..sort((a,b)=>(byId[a]!.ovr).compareTo(byId[b]!.ovr)); removeId=others.isNotEmpty?others.first:xi.first; }
+          xi.remove(removeId);
+        }
+      }
+      if(team.id==oldTeamId || team.id==t.id) return team.copyWith(xi:xi);
+      return team;
+    }).toList();
+    await widget.onSave(ps, ts);
+    if(mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content:Text('${p.name} transféré vers ${t.name}')));
+  }
+}
+
+class StartingXIManagerPage extends StatefulWidget{
+  final List<Player> players; final List<TeamInfo> teams; final Future<void> Function(List<TeamInfo>) onSave;
+  const StartingXIManagerPage({super.key, required this.players, required this.teams, required this.onSave});
+  @override State<StartingXIManagerPage> createState()=>_StartingXIManagerPageState();
+}
+class _StartingXIManagerPageState extends State<StartingXIManagerPage>{
+  TeamInfo? team; late List<String> xi;
+  @override void initState(){ super.initState(); xi=[]; }
+  void _loadTeam(TeamInfo t){ final squad=_teamSquad(t, cleanPlayerList(widget.players)); team=t; xi=List<String>.from(t.xi); if(xi.isEmpty) xi=squad.take(11).map((p)=>p.id).toList(); setState((){}); }
+  @override Widget build(BuildContext context){
+    final teams=cleanTeamListForPlayers(widget.teams, widget.players);
+    team ??= teams.isNotEmpty?teams.first:null;
+    if(team!=null && xi.isEmpty) { final squad=_teamSquad(team!, cleanPlayerList(widget.players)); xi=team!.xi.isEmpty?squad.take(11).map((p)=>p.id).toList():List<String>.from(team!.xi); }
+    final t=team;
+    if(t==null) return const Center(child:Text('Aucune équipe'));
+    final squad=_teamSquad(t, cleanPlayerList(widget.players));
+    final xiPlayers=xi.map((id)=>squad.firstWhere((p)=>p.id==id, orElse:()=>widget.players.firstWhere((p)=>p.id==id, orElse:()=>squad.first))).where((p)=>squad.any((x)=>x.id==p.id)).toList();
+    final bench=squad.where((p)=>!xi.contains(p.id)).toList();
+    return ListView(padding:const EdgeInsets.all(14), children:[
+      Header('Gérer les 11 départ', 'Définir le XI titulaire de chaque équipe et garder les autres en remplaçants'),
+      TeamAutocomplete(teams:teams, value:t.name, label:'Équipe', onSelected:(name){ final m=findTeamByAutocomplete(teams,name); if(m!=null) _loadTeam(m); }),
+      const SizedBox(height:12),
+      ProBox(title:'XI départ (${xiPlayers.length}/11)', subtitle:'Clique un joueur du XI pour le sortir. Clique un remplaçant pour l’ajouter.', icon:Icons.format_list_numbered_rounded, child:Column(children:[
+        ...xiPlayers.map((p)=>ListTile(leading:PlayerAvatar(p:p,size:36), title:Text(p.name), subtitle:Text('${p.pos} • OVR ${p.ovr}'), trailing:IconButton(icon:const Icon(Icons.remove_circle_outline), onPressed:()=>setState(()=>xi.remove(p.id))))),
+        const Divider(),
+        Align(alignment:Alignment.centerRight, child:FilledButton.icon(onPressed:xiPlayers.length==11?()=>_save(t):null, icon:const Icon(Icons.save_rounded), label:const Text('Sauvegarder XI'))),
+      ])),
+      const SizedBox(height:12),
+      ProBox(title:'Remplaçants / réserve', subtitle:'Tous les joueurs de l’équipe non présents dans le XI', icon:Icons.groups_rounded, child:Column(children:bench.take(35).map((p)=>ListTile(leading:PlayerAvatar(p:p,size:34), title:Text(p.name), subtitle:Text('${p.pos} • OVR ${p.ovr}'), trailing:IconButton(icon:const Icon(Icons.add_circle_outline), onPressed:xi.length>=11?null:()=>setState(()=>xi.add(p.id))))).toList())),
+    ]);
+  }
+  Future<void> _save(TeamInfo t) async { final ts=widget.teams.map((x)=>x.id==t.id?x.copyWith(xi:xi.take(11).toList()):x).toList(); await widget.onSave(ts); if(mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content:Text('XI de départ sauvegardé'))); }
+}
+
 class TeamAnalyzerPage extends StatefulWidget {
   final List<TeamInfo> teams;
   final List<Player> players;
@@ -2265,6 +2443,7 @@ class _MatchupFinderPageState extends State<MatchupFinderPage> {
 }
 
 
+
 class TeamVsTeamPage extends StatefulWidget {
   final List<TeamInfo> teams;
   final List<Player> players;
@@ -2274,12 +2453,33 @@ class TeamVsTeamPage extends StatefulWidget {
 class _TeamVsTeamPageState extends State<TeamVsTeamPage> {
   TeamInfo? a,b;
   String scenario='equal';
+  String? formA, formB;
+  Map<String,String> savedForms={};
+  @override void initState(){ super.initState(); _loadForms(); }
+  Future<void> _loadForms() async { final m=await LocalStore.loadTempFormations(); if(mounted) setState(()=>savedForms=m); }
+  FormationPreset _preset(String? n, TeamInfo t, List<Player> xi){
+    if(n==null || n=='auto') return _guessFormation(t, xi);
+    return formationPresets.firstWhere((f)=>f.name==n, orElse:()=>_guessFormation(t, xi));
+  }
+  Future<void> _saveProvisional(TeamInfo ta, TeamInfo tb) async {
+    final m=Map<String,String>.from(savedForms);
+    if(formA!=null && formA!='auto') m[ta.id]=formA!;
+    if(formB!=null && formB!='auto') m[tb.id]=formB!;
+    await LocalStore.saveTempFormations(m);
+    if(mounted) { setState(()=>savedForms=m); ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content:Text('Formation provisoire enregistrée'))); }
+  }
   @override Widget build(BuildContext context) {
     final teams=cleanTeamListForPlayers(widget.teams, widget.players);
     a ??= teams.isNotEmpty ? teams.first : null;
     b ??= teams.length > 1 ? teams[1] : a;
     final ta=a, tb=b;
     if(ta==null || tb==null) return const Center(child: Text('Aucune équipe'));
+    formA ??= savedForms[ta.id] ?? 'auto';
+    formB ??= savedForms[tb.id] ?? 'auto';
+    final sqA=_teamSquad(ta, cleanPlayerList(widget.players)).take(23).toList();
+    final sqB=_teamSquad(tb, cleanPlayerList(widget.players)).take(23).toList();
+    final presetA=_preset(formA, ta, sqA.take(11).toList());
+    final presetB=_preset(formB, tb, sqB.take(11).toList());
     return Container(
       decoration: const BoxDecoration(gradient: LinearGradient(begin:Alignment.topCenter,end:Alignment.bottomCenter,colors:[Color(0xFF071225),Color(0xFF0B1728),Color(0xFFF3F7FB)])),
       child: ListView(padding: const EdgeInsets.all(14), children:[
@@ -2287,11 +2487,18 @@ class _TeamVsTeamPageState extends State<TeamVsTeamPage> {
         _TeamVersusHero(a:ta,b:tb),
         const SizedBox(height:12),
         LayoutBuilder(builder:(context,c){
-          Widget fieldA()=>TeamAutocomplete(teams:teams, value:ta.name, label:'Ton équipe', onSelected:(name){final m=findTeamByAutocomplete(teams,name); if(m!=null) setState(()=>a=m);});
-          Widget fieldB()=>TeamAutocomplete(teams:teams, value:tb.name, label:'Adversaire', onSelected:(name){final m=findTeamByAutocomplete(teams,name); if(m!=null) setState(()=>b=m);});
+          Widget fieldA()=>TeamAutocomplete(teams:teams, value:ta.name, label:'Ton équipe', onSelected:(name){final m=findTeamByAutocomplete(teams,name); if(m!=null) setState((){a=m; formA=savedForms[m.id]??'auto';});});
+          Widget fieldB()=>TeamAutocomplete(teams:teams, value:tb.name, label:'Adversaire', onSelected:(name){final m=findTeamByAutocomplete(teams,name); if(m!=null) setState((){b=m; formB=savedForms[m.id]??'auto';});});
           if(c.maxWidth<520) return Column(children:[fieldA(), const SizedBox(height:8), fieldB(), const SizedBox(height:8), _scenario()]);
           return Row(children:[Expanded(child:fieldA()), const SizedBox(width:8), Expanded(child:fieldB()), const SizedBox(width:8), Expanded(child:_scenario())]);
         }),
+        const SizedBox(height:12),
+        ProBox(title:'Formations provisoires du match', subtitle:'Change la formation sur le terrain sans modifier la DB. Tu peux sauvegarder et recharger par équipe.', icon:Icons.tune_rounded, child:Column(children:[
+          Row(children:[Expanded(child:_formationDrop('Formation ${ta.name}', formA, (v)=>setState(()=>formA=v))), const SizedBox(width:8), Expanded(child:_formationDrop('Formation ${tb.name}', formB, (v)=>setState(()=>formB=v)))]),
+          const SizedBox(height:8),
+          Row(children:[Expanded(child:Chip(label:Text('${ta.name}: ${presetA.name}'))), const SizedBox(width:8), Expanded(child:Chip(label:Text('${tb.name}: ${presetB.name}')))]),
+          Align(alignment:Alignment.centerRight, child:FilledButton.icon(onPressed:()=>_saveProvisional(ta,tb), icon:const Icon(Icons.save_rounded), label:const Text('Enregistrer provisoire'))),
+        ])),
         const SizedBox(height:12),
         _TeamPhaseCard(a:ta,b:tb),
         const SizedBox(height:12),
@@ -2299,7 +2506,7 @@ class _TeamVsTeamPageState extends State<TeamVsTeamPage> {
         const SizedBox(height:12),
         TeamVsTeamCorridorMatrix(a:ta,b:tb,players:widget.players),
         const SizedBox(height:12),
-        TeamVsTeamTacticalMap(a:ta,b:tb,players:widget.players,scenario:scenario),
+        TeamVsTeamTacticalMap(a:ta,b:tb,players:widget.players,scenario:scenario, formationA:presetA, formationB:presetB),
         const SizedBox(height:12),
         TeamVsTeamPluginSections(a:ta,b:tb,players:widget.players,scenario:scenario),
         const SizedBox(height:12),
@@ -2313,6 +2520,7 @@ class _TeamVsTeamPageState extends State<TeamVsTeamPage> {
       ]),
     );
   }
+  Widget _formationDrop(String label, String? value, ValueChanged<String?> onChanged)=>DropdownButtonFormField<String>(value:value??'auto', isExpanded:true, decoration:InputDecoration(labelText:label), items:[const DropdownMenuItem(value:'auto',child:Text('Auto depuis XI')), ...formationPresets.map((f)=>DropdownMenuItem(value:f.name,child:Text(f.name)))], onChanged:onChanged);
   Widget _scenario()=>DropdownButtonFormField<String>(value:scenario, decoration:const InputDecoration(labelText:'Scenario'), items:const [DropdownMenuItem(value:'equal',child:Text('Niveau proche')), DropdownMenuItem(value:'weak',child:Text('Adversaire plus faible')), DropdownMenuItem(value:'strong',child:Text('Adversaire plus fort'))], onChanged:(v)=>setState(()=>scenario=v??'equal'));
 }
 
@@ -2432,14 +2640,14 @@ List<Mode> _duelModesForFace(Player x, Player y) {
   return base.take(9).toList();
 }
 
-class TeamVsTeamTacticalMap extends StatelessWidget { final TeamInfo a,b; final List<Player> players; final String scenario; const TeamVsTeamTacticalMap({super.key,required this.a,required this.b,required this.players,required this.scenario});
+class TeamVsTeamTacticalMap extends StatelessWidget { final TeamInfo a,b; final List<Player> players; final String scenario; final FormationPreset? formationA, formationB; const TeamVsTeamTacticalMap({super.key,required this.a,required this.b,required this.players,required this.scenario,this.formationA,this.formationB});
   @override Widget build(BuildContext context){
     final clean=cleanPlayerList(players);
     final fullA=_teamSquad(a, clean).take(23).toList();
     final fullB=_teamSquad(b, clean).take(23).toList();
     final pa=fullA.take(11).toList();
     final pb=fullB.take(11).toList();
-    final fa=_guessFormation(a,pa), fb=_guessFormation(b,pb);
+    final fa=formationA ?? _guessFormation(a,pa), fb=formationB ?? _guessFormation(b,pb);
     final mine=_assignToFormation(pa,fa,opponent:false);
     final opp=_assignToFormation(pb,fb,opponent:true);
     final pairs=_facePairs(mine,opp);
@@ -3357,11 +3565,11 @@ class ProContentHub extends StatelessWidget {
     icon: Icons.dashboard_customize_rounded,
     child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       _hubTile(context, 'Comparer 2 joueurs', 'Tous les modes + poste vs poste + détail par clic', Icons.compare_arrows_rounded, 1),
-      _hubTile(context, 'Trouver le meilleur profil', 'Classement par situation : vitesse, pressing, cutback, bloc bas…', Icons.manage_search_rounded, 9),
-      _hubTile(context, 'Analyser une équipe', 'Forces/faiblesses, joueurs clés, comment profiter / contrer', Icons.analytics_rounded, 7),
-      _hubTile(context, 'Team vs Team', 'Plan de match, weak links, zones fortes/faibles, prediction IA', Icons.ssid_chart_rounded, 8),
-      _hubTile(context, 'Tactical Lab', 'Situation → animation → duel → lecture coach', Icons.sports_soccer_rounded, 11),
-      _hubTile(context, 'Tactic Board Studio', 'Drag/drop, timeline, keyframes, groupes, export JSON', Icons.animation_rounded, 19),
+      _hubTile(context, 'Trouver le meilleur profil', 'Classement par situation : vitesse, pressing, cutback, bloc bas…', Icons.manage_search_rounded, 2),
+      _hubTile(context, 'Analyser une équipe', 'Forces/faiblesses, joueurs clés, comment profiter / contrer', Icons.analytics_rounded, 9),
+      _hubTile(context, 'Team vs Team', 'Plan de match, weak links, zones fortes/faibles, prediction IA', Icons.ssid_chart_rounded, 10),
+      _hubTile(context, 'Tactical Lab', 'Situation → animation → duel → lecture coach', Icons.sports_soccer_rounded, 18),
+      _hubTile(context, 'Tactic Board Studio', 'Drag/drop, timeline, keyframes, groupes, export JSON', Icons.animation_rounded, 26),
     ]),
   );
 
