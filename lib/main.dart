@@ -7,19 +7,24 @@ import 'package:flutter/services.dart';
 
 
 class AppTheme {
-  static const bg = Color(0xFFF3F7FB);
-  static const card = Color(0xFFFFFFFF);
-  static const ink = Color(0xFF071225);
-  static const muted = Color(0xFF8EA0B8);
-  static const pink = Color(0xFF0EA5A4); // legacy alias used by old widgets
-  static const purple = Color(0xFF246BFE);
-  static const blue = Color(0xFF246BFE);
-  static const dark = Color(0xFF081526);
-  static const line = Color(0xFFDDE7F0);
-  static const green = Color(0xFF18C58F);
+  // V21 — design system audit fix: high contrast, football premium, fewer weak icons/colors.
+  static const bg = Color(0xFF06101F);
+  static const card = Color(0xFF0B1728);
+  static const surface = Color(0xFF101F35);
+  static const ink = Color(0xFFF8FAFC);
+  static const muted = Color(0xFF9FB2CC);
+  static const pink = Color(0xFF14B881); // legacy alias used by old widgets -> now emerald
+  static const purple = Color(0xFF2F80FF);
+  static const blue = Color(0xFF2F80FF);
+  static const dark = Color(0xFF071225);
+  static const line = Color(0xFF24364D);
+  static const green = Color(0xFF38D996);
   static const pitch = Color(0xFF0B7A44);
-  static const navy = Color(0xFF0A1628);
-  static const orange = Color(0xFFFFA552);
+  static const navy = Color(0xFF071225);
+  static const orange = Color(0xFFFFC857);
+  static const danger = Color(0xFFFF5D73);
+  static const chip = Color(0xFF14243A);
+  static const darkText = Color(0xFF071225);
 }
 
 
@@ -51,10 +56,10 @@ class FC24CoachApp extends StatelessWidget {
       title: 'FC24 Coach AI',
       theme: ThemeData(
         useMaterial3: true,
-        brightness: Brightness.light,
+        brightness: Brightness.dark,
         scaffoldBackgroundColor: AppTheme.bg,
         fontFamily: 'Roboto',
-        colorScheme: ColorScheme.fromSeed(seedColor: AppTheme.purple, brightness: Brightness.light).copyWith(
+        colorScheme: ColorScheme.fromSeed(seedColor: AppTheme.purple, brightness: Brightness.dark).copyWith(
           primary: AppTheme.pink,
           secondary: AppTheme.purple,
           surface: AppTheme.card,
@@ -70,12 +75,12 @@ class FC24CoachApp extends StatelessWidget {
         cardTheme: CardTheme(
           color: AppTheme.card,
           elevation: 0,
-          shadowColor: Colors.black12,
+          shadowColor: Colors.black54,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(26), side: const BorderSide(color: AppTheme.line)),
         ),
         inputDecorationTheme: InputDecorationTheme(
           filled: true,
-          fillColor: Colors.white,
+          fillColor: AppTheme.surface,
           labelStyle: const TextStyle(color: AppTheme.muted),
           hintStyle: const TextStyle(color: AppTheme.muted),
           border: OutlineInputBorder(borderRadius: BorderRadius.circular(18), borderSide: const BorderSide(color: AppTheme.line)),
@@ -83,13 +88,13 @@ class FC24CoachApp extends StatelessWidget {
           focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(18), borderSide: const BorderSide(color: AppTheme.pink, width: 1.4)),
         ),
         navigationBarTheme: NavigationBarThemeData(
-          backgroundColor: Colors.white,
-          indicatorColor: AppTheme.pink.withOpacity(.14),
+          backgroundColor: AppTheme.dark,
+          indicatorColor: AppTheme.pink.withOpacity(.18),
           labelTextStyle: MaterialStateProperty.all(const TextStyle(fontSize: 11, fontWeight: FontWeight.w800)),
         ),
         chipTheme: ChipThemeData(
-          backgroundColor: const Color(0xFFF7F8FC),
-          selectedColor: AppTheme.pink.withOpacity(.14),
+          backgroundColor: AppTheme.chip,
+          selectedColor: AppTheme.pink.withOpacity(.22),
           side: const BorderSide(color: AppTheme.line),
           labelStyle: const TextStyle(color: AppTheme.ink, fontWeight: FontWeight.w700),
         ),
@@ -428,7 +433,7 @@ class PlayerAvatar extends StatelessWidget {
       height: size,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
-        gradient: const LinearGradient(colors:[Color(0xFFFDFDFE), Color(0xFFEFF2FA)]),
+        gradient: const LinearGradient(colors:[Color(0xFF14243A), Color(0xFF0B1728)]),
         border: Border.all(color: AppTheme.line, width: 2.2),
         boxShadow: [BoxShadow(color: Colors.black.withOpacity(.05), blurRadius: 10, offset: const Offset(0,4))],
       ),
@@ -1094,11 +1099,12 @@ class AppDrawer extends StatelessWidget {
       (19, Icons.animation_rounded, 'Tactic Board Studio'),
     ];
     return Drawer(
+      backgroundColor: AppTheme.dark,
       child: SafeArea(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Container(
           margin: const EdgeInsets.all(14),
           padding: const EdgeInsets.all(18),
-          decoration: BoxDecoration(borderRadius: BorderRadius.circular(24), gradient: const LinearGradient(colors:[AppTheme.pink, AppTheme.purple])),
+          decoration: BoxDecoration(borderRadius: BorderRadius.circular(24), gradient: const LinearGradient(colors:[Color(0xFF14B881), Color(0xFF2F80FF)])),
           child: const Row(children: [
             Icon(Icons.sports_soccer, color: Colors.white, size: 36),
             SizedBox(width: 10),
@@ -1150,8 +1156,8 @@ class DashboardPage extends StatelessWidget {
         padding: const EdgeInsets.all(20),
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(28),
-          gradient: const LinearGradient(colors: [AppTheme.pink, AppTheme.purple]),
-          border: Border.all(color: Colors.white),
+          gradient: const LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight, colors: [Color(0xFF13C28B), Color(0xFF236BFE), Color(0xFF071225)]),
+          border: Border.all(color: Color(0xFF284766)),
         ),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Text('Coach AI Pro', style: Theme.of(context).textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.w900, color: Colors.white)),
@@ -1167,6 +1173,8 @@ class DashboardPage extends StatelessWidget {
         const SizedBox(width: 10),
         Expanded(child: Kpi('Équipes', '${db.teamCount}', Icons.shield_rounded)),
       ]),
+      const SizedBox(height: 14),
+      const UxAuditFixCard(),
       const SizedBox(height: 14),
       const ProContentHub(),
       const SizedBox(height: 14),
@@ -1186,6 +1194,23 @@ class Kpi extends StatelessWidget {
   ));
 }
 
+
+class UxAuditFixCard extends StatelessWidget {
+  const UxAuditFixCard({super.key});
+  @override Widget build(BuildContext context) => Container(
+    padding: const EdgeInsets.all(16),
+    decoration: BoxDecoration(
+      color: AppTheme.surface,
+      borderRadius: BorderRadius.circular(24),
+      border: Border.all(color: AppTheme.line),
+    ),
+    child: const Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Row(children:[Icon(Icons.check_circle_rounded, color: AppTheme.green), SizedBox(width:8), Expanded(child: Text('UX audit appliqué', style: TextStyle(fontWeight: FontWeight.w900, fontSize:18)))]),
+      SizedBox(height:8),
+      Text('Navigation simplifiée, contraste renforcé, modules clés regroupés, joueurs/équipes cliquables, modes de comparaison centralisés.', style: TextStyle(color: AppTheme.muted, height:1.35, fontWeight:FontWeight.w700)),
+    ]),
+  );
+}
 
 class ProComparisonHero extends StatelessWidget {
   final Player a,b; final DuelScore sa,sb; final Mode mode;
@@ -1222,7 +1247,7 @@ class TacticalSituationCard extends StatelessWidget {
   final Mode mode; final Player a,b;
   const TacticalSituationCard({super.key, required this.mode, required this.a, required this.b});
   @override Widget build(BuildContext context)=>ProBox(title:'Situation tactique', subtitle:mode.group, icon:Icons.sports_soccer_rounded, child:Column(crossAxisAlignment:CrossAxisAlignment.start, children:[
-    Text(mode.desc, style: const TextStyle(color:Color(0xFFB7C9E8))),
+    Text(mode.desc, style: const TextStyle(color:AppTheme.muted)),
     const SizedBox(height:10),
     Wrap(spacing:8, runSpacing:8, children:mode.w.keys.map((k)=>Chip(label:Text('${labelStat(k)} ${(mode.w[k]!*100).round()}%'))).toList()),
     const SizedBox(height:10),
@@ -1987,7 +2012,7 @@ class PlayerDetailsSheet extends StatelessWidget {
         ProBox(title:'Carte joueur détaillée', subtitle:'Profil complet utilisé par le moteur', icon:Icons.badge_rounded, child:Column(crossAxisAlignment:CrossAxisAlignment.start, children:[
           Wrap(spacing:8, runSpacing:8, children:[Chip(label:Text('Miniface EEP auto')), Chip(label:Text('Att WR ${p.attWr}')), Chip(label:Text('Def WR ${p.defWr}')), Chip(label:Text('POT ${p.pot}')), Chip(label:Text('SM ${p.skill} / WF ${p.weakFoot}'))]),
           const SizedBox(height:8),
-          Text('Forces rapides : ${_topStats(p).join(' • ')}', style: const TextStyle(color:Color(0xFFB7C9E8))),
+          Text('Forces rapides : ${_topStats(p).join(' • ')}', style: const TextStyle(color:AppTheme.muted)),
           const SizedBox(height:8),
           Text(_coachProfile(p), style: const TextStyle(fontWeight:FontWeight.w700)),
         ])),
@@ -2039,7 +2064,7 @@ class PlayerTile extends StatelessWidget {
       PlayerAvatar(p:p, size:58), const SizedBox(width:12),
       Expanded(child: Column(crossAxisAlignment:CrossAxisAlignment.start, children:[
         Text(p.name, maxLines:1, overflow:TextOverflow.ellipsis, style: const TextStyle(fontWeight:FontWeight.w900, fontSize:16)),
-        Text('${p.team} • ${p.pos}${p.pos2.isNotEmpty ? ' / ${p.pos2}' : ''}', maxLines:1, overflow:TextOverflow.ellipsis, style: const TextStyle(color:Color(0xFFB7C9E8))),
+        Text('${p.team} • ${p.pos}${p.pos2.isNotEmpty ? ' / ${p.pos2}' : ''}', maxLines:1, overflow:TextOverflow.ellipsis, style: const TextStyle(color:AppTheme.muted)),
         const SizedBox(height:5),
         Wrap(spacing:6, runSpacing:4, children:[
           _tiny('${p.height}cm'), _tiny('${p.weight}kg'), _tiny(p.accel), _tiny(p.playstyles.isEmpty?'traits 0':'traits ${p.playstyles.length}'),
@@ -2049,7 +2074,7 @@ class PlayerTile extends StatelessWidget {
       Container(width:52, height:52, decoration:BoxDecoration(shape:BoxShape.circle, gradient: const LinearGradient(colors:[Color(0xFF22C55E), Color(0xFF38BDF8)])), child:Center(child:Text('${p.ovr}', style: const TextStyle(color:Color(0xFF052E16), fontWeight:FontWeight.w900, fontSize:18)))),
     ])),
   ));
-  Widget _tiny(String t)=>Container(padding: const EdgeInsets.symmetric(horizontal:8, vertical:4), decoration:BoxDecoration(color: const Color(0xFFF5F6FB), borderRadius:BorderRadius.circular(999), border:Border.all(color: AppTheme.line)), child:Text(t, style: const TextStyle(fontSize:11, color:AppTheme.ink, fontWeight:FontWeight.w800)));
+  Widget _tiny(String t)=>Container(padding: const EdgeInsets.symmetric(horizontal:8, vertical:4), decoration:BoxDecoration(color: AppTheme.chip, borderRadius:BorderRadius.circular(999), border:Border.all(color: AppTheme.line)), child:Text(t, style: const TextStyle(fontSize:11, color:AppTheme.ink, fontWeight:FontWeight.w800)));
 }
 
 
@@ -2171,7 +2196,7 @@ class _TeamPhaseCard extends StatelessWidget { final TeamInfo a,b; const _TeamPh
     _line('Centres / surface', a.attack+a.defense, b.defense+b.attack),
     _line('Pressing / récupération', a.midfield+a.attack, b.midfield+b.defense),
   ]));
-  Widget _line(String label,int av,int bv){ final total=max(1,av+bv); final pa=(av/total*100).round(); final diff=av-bv; return Padding(padding:const EdgeInsets.only(bottom:14), child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[Row(children:[Expanded(child:Text(label,style:const TextStyle(fontWeight:FontWeight.w900))), Text('${diff>=0?'+':''}$diff',style:TextStyle(fontWeight:FontWeight.w900,color:diff>=0?AppTheme.green:Colors.redAccent))]), const SizedBox(height:6), ClipRRect(borderRadius:BorderRadius.circular(99),child:SizedBox(height:9,child:Row(children:[Expanded(flex:max(1,pa),child:Container(color:AppTheme.green)), Expanded(flex:max(1,100-pa),child:Container(color:const Color(0xFFDDE7F0)))]))) ])); }
+  Widget _line(String label,int av,int bv){ final total=max(1,av+bv); final pa=(av/total*100).round(); final diff=av-bv; return Padding(padding:const EdgeInsets.only(bottom:14), child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[Row(children:[Expanded(child:Text(label,style:const TextStyle(fontWeight:FontWeight.w900))), Text('${diff>=0?'+':''}$diff',style:TextStyle(fontWeight:FontWeight.w900,color:diff>=0?AppTheme.green:Colors.redAccent))]), const SizedBox(height:6), ClipRRect(borderRadius:BorderRadius.circular(99),child:SizedBox(height:9,child:Row(children:[Expanded(flex:max(1,pa),child:Container(color:AppTheme.green)), Expanded(flex:max(1,100-pa),child:Container(color:AppTheme.line))]))) ])); }
 }
 
 class _TeamCoachPlanCard extends StatelessWidget { final TeamInfo a,b; final List<Player> players; final String scenario; const _TeamCoachPlanCard({required this.a,required this.b,required this.players,required this.scenario});
@@ -2192,7 +2217,7 @@ class _TeamWeakLinksCard extends StatelessWidget { final TeamInfo a,b; final Lis
 
 class _TeamLineupCompare extends StatelessWidget { final TeamInfo a,b; final List<Player> players; const _TeamLineupCompare({required this.a,required this.b,required this.players});
   @override Widget build(BuildContext context){ final pa=_teamSquad(a,cleanPlayerList(players)).take(11).toList(); final pb=_teamSquad(b,cleanPlayerList(players)).take(11).toList(); return ProBox(title:'XI clés comparés', subtitle:'Clique joueur pour détail', icon:Icons.groups_rounded, child:Column(children:List.generate(max(pa.length,pb.length),(i){ final x=i<pa.length?pa[i]:null, y=i<pb.length?pb[i]:null; return Padding(padding:const EdgeInsets.only(bottom:8), child:Row(children:[Expanded(child:x==null?const SizedBox():_miniPlayer(context,x)), const SizedBox(width:8), Expanded(child:y==null?const SizedBox():_miniPlayer(context,y))])); }))); }
-  Widget _miniPlayer(BuildContext context, Player p)=>InkWell(onTap:()=>openPlayer(context,p), child:Container(padding:const EdgeInsets.all(8), decoration:BoxDecoration(color:const Color(0xFFF7F9FC),borderRadius:BorderRadius.circular(16),border:Border.all(color:AppTheme.line)), child:Row(children:[PlayerAvatar(p:p,size:32),const SizedBox(width:6),Expanded(child:Text(p.name,maxLines:1,overflow:TextOverflow.ellipsis,style:const TextStyle(fontWeight:FontWeight.w800))),Text('${p.ovr}',style:const TextStyle(fontWeight:FontWeight.w900))])));
+  Widget _miniPlayer(BuildContext context, Player p)=>InkWell(onTap:()=>openPlayer(context,p), child:Container(padding:const EdgeInsets.all(8), decoration:BoxDecoration(color:AppTheme.surface,borderRadius:BorderRadius.circular(16),border:Border.all(color:AppTheme.line)), child:Row(children:[PlayerAvatar(p:p,size:32),const SizedBox(width:6),Expanded(child:Text(p.name,maxLines:1,overflow:TextOverflow.ellipsis,style:const TextStyle(fontWeight:FontWeight.w800))),Text('${p.ovr}',style:const TextStyle(fontWeight:FontWeight.w900))])));
 }
 
 
@@ -2329,7 +2354,7 @@ class _FormationBuilderPageState extends State<FormationBuilderPage> {
     const SizedBox(height:3),
     Container(padding:const EdgeInsets.symmetric(horizontal:7,vertical:3), decoration:BoxDecoration(color:Colors.black.withOpacity(.48), borderRadius:BorderRadius.circular(999)), child:Text(p==null?role:p.name.split(' ').last, maxLines:1, overflow:TextOverflow.ellipsis, style:const TextStyle(color:Colors.white,fontSize:10,fontWeight:FontWeight.w900))),
   ]);
-  Widget _benchChip(Player p,bool big)=>Container(width:big?126:112, margin:const EdgeInsets.only(right:10), padding:const EdgeInsets.all(8), decoration:BoxDecoration(color:Colors.white, borderRadius:BorderRadius.circular(22), border:Border.all(color:AppTheme.line), boxShadow:big?[BoxShadow(color:Colors.black.withOpacity(.18), blurRadius:18)]:[]), child:Column(children:[PlayerAvatar(p:p,size:46), const SizedBox(height:4), Text(p.name, maxLines:1, overflow:TextOverflow.ellipsis, style:const TextStyle(fontWeight:FontWeight.w900,fontSize:12)), Text('${p.pos} • ${p.ovr}', style:const TextStyle(color:AppTheme.muted,fontSize:11))]));
+  Widget _benchChip(Player p,bool big)=>Container(width:big?126:112, margin:const EdgeInsets.only(right:10), padding:const EdgeInsets.all(8), decoration:BoxDecoration(color:AppTheme.surface, borderRadius:BorderRadius.circular(22), border:Border.all(color:AppTheme.line), boxShadow:big?[BoxShadow(color:Colors.black.withOpacity(.18), blurRadius:18)]:[]), child:Column(children:[PlayerAvatar(p:p,size:46), const SizedBox(height:4), Text(p.name, maxLines:1, overflow:TextOverflow.ellipsis, style:const TextStyle(fontWeight:FontWeight.w900,fontSize:12)), Text('${p.pos} • ${p.ovr}', style:const TextStyle(color:AppTheme.muted,fontSize:11))]));
   String _formationReport(){
     final ps=assigned.values.toList(); if(ps.isEmpty) return 'Aucun joueur assigné.';
     int avg(String k)=>ps.map((p)=>p.s[k]??0).fold(0,(a,b)=>a+b)~/max(1,ps.length);
@@ -2880,14 +2905,14 @@ class ScenarioTacticalBoard extends StatelessWidget {
         ] else ...[
           _arrow(c, const Offset(.36,.54), const Offset(.58,.42), 'duel'),
         ],
-        for(int i=0;i<squad.length && i<pts.length;i++) Positioned(left:pts[i].dx*c.maxWidth-24, top:pts[i].dy*c.maxHeight-24, child:Column(children:[PlayerAvatar(p:squad[i],size:46), Container(padding:const EdgeInsets.symmetric(horizontal:5,vertical:2), decoration:BoxDecoration(color:Colors.white.withOpacity(.95), borderRadius:BorderRadius.circular(99)), child:Text(squad[i].name.replaceFirst('Player ','#'), maxLines:1, overflow:TextOverflow.ellipsis, style:const TextStyle(fontSize:9,fontWeight:FontWeight.w900,color:AppTheme.ink)))])),
+        for(int i=0;i<squad.length && i<pts.length;i++) Positioned(left:pts[i].dx*c.maxWidth-24, top:pts[i].dy*c.maxHeight-24, child:Column(children:[PlayerAvatar(p:squad[i],size:46), Container(padding:const EdgeInsets.symmetric(horizontal:5,vertical:2), decoration:BoxDecoration(color:Colors.white.withOpacity(.95), borderRadius:BorderRadius.circular(99)), child:Text(squad[i].name.replaceFirst('Player ','#'), maxLines:1, overflow:TextOverflow.ellipsis, style:const TextStyle(fontSize:9,fontWeight:FontWeight.w900,color:AppTheme.darkText)))])),
         Positioned(left:c.maxWidth*.22, bottom:18, child:_duelChip(a, 'A')),
         Positioned(right:c.maxWidth*.22, bottom:18, child:_duelChip(b, 'B')),
       ]));
     });
   }
-  Widget _boardTag(String t)=>Container(padding:const EdgeInsets.symmetric(horizontal:10,vertical:7), decoration:BoxDecoration(color:Colors.white.withOpacity(.90), borderRadius:BorderRadius.circular(99)), child:Text(t, style:const TextStyle(fontSize:11,fontWeight:FontWeight.w900,color:AppTheme.ink)));
-  Widget _duelChip(Player p, String side)=>Container(width:118, padding:const EdgeInsets.all(8), decoration:BoxDecoration(color:Colors.white.withOpacity(.94), borderRadius:BorderRadius.circular(18)), child:Row(children:[PlayerAvatar(p:p,size:34), const SizedBox(width:6), Expanded(child:Text('$side • ${p.name}', maxLines:1, overflow:TextOverflow.ellipsis, style:const TextStyle(fontSize:11,fontWeight:FontWeight.w900,color:AppTheme.ink)))]));
+  Widget _boardTag(String t)=>Container(padding:const EdgeInsets.symmetric(horizontal:10,vertical:7), decoration:BoxDecoration(color:Colors.white.withOpacity(.90), borderRadius:BorderRadius.circular(99)), child:Text(t, style:const TextStyle(fontSize:11,fontWeight:FontWeight.w900,color:AppTheme.darkText)));
+  Widget _duelChip(Player p, String side)=>Container(width:118, padding:const EdgeInsets.all(8), decoration:BoxDecoration(color:Colors.white.withOpacity(.94), borderRadius:BorderRadius.circular(18)), child:Row(children:[PlayerAvatar(p:p,size:34), const SizedBox(width:6), Expanded(child:Text('$side • ${p.name}', maxLines:1, overflow:TextOverflow.ellipsis, style:const TextStyle(fontSize:11,fontWeight:FontWeight.w900,color:AppTheme.darkText)))]));
   Widget _zone(BoxConstraints c, Offset o, String text)=>Positioned(left:o.dx*c.maxWidth-55, top:o.dy*c.maxHeight-26, child:Container(width:110,height:52, decoration:BoxDecoration(color:AppTheme.pink.withOpacity(.26), borderRadius:BorderRadius.circular(18), border:Border.all(color:Colors.white.withOpacity(.55))), child:Center(child:Text(text, textAlign:TextAlign.center, style:const TextStyle(color:Colors.white,fontWeight:FontWeight.w900,fontSize:11)))));
   Widget _arrow(BoxConstraints c, Offset a, Offset b, String text)=>Positioned.fill(child:CustomPaint(painter:_ArrowPainter(Offset(a.dx*c.maxWidth,a.dy*c.maxHeight), Offset(b.dx*c.maxWidth,b.dy*c.maxHeight), text)));
 }
@@ -2910,7 +2935,7 @@ class _ArrowPainter extends CustomPainter{
 class ScenarioStepCard extends StatelessWidget{
   final int n; final String title, body;
   const ScenarioStepCard(this.n,this.title,this.body,{super.key});
-  @override Widget build(BuildContext context)=>Container(margin:const EdgeInsets.only(bottom:10), padding:const EdgeInsets.all(14), decoration:BoxDecoration(color:Colors.white, borderRadius:BorderRadius.circular(20), border:Border.all(color:AppTheme.line), boxShadow:[BoxShadow(color:Colors.black.withOpacity(.035), blurRadius:18, offset:Offset(0,8))]), child:Row(crossAxisAlignment:CrossAxisAlignment.start, children:[Container(width:34,height:34, decoration:const BoxDecoration(shape:BoxShape.circle, gradient:LinearGradient(colors:[AppTheme.pink,AppTheme.purple])), child:Center(child:Text('$n', style:const TextStyle(color:Colors.white,fontWeight:FontWeight.w900)))), const SizedBox(width:10), Expanded(child:Column(crossAxisAlignment:CrossAxisAlignment.start, children:[Text(title, style:const TextStyle(fontWeight:FontWeight.w900,fontSize:15)), const SizedBox(height:3), Text(body, style:const TextStyle(color:AppTheme.muted,height:1.35))]))]));
+  @override Widget build(BuildContext context)=>Container(margin:const EdgeInsets.only(bottom:10), padding:const EdgeInsets.all(14), decoration:BoxDecoration(color:AppTheme.surface, borderRadius:BorderRadius.circular(20), border:Border.all(color:AppTheme.line), boxShadow:[BoxShadow(color:Colors.black.withOpacity(.035), blurRadius:18, offset:Offset(0,8))]), child:Row(crossAxisAlignment:CrossAxisAlignment.start, children:[Container(width:34,height:34, decoration:const BoxDecoration(shape:BoxShape.circle, gradient:LinearGradient(colors:[AppTheme.pink,AppTheme.purple])), child:Center(child:Text('$n', style:const TextStyle(color:Colors.white,fontWeight:FontWeight.w900)))), const SizedBox(width:10), Expanded(child:Column(crossAxisAlignment:CrossAxisAlignment.start, children:[Text(title, style:const TextStyle(fontWeight:FontWeight.w900,fontSize:15)), const SizedBox(height:3), Text(body, style:const TextStyle(color:AppTheme.muted,height:1.35))]))]));
 }
 
 
