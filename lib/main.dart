@@ -105,17 +105,17 @@ class FC24CoachApp extends StatelessWidget {
 }
 
 class Player {
-  final String id, name, team, pos, pos2, body, accel, foot, attWr, defWr, image;
-  final int ovr, pot, height, weight, skill, weakFoot;
+  final String id, name, team, teamId, pos, pos2, body, accel, foot, attWr, defWr, image;
+  final int ovr, pot, height, weight, skill, weakFoot, gender;
   final List<String> playstyles;
   final Map<String, int> s;
 
   const Player({
-    required this.id, required this.name, required this.team, required this.pos, required this.pos2,
+    required this.id, required this.name, required this.team, this.teamId = '', required this.pos, required this.pos2,
     required this.image,
     required this.ovr, required this.pot, required this.height, required this.weight,
     required this.body, required this.accel, required this.foot, required this.attWr, required this.defWr,
-    required this.skill, required this.weakFoot, required this.playstyles, required this.s,
+    required this.skill, required this.weakFoot, this.gender = 0, required this.playstyles, required this.s,
   });
 
   static int n(dynamic v, [int fallback = 0]) {
@@ -165,6 +165,7 @@ class Player {
       name: str(j['name'], 'Player'),
       image: str(j['image']),
       team: str(j['team'], '—'),
+      teamId: str(j['teamid'], str(j['teamId'])),
       pos: str(j['pos'], 'N/A'),
       pos2: str(j['pos2']),
       ovr: n(j['ovr']),
@@ -178,6 +179,7 @@ class Player {
       defWr: decodeWr(str(j['defWR'], str(j['defWr']))),
       skill: n(j['skill']),
       weakFoot: n(j['weakfoot']),
+      gender: n(j['gender'], 0),
       playstyles: ps,
       s: stats,
     );
@@ -259,9 +261,9 @@ class Player {
 
 extension PlayerJsonExt on Player {
   Map<String, dynamic> toLocalJson() => {
-    'id': id, 'name': name, 'team': team, 'pos': pos, 'pos2': pos2, 'image': image,
+    'id': id, 'name': name, 'team': team, 'teamId': teamId, 'pos': pos, 'pos2': pos2, 'image': image,
     'ovr': ovr, 'pot': pot, 'height': height, 'weight': weight, 'body': body, 'accel': accel,
-    'foot': foot, 'attWr': attWr, 'defWr': defWr, 'skill': skill, 'weakFoot': weakFoot,
+    'foot': foot, 'attWr': attWr, 'defWr': defWr, 'skill': skill, 'weakFoot': weakFoot, 'gender': gender,
     'playstyles': playstyles, 'stats': s,
   };
 
@@ -277,6 +279,7 @@ extension PlayerJsonExt on Player {
       id: str(j['id'], 'local_${DateTime.now().millisecondsSinceEpoch}'),
       name: str(j['name'], 'Custom Player'),
       team: str(j['team'], 'Custom'),
+      teamId: str(j['teamId']),
       pos: str(j['pos'], 'ST'),
       pos2: str(j['pos2']),
       image: str(j['image']),
@@ -291,6 +294,7 @@ extension PlayerJsonExt on Player {
       defWr: str(j['defWr'], 'Medium'),
       skill: n(j['skill'], 3),
       weakFoot: n(j['weakFoot'], 3),
+      gender: n(j['gender'], 0),
       playstyles: Player.list(j['playstyles']),
       s: stats.isEmpty ? {'acc':75,'sprint':75,'str':75,'agg':70,'bal':75,'agi':75,'react':75,'ball':75,'drib':75,'defaw':60,'tackle':60,'inter':60,'finish':75,'shot':75,'comp':75,'stam':75,'jump':75,'head':70,'cross':70,'shortp':70,'longp':70,'vision':70} : stats,
     );
@@ -665,6 +669,7 @@ bool isHiddenTeamName(String name, {bool showWomen = false, bool showSoccerAid =
 bool isHiddenPlayer(Player p, {bool showWomen = false, bool showSoccerAid = false}) {
   final t = p.team.toLowerCase();
   final n = p.name.toLowerCase();
+  if (!showWomen && p.gender != 0) return true;
   if (!showWomen && (t.contains('women') || t.contains('female') || n.contains('women'))) return true;
   if (!showSoccerAid && (t.contains('soccer aid') || t.contains('classic xi') || t.contains('adidas') || t.contains('world xi'))) return true;
   return false;
@@ -674,6 +679,19 @@ List<TeamInfo> cleanTeamList(List<TeamInfo> teams, {bool showWomen = false, bool
   final list = teams.where((t)=>!isHiddenTeamName(t.name, showWomen: showWomen, showSoccerAid: showSoccerAid)).toList();
   list.sort((a,b)=>a.name.compareTo(b.name));
   return list;
+}
+
+List<TeamInfo> cleanTeamListForPlayers(List<TeamInfo> teams, List<Player> players, {bool showWomen = false, bool showSoccerAid = false}) {
+  final base = cleanTeamList(teams, showWomen: showWomen, showSoccerAid: showSoccerAid);
+  final cleanPlayers = cleanPlayerList(players, showWomen: showWomen, showSoccerAid: showSoccerAid);
+  bool hasVisiblePlayers(TeamInfo t) => cleanPlayers.any((p) {
+    final sameId = t.id.isNotEmpty && p.teamId.isNotEmpty && p.teamId == t.id;
+    final sameName = p.team == t.name;
+    if(t.id.isNotEmpty && p.teamId.isNotEmpty) return sameId;
+    return sameId || sameName;
+  });
+  final list = base.where(hasVisiblePlayers).toList();
+  return list.isEmpty ? base : list;
 }
 
 List<Player> cleanPlayerList(List<Player> players, {bool showWomen = false, bool showSoccerAid = false}) {
@@ -2003,7 +2021,8 @@ class _DatabasePageState extends State<DatabasePage> {
   bool hidden(Player p) {
     final t=p.team.toLowerCase();
     final n=p.name.toLowerCase();
-    if (!showWomen && (t.contains('women') || t.contains('female') || n.contains('women'))) return true;
+    if (!showWomen && p.gender != 0) return true;
+  if (!showWomen && (t.contains('women') || t.contains('female') || n.contains('women'))) return true;
     if (!showSoccerAid && (t.contains('soccer aid') || t.contains('adidas') || t.contains('classic xi'))) return true;
     return false;
   }
@@ -2195,7 +2214,7 @@ class TeamAnalyzerPage extends StatefulWidget {
 class _TeamAnalyzerPageState extends State<TeamAnalyzerPage> {
   TeamInfo? team;
   @override Widget build(BuildContext context) {
-    final teams = cleanTeamList(widget.teams);
+    final teams = cleanTeamListForPlayers(widget.teams, widget.players);
     team ??= teams.isNotEmpty ? teams.first : null;
     final t = team;
     if (t == null) return const Center(child: Text('Aucune équipe'));
@@ -2203,8 +2222,8 @@ class _TeamAnalyzerPageState extends State<TeamAnalyzerPage> {
     return ListView(padding: const EdgeInsets.all(14), children: [
       Header('Team Analyzer', 'Forces, faiblesses et joueurs clés'),
       TeamAutocomplete(teams:teams, value:t.name, label:'Équipe homme par défaut — autocomplete', onSelected:(name){
-        final m=teams.where((x)=>x.name.toLowerCase()==name.toLowerCase()).toList();
-        if(m.isNotEmpty) setState(()=>team=m.first);
+        final m=findTeamByAutocomplete(teams,name);
+        if(m!=null) setState(()=>team=m);
       }),
       const SizedBox(height: 12),
       GestureDetector(onTap:()=>showTeamDetails(context,t,widget.players), child: TeamCard(team: t, players: widget.players, onEdit: ()=>showTeamDetails(context,t,widget.players))),
@@ -2256,7 +2275,7 @@ class _TeamVsTeamPageState extends State<TeamVsTeamPage> {
   TeamInfo? a,b;
   String scenario='equal';
   @override Widget build(BuildContext context) {
-    final teams=cleanTeamList(widget.teams);
+    final teams=cleanTeamListForPlayers(widget.teams, widget.players);
     a ??= teams.isNotEmpty ? teams.first : null;
     b ??= teams.length > 1 ? teams[1] : a;
     final ta=a, tb=b;
@@ -2268,8 +2287,8 @@ class _TeamVsTeamPageState extends State<TeamVsTeamPage> {
         _TeamVersusHero(a:ta,b:tb),
         const SizedBox(height:12),
         LayoutBuilder(builder:(context,c){
-          Widget fieldA()=>TeamAutocomplete(teams:teams, value:ta.name, label:'Ton équipe', onSelected:(name){final m=teams.where((t)=>t.name.toLowerCase()==name.toLowerCase()).toList(); if(m.isNotEmpty) setState(()=>a=m.first);});
-          Widget fieldB()=>TeamAutocomplete(teams:teams, value:tb.name, label:'Adversaire', onSelected:(name){final m=teams.where((t)=>t.name.toLowerCase()==name.toLowerCase()).toList(); if(m.isNotEmpty) setState(()=>b=m.first);});
+          Widget fieldA()=>TeamAutocomplete(teams:teams, value:ta.name, label:'Ton équipe', onSelected:(name){final m=findTeamByAutocomplete(teams,name); if(m!=null) setState(()=>a=m);});
+          Widget fieldB()=>TeamAutocomplete(teams:teams, value:tb.name, label:'Adversaire', onSelected:(name){final m=findTeamByAutocomplete(teams,name); if(m!=null) setState(()=>b=m);});
           if(c.maxWidth<520) return Column(children:[fieldA(), const SizedBox(height:8), fieldB(), const SizedBox(height:8), _scenario()]);
           return Row(children:[Expanded(child:fieldA()), const SizedBox(width:8), Expanded(child:fieldB()), const SizedBox(width:8), Expanded(child:_scenario())]);
         }),
@@ -2434,6 +2453,8 @@ class TeamVsTeamTacticalMap extends StatelessWidget { final TeamInfo a,b; final 
       const SizedBox(height:10),
       TeamPitchCompareView(mine:mine, opp:opp, pairs:pairs.take(6).toList()),
       const SizedBox(height:12),
+      TerrainPlayerVsPlayerSelector(mine:pa, opp:pb),
+      const SizedBox(height:12),
       Row(children:[Expanded(child:_legend(AppTheme.green,'Vert = zone à attaquer')), const SizedBox(width:6), Expanded(child:_legend(AppTheme.blue,'Bleu = joueur/zone à presser'))]),
       const SizedBox(height:6),
       _legend(Colors.redAccent,'Rouge = risque de transition / duel à éviter'),
@@ -2460,6 +2481,67 @@ class TeamVsTeamTacticalMap extends StatelessWidget { final TeamInfo a,b; final 
       subtitle:Wrap(spacing:6, runSpacing:4, children:ms.take(4).map((m)=>Chip(label:Text('${m.label} ${score(x,m).total}-${score(y,m).total}', style:const TextStyle(fontSize:11)))).toList()),
       onTap:()=>showModalBottomSheet(context:context,isScrollControlled:true,backgroundColor:Colors.transparent,builder:(_)=>FaceDuelModesSheet(a:x,b:y,modes:ms)),
     ));
+  }
+}
+
+
+class TerrainPlayerVsPlayerSelector extends StatefulWidget{
+  final List<Player> mine, opp;
+  const TerrainPlayerVsPlayerSelector({super.key, required this.mine, required this.opp});
+  @override State<TerrainPlayerVsPlayerSelector> createState()=>_TerrainPlayerVsPlayerSelectorState();
+}
+class _TerrainPlayerVsPlayerSelectorState extends State<TerrainPlayerVsPlayerSelector>{
+  Player? a,b; String modeKey='auto';
+  @override Widget build(BuildContext context){
+    if(widget.mine.isEmpty || widget.opp.isEmpty) return const SizedBox.shrink();
+    a ??= widget.mine.first; b ??= widget.opp.first;
+    final modesList=_duelModesForFace(a!,b!);
+    final selectedKey=(modeKey=='auto'||modesList.any((m)=>m.key==modeKey))?modeKey:'auto';
+    final mode=selectedKey=='auto'?modesList.first:modes.firstWhere((m)=>m.key==selectedKey, orElse:()=>modesList.first);
+    int sc(Player p)=>score(p,mode).total;
+    return Container(padding:const EdgeInsets.all(12), decoration:BoxDecoration(color:AppTheme.surface,borderRadius:BorderRadius.circular(20),border:Border.all(color:AppTheme.line)), child:Column(crossAxisAlignment:CrossAxisAlignment.start, children:[
+      const Text('Comparer depuis le terrain', style:TextStyle(fontWeight:FontWeight.w900,fontSize:16)),
+      const SizedBox(height:6),
+      const Text('Sélectionne un joueur de ton équipe et celui qui lui fait face, puis compare poste par poste.', style:TextStyle(color:AppTheme.muted,fontWeight:FontWeight.w700,height:1.3)),
+      const SizedBox(height:10),
+      DropdownButtonFormField<String>(value:a!.id, isExpanded:true, decoration:const InputDecoration(labelText:'Ton joueur'), items:widget.mine.map((p)=>DropdownMenuItem(value:p.id, child:Text('${p.pos} • ${p.name}', overflow:TextOverflow.ellipsis))).toList(), onChanged:(v)=>setState(()=>a=widget.mine.firstWhere((p)=>p.id==v))),
+      const SizedBox(height:8),
+      DropdownButtonFormField<String>(value:b!.id, isExpanded:true, decoration:const InputDecoration(labelText:'Adversaire'), items:widget.opp.map((p)=>DropdownMenuItem(value:p.id, child:Text('${p.pos} • ${p.name}', overflow:TextOverflow.ellipsis))).toList(), onChanged:(v)=>setState(()=>b=widget.opp.firstWhere((p)=>p.id==v))),
+      const SizedBox(height:8),
+      DropdownButtonFormField<String>(value:selectedKey, isExpanded:true, decoration:const InputDecoration(labelText:'Mode de comparaison'), items:[const DropdownMenuItem(value:'auto', child:Text('Auto selon postes')), ...modesList.map((m)=>DropdownMenuItem(value:m.key, child:Text(m.label, overflow:TextOverflow.ellipsis)))], onChanged:(v)=>setState(()=>modeKey=v??'auto')),
+      const SizedBox(height:10),
+      Row(children:[Expanded(child:_smallScore(a!, sc(a!), AppTheme.green)), const SizedBox(width:8), Expanded(child:_smallScore(b!, sc(b!), AppTheme.blue))]),
+      const SizedBox(height:8),
+      OffDefComparisonCards(a:a!, b:b!),
+      Align(alignment:Alignment.centerRight, child:TextButton.icon(icon:const Icon(Icons.open_in_full), label:const Text('Détail modal complet'), onPressed:()=>showModalBottomSheet(context:context,isScrollControlled:true,backgroundColor:Colors.transparent,builder:(_)=>FaceDuelModesSheet(a:a!,b:b!,modes:modesList))))
+    ]));
+  }
+  Widget _smallScore(Player p,int v,Color c)=>Container(padding:const EdgeInsets.all(10), decoration:BoxDecoration(color:c.withOpacity(.10),borderRadius:BorderRadius.circular(16),border:Border.all(color:c.withOpacity(.35))), child:Row(children:[PlayerAvatar(p:p,size:34),const SizedBox(width:8),Expanded(child:Text(p.name,maxLines:1,overflow:TextOverflow.ellipsis,style:const TextStyle(fontWeight:FontWeight.w900))),Text('$v',style:TextStyle(color:c,fontWeight:FontWeight.w900))]));
+}
+
+class OffDefComparisonCards extends StatelessWidget{
+  final Player a,b;
+  const OffDefComparisonCards({super.key, required this.a, required this.b});
+  int v(Player p,String k)=>p.s[k]??0;
+  @override Widget build(BuildContext context){
+    final rows=<({String label,String ak,String bk,String advice})>[
+      (label:'Dribble vs Tacle', ak:'drib', bk:'tackle', advice:'Si dribble > tacle : provoque 1v1/crochet. Sinon joue remise ou dédoublement.'),
+      (label:'Agilité vs Jockey', ak:'agi', bk:'defaw', advice:'Si agilité gagne : changements de direction. Sinon évite conduite longue face à lui.'),
+      (label:'Accélération vs Couverture', ak:'acc', bk:'acc', advice:'Teste le premier pas 0-10m, surtout après contrôle orienté.'),
+      (label:'Sprint vs Profondeur déf.', ak:'sprint', bk:'sprint', advice:'Si tu gagnes : appels dans le dos. Sinon cherche appui-remise.'),
+      (label:'Centre/Cutback vs Interception', ak:'cross', bk:'inter', advice:'Si centre perd : cutback tardif ou renversement.'),
+      (label:'Finition vs Bloc/placement', ak:'finish', bk:'defaw', advice:'Si finition gagne : tir rapide. Sinon fixe puis décale.'),
+      (label:'Physique offensif vs Force déf.', ak:'str', bk:'str', advice:'Si physique perd : évite épaule contre épaule.'),
+      (label:'Aérien attaque vs Aérien défense', ak:'head', bk:'head', advice:'Si aérien perd : évite centres hauts et corners directs.'),
+    ];
+    return Column(crossAxisAlignment:CrossAxisAlignment.start, children:[
+      const Text('Stats offensives vs défensives', style:TextStyle(fontWeight:FontWeight.w900)),
+      const SizedBox(height:8),
+      ...rows.map((r){ final av=v(a,r.ak), bv=v(b,r.bk); final good=av>=bv; return Container(margin:const EdgeInsets.only(bottom:8), padding:const EdgeInsets.all(10), decoration:BoxDecoration(color:good?AppTheme.green.withOpacity(.08):AppTheme.danger.withOpacity(.08),borderRadius:BorderRadius.circular(16),border:Border.all(color:(good?AppTheme.green:AppTheme.danger).withOpacity(.28))), child:Column(crossAxisAlignment:CrossAxisAlignment.start, children:[
+        Row(children:[Expanded(child:Text(r.label,style:const TextStyle(fontWeight:FontWeight.w900))),Text('$av - $bv',style:TextStyle(fontWeight:FontWeight.w900,color:good?AppTheme.green:AppTheme.danger))]),
+        const SizedBox(height:3),Text(r.advice,style:const TextStyle(color:AppTheme.muted,height:1.25,fontWeight:FontWeight.w700,fontSize:12)),
+      ]));}).toList(),
+    ]);
   }
 }
 
@@ -2493,6 +2575,8 @@ class FaceDuelModesSheet extends StatelessWidget{
   @override Widget build(BuildContext context)=>DraggableScrollableSheet(initialChildSize:.82,minChildSize:.45,maxChildSize:.95,builder:(_,ctrl)=>Container(decoration:const BoxDecoration(color:AppTheme.card,borderRadius:BorderRadius.vertical(top:Radius.circular(28))), child:ListView(controller:ctrl,padding:const EdgeInsets.all(16),children:[
     Row(children:[PlayerAvatar(p:a,size:48),const SizedBox(width:10),Expanded(child:Text('${a.name} vs ${b.name}',style:const TextStyle(fontSize:20,fontWeight:FontWeight.w900))),PlayerAvatar(p:b,size:48)]),
     const SizedBox(height:8), const Text('Tous les modes utiles pour ce face-à-face, pas seulement épaule contre épaule.', style:TextStyle(color:AppTheme.muted,fontWeight:FontWeight.w700)),
+    const SizedBox(height:14),
+    OffDefComparisonCards(a:a,b:b),
     const SizedBox(height:14),
     ...modes.map((m){ final sa=score(a,m), sb=score(b,m); final diff=sa.total-sb.total; return Container(margin:const EdgeInsets.only(bottom:10), padding:const EdgeInsets.all(12), decoration:BoxDecoration(color:AppTheme.surface,borderRadius:BorderRadius.circular(18),border:Border.all(color:diff>=0?AppTheme.green.withOpacity(.35):AppTheme.danger.withOpacity(.35))), child:Column(crossAxisAlignment:CrossAxisAlignment.start, children:[
       Row(children:[Expanded(child:Text(m.label,style:const TextStyle(fontWeight:FontWeight.w900))), Text('${sa.total} - ${sb.total}',style:TextStyle(fontWeight:FontWeight.w900,color:diff>=0?AppTheme.green:AppTheme.danger))]),
@@ -3400,10 +3484,13 @@ List<Player> _teamSquad(TeamInfo team, List<Player> players){
   final teamLower=team.name.toLowerCase();
   bool allowExtra(Player p){
     if(isHiddenPlayer(p)) return false;
-    if(p.team!=team.name) return false;
+    final sameId = team.id.isNotEmpty && p.teamId.isNotEmpty && p.teamId == team.id;
+    final sameName = p.team == team.name;
+    if(!sameId && !sameName) return false;
+    if(team.id.isNotEmpty && p.teamId.isNotEmpty && p.teamId != team.id) return false;
     if(xi.isNotEmpty && !teamLower.contains('women') && !teamLower.contains('female')){
-      // Avoid mixing female club players when the DB uses same club display name for men/women.
-      // Keep named players and IDs already in the official XI; keep generic extras only when no XI exists.
+      // Avoid mixing female club players when the DB uses same display name for men/women.
+      if(p.gender != 0) return false;
       if(p.name.startsWith('Player ') && !xi.any((x)=>x.id==p.id)) return false;
     }
     return true;
@@ -3590,7 +3677,7 @@ class _TacticBoardAnimationStudioPageState extends State<TacticBoardAnimationStu
 
   @override void initState(){ super.initState(); ctrl=AnimationController(vsync:this, duration:const Duration(milliseconds:1100))..addListener(()=>setState((){})); _buildPreset(); _saveFrame('Frame 1 — départ'); _setTargets(); _saveFrame('Frame 2 — mouvement synchronisé'); }
   @override void dispose(){ ctrl.dispose(); super.dispose(); }
-  List<TeamInfo> get cleanTeams => cleanTeamList(widget.teams, showWomen:showWomen, showSoccerAid:showSoccerAid);
+  List<TeamInfo> get cleanTeams => cleanTeamListForPlayers(widget.teams, widget.players, showWomen:showWomen, showSoccerAid:showSoccerAid);
   TeamInfo? get selectedTeam { final list=cleanTeams; if(list.isEmpty) return null; return list.firstWhere((t)=>t.name==selectedTeamName, orElse:()=>list.first); }
   List<Player> get squad => selectedTeam==null ? cleanPlayerList(widget.players, showWomen:showWomen, showSoccerAid:showSoccerAid).take(18).toList() : _teamSquad(selectedTeam!, widget.players).take(24).toList();
 
@@ -3669,7 +3756,7 @@ class _TacticBoardAnimationStudioPageState extends State<TacticBoardAnimationStu
     if(preset=='build') return 'Sortie de balle : attire pressing côté fort puis trouve le 6/8 libre. Profiter : passe courte + triangle. Contrer : marquer le pivot et forcer long ballon.';
     return 'Overload : crée supériorité, attire, renverse. Contrer : coulisser sans casser la ligne.';
   }
-  Player _dummyPlayer(_BoardPlayer bp)=>Player(id:bp.id,name:bp.id,team:bp.own?'Moi':'Adversaire',pos:bp.own?'ATT':'DEF',pos2:'',image:'',ovr:70,pot:70,height:180,weight:75,body:'Average',accel:'Controlled',foot:'Right',attWr:'Medium',defWr:'Medium',skill:3,weakFoot:3,playstyles:const[],s:const{});
+  Player _dummyPlayer(_BoardPlayer bp)=>Player(id:bp.id,name:bp.id,team:bp.own?'Moi':'Adversaire',teamId:'',pos:bp.own?'ATT':'DEF',pos2:'',image:'',ovr:70,pot:70,height:180,weight:75,body:'Average',accel:'Controlled',foot:'Right',attWr:'Medium',defWr:'Medium',skill:3,weakFoot:3,playstyles:const[],s:const{});
 }
 
 class _TacticBoardPainter extends CustomPainter{
@@ -3696,14 +3783,31 @@ class TeamAutocomplete extends StatelessWidget{
   final List<TeamInfo> teams; final String value; final String label; final ValueChanged<String> onSelected;
   const TeamAutocomplete({super.key, required this.teams, required this.value, required this.label, required this.onSelected});
   @override Widget build(BuildContext context){
-    final names=teams.map((e)=>e.name).toList();
+    final counts=<String,int>{};
+    for(final t in teams){ counts[t.name]=(counts[t.name]??0)+1; }
+    String labelOf(TeamInfo t)=> (counts[t.name]??0)>1 ? '${t.name}  • ID ${t.id}' : t.name;
+    final opts=teams.map(labelOf).toList();
     return Autocomplete<String>(
       initialValue: TextEditingValue(text:value),
-      optionsBuilder:(text){ final q=text.text.toLowerCase(); if(q.isEmpty) return names.take(25); return names.where((n)=>n.toLowerCase().contains(q)).take(30); },
-      onSelected:onSelected,
+      optionsBuilder:(text){ final q=text.text.toLowerCase(); if(q.isEmpty) return opts.take(25); return opts.where((n)=>n.toLowerCase().contains(q)).take(30); },
+      onSelected:(v)=>onSelected(v),
       fieldViewBuilder:(context,ctrl,focus,onSubmit)=>TextField(controller:ctrl, focusNode:focus, decoration:InputDecoration(labelText:label, prefixIcon:const Icon(Icons.shield_rounded), suffixIcon:IconButton(icon:const Icon(Icons.check), onPressed:()=>onSelected(ctrl.text)))),
     );
   }
+}
+
+TeamInfo? findTeamByAutocomplete(List<TeamInfo> teams, String value){
+  final idMatch=RegExp(r'ID\s+([^\s]+)').firstMatch(value);
+  if(idMatch!=null){
+    final id=idMatch.group(1)!;
+    for(final t in teams){ if(t.id==id) return t; }
+  }
+  final clean=value.split('•').first.trim().toLowerCase();
+  final exact=teams.where((t)=>t.name.toLowerCase()==clean).toList();
+  if(exact.isNotEmpty) return exact.first;
+  final idExact=teams.where((t)=>t.id==value.trim()).toList();
+  if(idExact.isNotEmpty) return idExact.first;
+  return null;
 }
 
 class AiSimulatorPage extends StatefulWidget {
@@ -3720,7 +3824,7 @@ class _AiSimulatorPageState extends State<AiSimulatorPage> {
   bool showGuide=false;
 
   @override Widget build(BuildContext context) {
-    final cleanTeams = widget.teams.where((t){ final n=t.name.toLowerCase(); return !(n.contains('soccer aid')||n.contains('women')||n.contains('female')||n.contains('classic xi')); }).toList();
+    final cleanTeams = cleanTeamListForPlayers(widget.teams, widget.players);
     team ??= cleanTeams.isNotEmpty ? cleanTeams.first : (widget.teams.isNotEmpty ? widget.teams.first : null);
     final simPlayers=cleanPlayerList(widget.players);
     a ??= simPlayers.firstWhere((p)=>p.name.toLowerCase().contains('mbapp'), orElse:()=>simPlayers.first);
@@ -3986,6 +4090,7 @@ class _PlayerFormProState extends State<PlayerFormPro> {
       id: base?.id ?? 'custom_${DateTime.now().millisecondsSinceEpoch}',
       name: name.text.trim().isEmpty?'Custom Player':name.text.trim(),
       team: team.text.trim().isEmpty?'Custom':team.text.trim(),
+      teamId: base?.teamId ?? '',
       pos: pos.text.trim().isEmpty?'ST':pos.text.trim(),
       pos2: pos2.text.trim(),
       image: image.text.trim(),
@@ -4000,6 +4105,7 @@ class _PlayerFormProState extends State<PlayerFormPro> {
       defWr: defWr,
       skill: int.tryParse(skill.text)??3,
       weakFoot: int.tryParse(wf.text)??3,
+      gender: base?.gender ?? 0,
       playstyles: [...playstyles, ...playstylesPlus, ...specialities],
       s: stats,
     ));
