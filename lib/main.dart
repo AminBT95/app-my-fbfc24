@@ -2435,8 +2435,10 @@ List<Mode> _duelModesForFace(Player x, Player y) {
 class TeamVsTeamTacticalMap extends StatelessWidget { final TeamInfo a,b; final List<Player> players; final String scenario; const TeamVsTeamTacticalMap({super.key,required this.a,required this.b,required this.players,required this.scenario});
   @override Widget build(BuildContext context){
     final clean=cleanPlayerList(players);
-    final pa=_teamSquad(a, clean).take(11).toList();
-    final pb=_teamSquad(b, clean).take(11).toList();
+    final fullA=_teamSquad(a, clean).take(23).toList();
+    final fullB=_teamSquad(b, clean).take(23).toList();
+    final pa=fullA.take(11).toList();
+    final pb=fullB.take(11).toList();
     final fa=_guessFormation(a,pa), fb=_guessFormation(b,pb);
     final mine=_assignToFormation(pa,fa,opponent:false);
     final opp=_assignToFormation(pb,fb,opponent:true);
@@ -2453,7 +2455,7 @@ class TeamVsTeamTacticalMap extends StatelessWidget { final TeamInfo a,b; final 
       const SizedBox(height:10),
       TeamPitchCompareView(mine:mine, opp:opp, pairs:pairs.take(6).toList()),
       const SizedBox(height:12),
-      TerrainPlayerVsPlayerSelector(mine:pa, opp:pb),
+      TerrainPlayerVsPlayerSelector(mine:fullA, opp:fullB),
       const SizedBox(height:12),
       Row(children:[Expanded(child:_legend(AppTheme.green,'Vert = zone à attaquer')), const SizedBox(width:6), Expanded(child:_legend(AppTheme.blue,'Bleu = joueur/zone à presser'))]),
       const SizedBox(height:6),
@@ -2504,9 +2506,9 @@ class _TerrainPlayerVsPlayerSelectorState extends State<TerrainPlayerVsPlayerSel
       const SizedBox(height:6),
       const Text('Sélectionne un joueur de ton équipe et celui qui lui fait face, puis compare poste par poste.', style:TextStyle(color:AppTheme.muted,fontWeight:FontWeight.w700,height:1.3)),
       const SizedBox(height:10),
-      DropdownButtonFormField<String>(value:a!.id, isExpanded:true, decoration:const InputDecoration(labelText:'Ton joueur'), items:widget.mine.map((p)=>DropdownMenuItem(value:p.id, child:Text('${p.pos} • ${p.name}', overflow:TextOverflow.ellipsis))).toList(), onChanged:(v)=>setState(()=>a=widget.mine.firstWhere((p)=>p.id==v))),
+      DropdownButtonFormField<String>(value:a!.id, isExpanded:true, decoration:const InputDecoration(labelText:'Ton joueur (XI + remplaçants)'), items:List.generate(widget.mine.length,(i){ final p=widget.mine[i]; return DropdownMenuItem(value:p.id, child:Text('${i<11?'XI':'SUB'} • ${p.pos} • ${p.name}', overflow:TextOverflow.ellipsis)); }), onChanged:(v)=>setState(()=>a=widget.mine.firstWhere((p)=>p.id==v))),
       const SizedBox(height:8),
-      DropdownButtonFormField<String>(value:b!.id, isExpanded:true, decoration:const InputDecoration(labelText:'Adversaire'), items:widget.opp.map((p)=>DropdownMenuItem(value:p.id, child:Text('${p.pos} • ${p.name}', overflow:TextOverflow.ellipsis))).toList(), onChanged:(v)=>setState(()=>b=widget.opp.firstWhere((p)=>p.id==v))),
+      DropdownButtonFormField<String>(value:b!.id, isExpanded:true, decoration:const InputDecoration(labelText:'Adversaire (XI + remplaçants)'), items:List.generate(widget.opp.length,(i){ final p=widget.opp[i]; return DropdownMenuItem(value:p.id, child:Text('${i<11?'XI':'SUB'} • ${p.pos} • ${p.name}', overflow:TextOverflow.ellipsis)); }), onChanged:(v)=>setState(()=>b=widget.opp.firstWhere((p)=>p.id==v))),
       const SizedBox(height:8),
       DropdownButtonFormField<String>(value:selectedKey, isExpanded:true, decoration:const InputDecoration(labelText:'Mode de comparaison'), items:[const DropdownMenuItem(value:'auto', child:Text('Auto selon postes')), ...modesList.map((m)=>DropdownMenuItem(value:m.key, child:Text(m.label, overflow:TextOverflow.ellipsis)))], onChanged:(v)=>setState(()=>modeKey=v??'auto')),
       const SizedBox(height:10),
@@ -2519,6 +2521,7 @@ class _TerrainPlayerVsPlayerSelectorState extends State<TerrainPlayerVsPlayerSel
   Widget _smallScore(Player p,int v,Color c)=>Container(padding:const EdgeInsets.all(10), decoration:BoxDecoration(color:c.withOpacity(.10),borderRadius:BorderRadius.circular(16),border:Border.all(color:c.withOpacity(.35))), child:Row(children:[PlayerAvatar(p:p,size:34),const SizedBox(width:8),Expanded(child:Text(p.name,maxLines:1,overflow:TextOverflow.ellipsis,style:const TextStyle(fontWeight:FontWeight.w900))),Text('$v',style:TextStyle(color:c,fontWeight:FontWeight.w900))]));
 }
 
+
 class OffDefComparisonCards extends StatelessWidget{
   final Player a,b;
   const OffDefComparisonCards({super.key, required this.a, required this.b});
@@ -2527,8 +2530,10 @@ class OffDefComparisonCards extends StatelessWidget{
     final rows=<({String label,String ak,String bk,String advice})>[
       (label:'Dribble vs Tacle', ak:'drib', bk:'tackle', advice:'Si dribble > tacle : provoque 1v1/crochet. Sinon joue remise ou dédoublement.'),
       (label:'Agilité vs Jockey', ak:'agi', bk:'defaw', advice:'Si agilité gagne : changements de direction. Sinon évite conduite longue face à lui.'),
+      (label:'Contrôle balle vs Interception', ak:'ball', bk:'inter', advice:'Si contrôle gagne : reçois entre les lignes. Sinon joue en une touche.'),
       (label:'Accélération vs Couverture', ak:'acc', bk:'acc', advice:'Teste le premier pas 0-10m, surtout après contrôle orienté.'),
       (label:'Sprint vs Profondeur déf.', ak:'sprint', bk:'sprint', advice:'Si tu gagnes : appels dans le dos. Sinon cherche appui-remise.'),
+      (label:'Passe courte vs Pressing', ak:'shortpass', bk:'defaw', advice:'Si passe perd : évite relance courte sous pression, cherche côté opposé.'),
       (label:'Centre/Cutback vs Interception', ak:'cross', bk:'inter', advice:'Si centre perd : cutback tardif ou renversement.'),
       (label:'Finition vs Bloc/placement', ak:'finish', bk:'defaw', advice:'Si finition gagne : tir rapide. Sinon fixe puis décale.'),
       (label:'Physique offensif vs Force déf.', ak:'str', bk:'str', advice:'Si physique perd : évite épaule contre épaule.'),
@@ -2536,19 +2541,71 @@ class OffDefComparisonCards extends StatelessWidget{
     ];
     return Column(crossAxisAlignment:CrossAxisAlignment.start, children:[
       const Text('Stats offensives vs défensives', style:TextStyle(fontWeight:FontWeight.w900)),
+      const SizedBox(height:4),
+      const Text('Clique une ligne pour ouvrir le détail du duel et les consignes.', style:TextStyle(color:AppTheme.muted,fontWeight:FontWeight.w700,fontSize:12)),
       const SizedBox(height:8),
-      ...rows.map((r){ final av=v(a,r.ak), bv=v(b,r.bk); final good=av>=bv; return Container(margin:const EdgeInsets.only(bottom:8), padding:const EdgeInsets.all(10), decoration:BoxDecoration(color:good?AppTheme.green.withOpacity(.08):AppTheme.danger.withOpacity(.08),borderRadius:BorderRadius.circular(16),border:Border.all(color:(good?AppTheme.green:AppTheme.danger).withOpacity(.28))), child:Column(crossAxisAlignment:CrossAxisAlignment.start, children:[
-        Row(children:[Expanded(child:Text(r.label,style:const TextStyle(fontWeight:FontWeight.w900))),Text('$av - $bv',style:TextStyle(fontWeight:FontWeight.w900,color:good?AppTheme.green:AppTheme.danger))]),
-        const SizedBox(height:3),Text(r.advice,style:const TextStyle(color:AppTheme.muted,height:1.25,fontWeight:FontWeight.w700,fontSize:12)),
-      ]));}).toList(),
+      ...rows.map((r){ final av=v(a,r.ak), bv=v(b,r.bk); final good=av>=bv; return InkWell(
+        borderRadius:BorderRadius.circular(16),
+        onTap:()=>showModalBottomSheet(context:context,isScrollControlled:true,backgroundColor:Colors.transparent,builder:(_)=>OffDefMetricDetailSheet(a:a,b:b,label:r.label,ak:r.ak,bk:r.bk,advice:r.advice)),
+        child:Container(margin:const EdgeInsets.only(bottom:8), padding:const EdgeInsets.all(10), decoration:BoxDecoration(color:good?AppTheme.green.withOpacity(.08):AppTheme.danger.withOpacity(.08),borderRadius:BorderRadius.circular(16),border:Border.all(color:(good?AppTheme.green:AppTheme.danger).withOpacity(.28))), child:Column(crossAxisAlignment:CrossAxisAlignment.start, children:[
+          Row(children:[Expanded(child:Text(r.label,style:const TextStyle(fontWeight:FontWeight.w900))),Text('$av - $bv',style:TextStyle(fontWeight:FontWeight.w900,color:good?AppTheme.green:AppTheme.danger)), const SizedBox(width:4), const Icon(Icons.open_in_new_rounded,size:15)]),
+          const SizedBox(height:3),Text(r.advice,style:const TextStyle(color:AppTheme.muted,height:1.25,fontWeight:FontWeight.w700,fontSize:12)),
+        ])),
+      );}).toList(),
     ]);
   }
 }
+
+class OffDefMetricDetailSheet extends StatelessWidget{
+  final Player a,b; final String label,ak,bk,advice;
+  const OffDefMetricDetailSheet({super.key, required this.a, required this.b, required this.label, required this.ak, required this.bk, required this.advice});
+  int v(Player p,String k)=>p.s[k]??0;
+  @override Widget build(BuildContext context){
+    final av=v(a,ak), bv=v(b,bk), diff=av-bv;
+    final good=diff>=0;
+    return DraggableScrollableSheet(initialChildSize:.68,minChildSize:.45,maxChildSize:.94,builder:(context,ctrl)=>Container(decoration:const BoxDecoration(color:AppTheme.bg,borderRadius:BorderRadius.vertical(top:Radius.circular(28))), child:ListView(controller:ctrl,padding:const EdgeInsets.all(16),children:[
+      Row(children:[Expanded(child:Text(label,style:const TextStyle(fontSize:22,fontWeight:FontWeight.w900))),IconButton(onPressed:()=>Navigator.pop(context),icon:const Icon(Icons.close))]),
+      const SizedBox(height:8),
+      Row(children:[Expanded(child:_playerScore(a, labelStat(ak), av, AppTheme.green)), const SizedBox(width:10), Expanded(child:_playerScore(b, labelStat(bk), bv, AppTheme.blue))]),
+      const SizedBox(height:12),
+      ProBox(title:good?'Avantage exploitable':'Danger / duel défavorable', subtitle:'Lecture coach', icon:good?Icons.trending_up_rounded:Icons.warning_amber_rounded, child:Text('${good?'Tu peux tenter ce duel.':'Évite de forcer ce duel.'}\n$advice\nDifférence : ${diff>=0?'+':''}$diff points.', style:const TextStyle(height:1.45,fontWeight:FontWeight.w800))),
+      const SizedBox(height:10),
+      ProBox(title:'Stats liées à vérifier', subtitle:'Contexte autour du duel', icon:Icons.analytics_rounded, child:Column(children:[
+        StatBar(label:labelStat(ak), value:av),
+        StatBar(label:labelStat(bk), value:bv),
+        StatBar(label:'Agilité / réaction ${a.name}', value:((a.s['agi']??0)+(a.s['react']??0))~/2),
+        StatBar(label:'Placement / réaction ${b.name}', value:((b.s['defaw']??0)+(b.s['react']??0))~/2),
+      ])),
+      const SizedBox(height:10),
+      FilledButton.icon(onPressed:()=>showModalBottomSheet(context:context,isScrollControlled:true,backgroundColor:Colors.transparent,builder:(_)=>FaceDuelModesSheet(a:a,b:b,modes:_duelModesForFace(a,b))), icon:const Icon(Icons.compare_arrows_rounded), label:const Text('Ouvrir comparaison complète')),
+    ]));
+  }
+  Widget _playerScore(Player p,String stat,int value,Color c)=>Container(padding:const EdgeInsets.all(12), decoration:BoxDecoration(color:c.withOpacity(.10), borderRadius:BorderRadius.circular(18), border:Border.all(color:c.withOpacity(.35))), child:Column(crossAxisAlignment:CrossAxisAlignment.start, children:[PlayerAvatar(p:p,size:46), const SizedBox(height:8), Text(p.name,maxLines:1,overflow:TextOverflow.ellipsis,style:const TextStyle(fontWeight:FontWeight.w900)), Text('${p.pos} • $stat',style:const TextStyle(color:AppTheme.muted,fontWeight:FontWeight.w700)), const SizedBox(height:6), Text('$value',style:TextStyle(color:c,fontSize:26,fontWeight:FontWeight.w900))]));
+}
+
+
 
 class TeamPitchCompareView extends StatelessWidget {
   final List<_PitchPlayer> mine, opp;
   final List<(_PitchPlayer, _PitchPlayer, double)> pairs;
   const TeamPitchCompareView({super.key, required this.mine, required this.opp, required this.pairs});
+
+  _PitchPlayer? _pairedFor(_PitchPlayer pp) {
+    for (final e in pairs) {
+      if (e.$1.p.id == pp.p.id) return e.$2;
+      if (e.$2.p.id == pp.p.id) return e.$1;
+    }
+    return null;
+  }
+
+  void _openFromPitch(BuildContext context, _PitchPlayer pp) {
+    final other = _pairedFor(pp);
+    if (other == null) { showPlayerDetails(context, pp.p); return; }
+    final x = pp.opponent ? other.p : pp.p;
+    final y = pp.opponent ? pp.p : other.p;
+    showModalBottomSheet(context:context,isScrollControlled:true,backgroundColor:Colors.transparent,builder:(_)=>FaceDuelModesSheet(a:x,b:y,modes:_duelModesForFace(x,y)));
+  }
+
   @override Widget build(BuildContext context)=>LayoutBuilder(builder:(context,c){
     return Container(height:390, decoration:BoxDecoration(borderRadius:BorderRadius.circular(26), gradient:const LinearGradient(begin:Alignment.topCenter,end:Alignment.bottomCenter,colors:[Color(0xFF14532D), Color(0xFF15803D)])), child:Stack(children:[
       Positioned.fill(child:CustomPaint(painter:_PitchLines())),
@@ -2557,11 +2614,13 @@ class TeamPitchCompareView extends StatelessWidget {
       for(final pp in mine) Positioned(left:pp.spot.dx*c.maxWidth-23, top:pp.spot.dy*390-23, child:_dot(pp, AppTheme.blue, context)),
       Positioned(left:12, top:12, child:_tag('Ton équipe', AppTheme.blue)),
       Positioned(right:12, top:12, child:_tag('Adversaire', Colors.redAccent)),
+      Positioned(left:12, bottom:12, right:12, child:Container(padding:const EdgeInsets.all(8), decoration:BoxDecoration(color:Colors.black.withOpacity(.45), borderRadius:BorderRadius.circular(14)), child:const Text('Clique un joueur sur le terrain : ouverture directe du duel face-à-face le plus proche.', textAlign:TextAlign.center, style:TextStyle(color:Colors.white, fontWeight:FontWeight.w800, fontSize:12)))),
     ]));
   });
-  Widget _dot(_PitchPlayer pp, Color c, BuildContext context)=>InkWell(onTap:()=>showPlayerDetails(context,pp.p), child:Column(children:[Container(width:46,height:46,alignment:Alignment.center, decoration:BoxDecoration(shape:BoxShape.circle,color:c.withOpacity(.92),border:Border.all(color:Colors.white,width:2),boxShadow:[BoxShadow(color:Colors.black.withOpacity(.25), blurRadius:10)]), child:Text(pp.role.replaceAll(RegExp(r'[0-9]'),''), style:const TextStyle(color:Colors.white,fontWeight:FontWeight.w900,fontSize:10))), Container(constraints:const BoxConstraints(maxWidth:78), padding:const EdgeInsets.symmetric(horizontal:5,vertical:2), decoration:BoxDecoration(color:Colors.black.withOpacity(.55), borderRadius:BorderRadius.circular(8)), child:Text(pp.p.name.replaceFirst('Player ', '#'), maxLines:1, overflow:TextOverflow.ellipsis, style:const TextStyle(color:Colors.white,fontSize:10,fontWeight:FontWeight.w800)))]));
+  Widget _dot(_PitchPlayer pp, Color c, BuildContext context)=>InkWell(onTap:()=>_openFromPitch(context, pp), child:Column(children:[Container(width:46,height:46,alignment:Alignment.center, decoration:BoxDecoration(shape:BoxShape.circle,color:c.withOpacity(.92),border:Border.all(color:Colors.white,width:2),boxShadow:[BoxShadow(color:Colors.black.withOpacity(.25), blurRadius:10)]), child:Text(pp.role.replaceAll(RegExp(r'[0-9]'),''), style:const TextStyle(color:Colors.white,fontWeight:FontWeight.w900,fontSize:10))), Container(constraints:const BoxConstraints(maxWidth:78), padding:const EdgeInsets.symmetric(horizontal:5,vertical:2), decoration:BoxDecoration(color:Colors.black.withOpacity(.55), borderRadius:BorderRadius.circular(8)), child:Text(pp.p.name.replaceFirst('Player ', '#'), maxLines:1, overflow:TextOverflow.ellipsis, style:const TextStyle(color:Colors.white,fontSize:10,fontWeight:FontWeight.w800)))]));
   Widget _tag(String t, Color c)=>Container(padding:const EdgeInsets.symmetric(horizontal:10,vertical:6), decoration:BoxDecoration(color:c.withOpacity(.88), borderRadius:BorderRadius.circular(99)), child:Text(t, style:const TextStyle(color:Colors.white,fontWeight:FontWeight.w900,fontSize:12)));
 }
+
 
 class _PairLinePainter extends CustomPainter{
   final Offset a,b; _PairLinePainter(this.a,this.b);
@@ -2685,7 +2744,7 @@ class _TeamWeakLinksCard extends StatelessWidget { final TeamInfo a,b; final Lis
 }
 
 class _TeamLineupCompare extends StatelessWidget { final TeamInfo a,b; final List<Player> players; const _TeamLineupCompare({required this.a,required this.b,required this.players});
-  @override Widget build(BuildContext context){ final pa=_teamSquad(a,cleanPlayerList(players)).take(11).toList(); final pb=_teamSquad(b,cleanPlayerList(players)).take(11).toList(); return ProBox(title:'XI clés comparés', subtitle:'Clique joueur pour détail', icon:Icons.groups_rounded, child:Column(children:List.generate(max(pa.length,pb.length),(i){ final x=i<pa.length?pa[i]:null, y=i<pb.length?pb[i]:null; return Padding(padding:const EdgeInsets.only(bottom:8), child:Row(children:[Expanded(child:x==null?const SizedBox():_miniPlayer(context,x)), const SizedBox(width:8), Expanded(child:y==null?const SizedBox():_miniPlayer(context,y))])); }))); }
+  @override Widget build(BuildContext context){ final pa=_teamSquad(a,cleanPlayerList(players)).take(18).toList(); final pb=_teamSquad(b,cleanPlayerList(players)).take(18).toList(); return ProBox(title:'XI + remplaçants comparés', subtitle:'Clique joueur pour détail — les 11 premiers = titulaires, puis SUB', icon:Icons.groups_rounded, child:Column(children:List.generate(max(pa.length,pb.length),(i){ final x=i<pa.length?pa[i]:null, y=i<pb.length?pb[i]:null; return Padding(padding:const EdgeInsets.only(bottom:8), child:Row(children:[Expanded(child:x==null?const SizedBox():_miniPlayer(context,x)), const SizedBox(width:8), Expanded(child:y==null?const SizedBox():_miniPlayer(context,y))])); }))); }
   Widget _miniPlayer(BuildContext context, Player p)=>InkWell(onTap:()=>openPlayer(context,p), child:Container(padding:const EdgeInsets.all(8), decoration:BoxDecoration(color:AppTheme.surface,borderRadius:BorderRadius.circular(16),border:Border.all(color:AppTheme.line)), child:Row(children:[PlayerAvatar(p:p,size:32),const SizedBox(width:6),Expanded(child:Text(p.name,maxLines:1,overflow:TextOverflow.ellipsis,style:const TextStyle(fontWeight:FontWeight.w800))),Text('${p.ovr}',style:const TextStyle(fontWeight:FontWeight.w900))])));
 }
 
