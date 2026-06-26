@@ -566,6 +566,70 @@ class ProBox extends StatelessWidget {
 
 
 
+class UxTabSection extends StatelessWidget {
+  final List<String> tabs;
+  final List<Widget> children;
+  final double height;
+  const UxTabSection({super.key, required this.tabs, required this.children, this.height = 520});
+  @override
+  Widget build(BuildContext context) => DefaultTabController(
+    length: tabs.length,
+    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Container(
+        decoration: BoxDecoration(color: Colors.white.withOpacity(.04), borderRadius: BorderRadius.circular(18), border: Border.all(color: AppTheme.line)),
+        child: TabBar(
+          isScrollable: true,
+          tabAlignment: TabAlignment.start,
+          labelStyle: const TextStyle(fontWeight: FontWeight.w900, fontSize: 12),
+          unselectedLabelColor: AppTheme.muted,
+          tabs: tabs.map((t)=>Tab(text:t)).toList(),
+        ),
+      ),
+      const SizedBox(height: 10),
+      SizedBox(
+        height: height,
+        child: TabBarView(children: children.map((w)=>SingleChildScrollView(child:w)).toList()),
+      ),
+    ]),
+  );
+}
+
+class QuickSearchHeader extends StatelessWidget {
+  final String hint;
+  final ValueChanged<String>? onChanged;
+  final VoidCallback? onFilter;
+  final bool filtersOpen;
+  const QuickSearchHeader({super.key, this.hint='Recherche rapide...', this.onChanged, this.onFilter, this.filtersOpen=false});
+  @override
+  Widget build(BuildContext context)=>Row(children:[
+    Expanded(child:TextField(decoration:InputDecoration(prefixIcon:const Icon(Icons.search), hintText:hint), onChanged:onChanged)),
+    const SizedBox(width:8),
+    FilledButton.tonalIcon(onPressed:onFilter, icon:Icon(filtersOpen?Icons.expand_less_rounded:Icons.tune_rounded), label:Text(filtersOpen?'Filtres':'Filtres')),
+  ]);
+}
+
+void showUxDetailModal(BuildContext context, String title, List<Widget> sections) {
+  showModalBottomSheet(
+    context: context,
+    isScrollControlled: true,
+    backgroundColor: Colors.transparent,
+    builder: (_) => DraggableScrollableSheet(
+      initialChildSize: .78,
+      minChildSize: .45,
+      maxChildSize: .95,
+      builder: (context, ctrl) => Container(
+        decoration: const BoxDecoration(color: AppTheme.bg, borderRadius: BorderRadius.vertical(top: Radius.circular(30))),
+        child: ListView(controller: ctrl, padding: const EdgeInsets.all(16), children: [
+          Container(width:52,height:5,margin:const EdgeInsets.only(bottom:14),decoration:BoxDecoration(color:AppTheme.line,borderRadius:BorderRadius.circular(99))),
+          Header(title, 'Détail IA • explication • impact • conseils'),
+          ...sections,
+        ]),
+      ),
+    ),
+  );
+}
+
+
 class PlayStyleDetection {
   final String name;
   final int confidence;
@@ -2426,18 +2490,19 @@ class _TeamAnalyzerPageState extends State<TeamAnalyzerPage> {
     if (t == null) return const Center(child: Text('Aucune équipe'));
     final squad = _teamSquad(t, cleanPlayerList(widget.players))..sort((a,b)=>b.ovr.compareTo(a.ovr));
     return ListView(padding: const EdgeInsets.all(14), children: [
-      Header('Team Analyzer', 'Forces, faiblesses et joueurs clés'),
+      Header('Team Analyzer', 'Infos organisées en onglets pour éviter le scroll'),
       TeamAutocomplete(teams:teams, value:t.name, label:'Équipe homme par défaut — autocomplete', onSelected:(name){
         final m=findTeamByAutocomplete(teams,name);
         if(m!=null) setState(()=>team=m);
       }),
       const SizedBox(height: 12),
-      GestureDetector(onTap:()=>showTeamDetails(context,t,widget.players), child: TeamCard(team: t, players: widget.players, onEdit: ()=>showTeamDetails(context,t,widget.players))),
-      ProBox(title:'Rapport coach complet', subtitle:'Forces, faiblesses, comment profiter et comment contrer', icon:Icons.psychology_alt_rounded, child:Text(teamCoachReport(t, widget.players), style:const TextStyle(height:1.45, fontWeight:FontWeight.w700))),
-      ProTeamWeaknessReport(team:t, players:widget.players),
-      TeamAnalyzerDeepReport(team:t, players:widget.players),
-      TeamAnalyzerInstructions(team:t, players:widget.players),
-      ProBox(title:'Joueurs clés', subtitle:'Top OVR de l’équipe + modal détail joueur', icon: Icons.stars_rounded, child: Column(children: squad.take(12).map((p)=>PlayerTile(p:p, onTap:()=>showPlayerDetails(context,p))).toList())),
+      UxTabSection(height:620, tabs:const ['Overview','Forces','Faiblesses','Instructions','Joueurs'], children:[
+        Column(children:[GestureDetector(onTap:()=>showTeamDetails(context,t,widget.players), child: TeamCard(team: t, players: widget.players, onEdit: ()=>showTeamDetails(context,t,widget.players))), const SizedBox(height:12), ProBox(title:'Rapport coach complet', subtitle:'Résumé actionnable', icon:Icons.psychology_alt_rounded, child:Text(teamCoachReport(t, widget.players), style:const TextStyle(height:1.45, fontWeight:FontWeight.w700)))]),
+        Column(children:[TeamAnalyzerDeepReport(team:t, players:widget.players)]),
+        Column(children:[ProTeamWeaknessReport(team:t, players:widget.players)]),
+        Column(children:[TeamAnalyzerInstructions(team:t, players:widget.players)]),
+        Column(children:[ProBox(title:'Joueurs clés', subtitle:'Top OVR de l’équipe + modal détail joueur', icon: Icons.stars_rounded, child: Column(children: squad.take(18).map((p)=>PlayerTile(p:p, onTap:()=>showPlayerDetails(context,p))).toList()))]),
+      ]),
     ]);
   }
 }
@@ -2514,37 +2579,40 @@ class _TeamVsTeamPageState extends State<TeamVsTeamPage> {
         Header('Team vs Team Coach AI Pro', 'Plan complet : attaque, défense, pressing, weak links, game state'),
         _TeamVersusHero(a:ta,b:tb),
         const SizedBox(height:12),
-        LayoutBuilder(builder:(context,c){
-          Widget fieldA()=>TeamAutocomplete(teams:teams, value:ta.name, label:'Ton équipe', onSelected:(name){final m=findTeamByAutocomplete(teams,name); if(m!=null) setState((){a=m; formA=savedForms[m.id]??'auto';});});
-          Widget fieldB()=>TeamAutocomplete(teams:teams, value:tb.name, label:'Adversaire', onSelected:(name){final m=findTeamByAutocomplete(teams,name); if(m!=null) setState((){b=m; formB=savedForms[m.id]??'auto';});});
-          if(c.maxWidth<520) return Column(children:[fieldA(), const SizedBox(height:8), fieldB(), const SizedBox(height:8), _scenario()]);
-          return Row(children:[Expanded(child:fieldA()), const SizedBox(width:8), Expanded(child:fieldB()), const SizedBox(width:8), Expanded(child:_scenario())]);
-        }),
-        const SizedBox(height:12),
-        ProBox(title:'Formations provisoires du match', subtitle:'Change la formation sur le terrain sans modifier la DB. Tu peux sauvegarder et recharger par équipe.', icon:Icons.tune_rounded, child:Column(children:[
-          Row(children:[Expanded(child:_formationDrop('Formation ${ta.name}', formA, (v)=>setState(()=>formA=v))), const SizedBox(width:8), Expanded(child:_formationDrop('Formation ${tb.name}', formB, (v)=>setState(()=>formB=v)))]),
-          const SizedBox(height:8),
-          Row(children:[Expanded(child:Chip(label:Text('${ta.name}: ${presetA.name}'))), const SizedBox(width:8), Expanded(child:Chip(label:Text('${tb.name}: ${presetB.name}')))]),
-          Align(alignment:Alignment.centerRight, child:FilledButton.icon(onPressed:()=>_saveProvisional(ta,tb), icon:const Icon(Icons.save_rounded), label:const Text('Enregistrer provisoire'))),
-        ])),
-        const SizedBox(height:12),
-        _TeamPhaseCard(a:ta,b:tb),
-        const SizedBox(height:12),
-        TeamVsTeamIaSimulatorParity(a:ta,b:tb,players:widget.players,scenario:scenario),
-        const SizedBox(height:12),
-        TeamVsTeamCorridorMatrix(a:ta,b:tb,players:widget.players),
-        const SizedBox(height:12),
-        TeamVsTeamTacticalMap(a:ta,b:tb,players:widget.players,scenario:scenario, formationA:presetA, formationB:presetB),
-        const SizedBox(height:12),
-        TeamVsTeamPluginSections(a:ta,b:tb,players:widget.players,scenario:scenario),
-        const SizedBox(height:12),
-        _PlayerAvoidanceCard(a:ta,b:tb,players:widget.players),
-        const SizedBox(height:12),
-        _TeamCoachPlanCard(a:ta,b:tb,players:widget.players,scenario:scenario),
-        const SizedBox(height:12),
-        _TeamWeakLinksCard(a:ta,b:tb,players:widget.players),
-        const SizedBox(height:12),
-        _TeamLineupCompare(a:ta,b:tb,players:widget.players),
+        UxTabSection(
+          height: 640,
+          tabs: const ['Setup','Terrain','Duels','Attack','Defense','Counters','Advice'],
+          children: [
+            Column(children:[
+              LayoutBuilder(builder:(context,c){
+                Widget fieldA()=>TeamAutocomplete(teams:teams, value:ta.name, label:'Ton équipe', onSelected:(name){final m=findTeamByAutocomplete(teams,name); if(m!=null) setState((){a=m; formA=savedForms[m.id]??'auto';});});
+                Widget fieldB()=>TeamAutocomplete(teams:teams, value:tb.name, label:'Adversaire', onSelected:(name){final m=findTeamByAutocomplete(teams,name); if(m!=null) setState((){b=m; formB=savedForms[m.id]??'auto';});});
+                if(c.maxWidth<520) return Column(children:[fieldA(), const SizedBox(height:8), fieldB(), const SizedBox(height:8), _scenario()]);
+                return Row(children:[Expanded(child:fieldA()), const SizedBox(width:8), Expanded(child:fieldB()), const SizedBox(width:8), Expanded(child:_scenario())]);
+              }),
+              const SizedBox(height:12),
+              ProBox(title:'Formations provisoires du match', subtitle:'Change la formation sur le terrain sans modifier la DB.', icon:Icons.tune_rounded, child:Column(children:[
+                Row(children:[Expanded(child:_formationDrop('Formation ${ta.name}', formA, (v)=>setState(()=>formA=v))), const SizedBox(width:8), Expanded(child:_formationDrop('Formation ${tb.name}', formB, (v)=>setState(()=>formB=v)))]),
+                const SizedBox(height:8),
+                Row(children:[Expanded(child:Chip(label:Text('${ta.name}: ${presetA.name}'))), const SizedBox(width:8), Expanded(child:Chip(label:Text('${tb.name}: ${presetB.name}')))]),
+                Align(alignment:Alignment.centerRight, child:FilledButton.icon(onPressed:()=>_saveProvisional(ta,tb), icon:const Icon(Icons.save_rounded), label:const Text('Enregistrer provisoire'))),
+              ])),
+              const SizedBox(height:12),
+              _TeamPhaseCard(a:ta,b:tb),
+            ]),
+            Column(children:[TeamVsTeamTacticalMap(a:ta,b:tb,players:widget.players,scenario:scenario, formationA:presetA, formationB:presetB)]),
+            Column(children:[TeamVsTeamIaSimulatorParity(a:ta,b:tb,players:widget.players,scenario:scenario), const SizedBox(height:12), TeamVsTeamCorridorMatrix(a:ta,b:tb,players:widget.players), const SizedBox(height:12), _TeamLineupCompare(a:ta,b:tb,players:widget.players)]),
+            Column(children:[TeamVsTeamPluginSections(a:ta,b:tb,players:widget.players,scenario:scenario)]),
+            Column(children:[_PlayerAvoidanceCard(a:ta,b:tb,players:widget.players), const SizedBox(height:12), _TeamWeakLinksCard(a:ta,b:tb,players:widget.players)]),
+            Column(children:[_TeamCoachPlanCard(a:ta,b:tb,players:widget.players,scenario:scenario)]),
+            Column(children:[ProBox(title:'Lecture rapide coach', subtitle:'Résumé actionnable pour trouver l’info vite', icon:Icons.psychology_alt_rounded, child:Column(crossAxisAlignment:CrossAxisAlignment.start, children:[
+              Text('1. Va dans Terrain pour voir qui affronte qui.', style:TextStyle(fontWeight:FontWeight.w800)),
+              Text('2. Va dans Duels pour ouvrir chaque détail de comparaison.', style:TextStyle(fontWeight:FontWeight.w800)),
+              Text('3. Va dans Defense pour voir quoi éviter joueur par joueur.', style:TextStyle(fontWeight:FontWeight.w800)),
+              Text('4. Va dans Counters pour changer plan selon score.', style:TextStyle(fontWeight:FontWeight.w800)),
+            ]))]),
+          ],
+        ),
       ]),
     );
   }
@@ -3871,9 +3939,9 @@ class _TacticalPageState extends State<TacticalPage> {
   @override void initState(){ super.initState(); a=widget.a; b=widget.b; mode=widget.mode; }
   @override Widget build(BuildContext context) {
     final sa=score(a,mode), sb=score(b,mode), win=sa.total>=sb.total?a:b, lose=sa.total>=sb.total?b:a;
-    return DefaultTabController(length:5, child:Column(children:[
+    return DefaultTabController(length:7, child:Column(children:[
       Header('Tactical Lab Pro', '${mode.label} • gagnant probable : ${win.name}'),
-      const TabBar(isScrollable:true, tabs:[Tab(text:'Setup'),Tab(text:'Terrain'),Tab(text:'Stats'),Tab(text:'Plan'),Tab(text:'Détails')]),
+      const TabBar(isScrollable:true, tabs:[Tab(text:'Setup'),Tab(text:'Terrain'),Tab(text:'Stats'),Tab(text:'Plan'),Tab(text:'Détails'),Tab(text:'Scénarios'),Tab(text:'À éviter')]),
       Expanded(child:TabBarView(children:[
         ListView(padding:const EdgeInsets.all(16), children:[
           PlayerPicker(title:'Joueur A concerné', players: widget.players, value:a, onChanged:(p)=>setState(()=>a=p)),
@@ -3889,9 +3957,43 @@ class _TacticalPageState extends State<TacticalPage> {
             Wrap(spacing:8, runSpacing:8, children:mode.w.keys.map((k)=>ActionChip(label:Text('${labelStat(k)} ${(mode.w[k]! * 100).round()}%'), onPressed:()=>_showStatCompare(context,k))).toList()),
           ])),
         ]),
+        ListView(padding:const EdgeInsets.all(16), children:[
+          ProBox(title:'Scénarios coach', subtitle:'Choisis l’idée selon la phase de jeu', icon:Icons.account_tree_rounded, child:Column(crossAxisAlignment:CrossAxisAlignment.start, children:[
+            _labScenario(context,'1v1 couloir','Isole ${a.name} côté fort, attaque le pied faible de ${b.name}, puis cherche cutback ou passe retrait.'),
+            _labScenario(context,'Transition rapide','Premier contrôle vers l’avant, passe avant contact, exploite la vitesse du gagnant probable.'),
+            _labScenario(context,'Bloc bas','Patience : attire le défenseur, joue appui-remise, ne force pas le dribble si le tacle gagne.'),
+            _labScenario(context,'Pressing','Déclenche sur mauvais contrôle, couvre la ligne de passe, évite pressing seul sans soutien.'),
+          ])),
+          const SizedBox(height:12),
+          ProBox(title:'Joueurs concernés', subtitle:'Sélection rapide selon rôle', icon:Icons.groups_rounded, child:Wrap(spacing:8,runSpacing:8, children:[
+            ActionChip(label:Text(a.name), onPressed:()=>showPlayerDetails(context,a)),
+            ActionChip(label:Text(b.name), onPressed:()=>showPlayerDetails(context,b)),
+            ActionChip(label:Text('Changer mode'), onPressed:()=>_openModeHelp(context)),
+          ])),
+        ]),
+        ListView(padding:const EdgeInsets.all(16), children:[
+          ProBox(title:'À éviter', subtitle:'Risques du duel et erreurs FC24', icon:Icons.warning_amber_rounded, child:Text(_labAvoidText(), style:const TextStyle(height:1.45,fontWeight:FontWeight.w700))),
+          const SizedBox(height:12),
+          ProBox(title:'Alternative sûre', subtitle:'Si le duel est défavorable', icon:Icons.route_rounded, child:Text('Ne force pas le duel direct. Joue soutien proche, renversement, une-deux ou protection balle. Si ${b.name} gagne physique/tacle, attaque plutôt son dos ou son côté faible.', style:const TextStyle(height:1.45,fontWeight:FontWeight.w700))),
+        ]),
       ])),
     ]));
   }
+
+  Widget _labScenario(BuildContext context, String title, String body)=>ListTile(
+    contentPadding:EdgeInsets.zero,
+    leading:const Icon(Icons.play_arrow_rounded,color:AppTheme.green),
+    title:Text(title, style:const TextStyle(fontWeight:FontWeight.w900)),
+    subtitle:Text(body, style:const TextStyle(color:AppTheme.muted,fontWeight:FontWeight.w700,height:1.25)),
+    onTap:()=>showUxDetailModal(context, title, [ProBox(title:'Détail scénario', subtitle:mode.label, icon:Icons.sports_soccer_rounded, child:Text(body, style:const TextStyle(height:1.45,fontWeight:FontWeight.w700))), ProDuelBreakdown(a:a,b:b,mode:mode)]),
+  );
+  void _openModeHelp(BuildContext context)=>showUxDetailModal(context, 'Mode ${mode.label}', [ProBox(title:'Stats du mode', subtitle:'Poids de calcul', icon:Icons.tune_rounded, child:Wrap(spacing:8,runSpacing:8,children:mode.w.keys.map((k)=>Chip(label:Text('${labelStat(k)} ${(mode.w[k]!*100).round()}%'))).toList())), ProBox(title:'Impact', subtitle:'Lecture coach', icon:Icons.psychology_rounded, child:Text('Ce mode compare les qualités réellement utiles dans la situation. Clique chaque stat pour comprendre son impact et éviter les mauvais duels.', style:const TextStyle(height:1.45,fontWeight:FontWeight.w700)))]);
+  String _labAvoidText(){
+    final bad=score(a,mode).total < score(b,mode).total;
+    if(bad) return '${a.name} est défavorisé dans ${mode.label}. Évite le duel direct, ne dribble pas dans la zone de contact, cherche soutien ou changement d’angle.';
+    return '${a.name} est favori, mais évite de répéter le même geste. Varie timing, angle, feinte et passe pour ne pas offrir un tacle facile.';
+  }
+
   void _showStatCompare(BuildContext context, String k){
     final av=a.s[k]??0, bv=b.s[k]??0, diff=av-bv;
     showModalBottomSheet(context:context,isScrollControlled:true,backgroundColor:AppTheme.bg,builder:(_)=>DraggableScrollableSheet(expand:false,initialChildSize:.70,maxChildSize:.92,builder:(_,ctrl)=>ListView(controller:ctrl,padding:const EdgeInsets.all(16),children:[
