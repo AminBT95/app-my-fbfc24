@@ -1980,8 +1980,7 @@ class _DetectorPageState extends State<DetectorPage> {
       Card(child: Padding(padding: const EdgeInsets.all(14), child: Text('${rows.length} joueurs > ${ref.name} • score référence $refScore'))),
       ...rows.take(80).map((x)=>Card(child: ListTile(
         title: Text(x.p.name),
-        subtitle: Text('${x.p.team} • ${x.p.pos} • ${x.p.body} • ${x.p.accel}
-Clique pour détail comparaison vs ${ref.name}', maxLines:2, overflow:TextOverflow.ellipsis),
+        subtitle: Text('${x.p.team} • ${x.p.pos} • ${x.p.body} • ${x.p.accel}\nClique pour détail comparaison vs ${ref.name}', maxLines:2, overflow:TextOverflow.ellipsis),
         trailing: Text('${x.sc}  +${x.sc-refScore}', style: const TextStyle(color: AppTheme.pink, fontWeight: FontWeight.w900)),
         onTap:()=>showModalBottomSheet(context:context,isScrollControlled:true,backgroundColor:Colors.transparent,builder:(_)=>_ModeDetailSheet(a:x.p,b:ref,mode:mode)),
       ))),
