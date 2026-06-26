@@ -1376,26 +1376,61 @@ class _ComparePageState extends State<ComparePage> {
         Header('Comparateur Pro+', 'Gagnant prévu : ${win.name}'),
         ProComparisonHero(a:widget.a,b:widget.b,sa:sa,sb:sb,mode:effectiveMode),
         const SizedBox(height: 12),
-        _MatchupSelector(value: matchupKey, onChanged: (v){ setState(()=>matchupKey=v); final ml=modesForMatchup(v); if(ml.isNotEmpty) widget.onMode(ml.first); }),
-        const SizedBox(height: 10),
-        _DarkCoachPanel(title: 'Poste vs poste : ${spec.label}', body: matchupCoachText(matchupKey, widget.a, widget.b), icon: Icons.route_rounded),
-        const SizedBox(height: 10),
-        PlayerPicker(title:'Joueur A', players:widget.players, value:widget.a, onChanged:widget.onA),
-        PlayerPicker(title:'Joueur B', players:widget.players, value:widget.b, onChanged:widget.onB),
-        _ModeChipsPanel(modes: modeList, selected: effectiveMode, onMode: widget.onMode),
+        CoachExpansion(title:'Réglages matchup', subtitle:'Poste vs poste + modes adaptés', initiallyExpanded:false, child:Column(children:[
+          _MatchupSelector(value: matchupKey, onChanged: (v){ setState(()=>matchupKey=v); final ml=modesForMatchup(v); if(ml.isNotEmpty) widget.onMode(ml.first); }),
+          const SizedBox(height: 10),
+          _DarkCoachPanel(title: 'Poste vs poste : ${spec.label}', body: matchupCoachText(matchupKey, widget.a, widget.b), icon: Icons.route_rounded),
+          const SizedBox(height: 10),
+          _ModeChipsPanel(modes: modeList, selected: effectiveMode, onMode: widget.onMode),
+        ])),
+        CoachExpansion(title:'Joueurs', subtitle:'Changer joueur A/B sans casser le scroll', initiallyExpanded:false, child:Column(children:[
+          PlayerPicker(title:'Joueur A', players:widget.players, value:widget.a, onChanged:widget.onA),
+          PlayerPicker(title:'Joueur B', players:widget.players, value:widget.b, onChanged:widget.onB),
+        ])),
         TacticalSituationCard(mode:effectiveMode, a:widget.a, b:widget.b),
+        const SizedBox(height: 10),
+        AttackVsDefenseMatrix(a:widget.a, b:widget.b),
         const SizedBox(height: 10),
         ScoreSummary(a:widget.a,b:widget.b,sa:sa,sb:sb),
         FilledButton.icon(onPressed: () => widget.onSaveHistory({'date': DateTime.now().toIso8601String(), 'a': widget.a.name, 'b': widget.b.name, 'matchup': spec.label, 'mode': effectiveMode.label, 'scoreA': sa.total, 'scoreB': sb.total, 'winner': win.name}), icon: const Icon(Icons.save), label: const Text('Sauvegarder dans historique')),
         const SizedBox(height: 10),
-        ProDuelBreakdown(a:widget.a,b:widget.b,mode:effectiveMode),
+        CoachExpansion(title:'Détail du duel', subtitle:'Calcul IA, stats pondérées, conseils', initiallyExpanded:false, child:ProDuelBreakdown(a:widget.a,b:widget.b,mode:effectiveMode)),
         const SizedBox(height: 10),
-        DetailCard(a:widget.a,b:widget.b,sa:sa,sb:sb,mode:effectiveMode),
+        CoachExpansion(title:'Stats complètes', subtitle:'Profil, PlayStyles et détail chiffré', initiallyExpanded:false, child:DetailCard(a:widget.a,b:widget.b,sa:sa,sb:sb,mode:effectiveMode)),
         const SizedBox(height: 10),
-        AllComparisonModesPanel(a:widget.a, b:widget.b, selected:effectiveMode, onMode:widget.onMode, modeList:modeList, matchupLabel:spec.label),
+        CoachExpansion(title:'Tous les modes de comparaison', subtitle:'Replié par défaut pour réduire le scroll', initiallyExpanded:false, child:AllComparisonModesPanel(a:widget.a, b:widget.b, selected:effectiveMode, onMode:widget.onMode, modeList:modeList, matchupLabel:spec.label)),
       ]),
     );
   }
+}
+
+
+class CoachExpansion extends StatelessWidget {
+  final String title, subtitle; final Widget child; final bool initiallyExpanded;
+  const CoachExpansion({super.key, required this.title, required this.subtitle, required this.child, this.initiallyExpanded=false});
+  @override Widget build(BuildContext context)=>Card(child:Theme(data:Theme.of(context).copyWith(dividerColor:Colors.transparent), child:ExpansionTile(
+    initiallyExpanded: initiallyExpanded,
+    tilePadding: const EdgeInsets.symmetric(horizontal:16, vertical:4),
+    childrenPadding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+    title: Text(title, style: const TextStyle(fontWeight:FontWeight.w900)),
+    subtitle: Text(subtitle, style: const TextStyle(color:AppTheme.muted, fontWeight:FontWeight.w700)),
+    children:[child],
+  )));
+}
+
+class AttackVsDefenseMatrix extends StatelessWidget {
+  final Player a,b;
+  const AttackVsDefenseMatrix({super.key, required this.a, required this.b});
+  @override Widget build(BuildContext context){
+    final rows = <(String,String,String)>[
+      ('Dribble vs tacle','drib','tackle'),('Agilité vs placement','agi','defaw'),('Contrôle vs interceptions','ball','inter'),('Accélération vs réaction','acc','react'),('Centre vs défense','cross','def'),('Finition vs bloc','finish','block'),
+    ];
+    return ProBox(title:'Attaque vs défenseur', subtitle:'Comparaison spéciale dribble/attaque contre stats défensives', icon:Icons.sports_martial_arts_rounded, child:Column(children:rows.map((r)=>_row(r.$1, a.s[r.$2]??0, b.s[r.$3]??0)).toList()));
+  }
+  Widget _row(String label,int av,int bv){ final total=max(1,av+bv); final pa=(av/total*100).round(); final diff=av-bv; return Padding(padding:const EdgeInsets.only(bottom:12), child:Column(crossAxisAlignment:CrossAxisAlignment.start, children:[
+    Row(children:[Expanded(child:Text(label, style:const TextStyle(fontWeight:FontWeight.w900))), Text('$av - $bv', style:TextStyle(fontWeight:FontWeight.w900, color:diff>=0?AppTheme.green:Colors.redAccent))]),
+    const SizedBox(height:6), ClipRRect(borderRadius:BorderRadius.circular(99), child:SizedBox(height:9, child:Row(children:[Expanded(flex:max(1,pa), child:Container(color:AppTheme.green)), Expanded(flex:max(1,100-pa), child:Container(color:AppTheme.line))]))),
+  ]));}
 }
 
 class _MatchupSelector extends StatelessWidget {
@@ -1727,7 +1762,13 @@ class PlayerPicker extends StatelessWidget {
 }
 
 Future<Player?> showPlayerSearch(BuildContext context, List<Player> players, Player current) {
-  return showDialog<Player>(context: context, builder: (_) => PlayerSearchDialog(players: players, current: current));
+  return showModalBottomSheet<Player>(
+    context: context,
+    isScrollControlled: true,
+    useSafeArea: true,
+    backgroundColor: Colors.transparent,
+    builder: (_) => PlayerSearchDialog(players: players, current: current),
+  );
 }
 
 class PlayerSearchDialog extends StatefulWidget {
@@ -1736,8 +1777,8 @@ class PlayerSearchDialog extends StatefulWidget {
   @override State<PlayerSearchDialog> createState()=>_PlayerSearchDialogState();
 }
 class _PlayerSearchDialogState extends State<PlayerSearchDialog> {
-  String q=''; String team='all'; String pos='all'; String foot='all'; String accel='all'; String body='all'; String play='all';
-  bool showWomen=false, showSoccerAid=false, onlyNamed=false; RangeValues ovrRange=const RangeValues(40,99); double minPace=0; double minPhy=0;
+  String q=''; String team='all'; String pos='all'; String foot='all'; String accel='all'; String body='all'; String play='all'; String wr='all';
+  bool showWomen=false, showSoccerAid=false, onlyNamed=false; RangeValues ovrRange=const RangeValues(40,99); RangeValues hRange=const RangeValues(150,210); RangeValues wRange=const RangeValues(45,115); double minPace=0; double minPhy=0; double minDri=0; double minDef=0;
   @override Widget build(BuildContext context) {
     bool hidden(Player p){final t=p.team.toLowerCase(), n=p.name.toLowerCase(); if(!showWomen && (t.contains('women')||t.contains('female')||n.contains('women'))) return true; if(!showSoccerAid && (t.contains('soccer aid')||t.contains('classic xi')||t.contains('adidas'))) return true; return false;}
     final visible=widget.players.where((p)=>!hidden(p)).toList();
@@ -1753,41 +1794,73 @@ class _PlayerSearchDialogState extends State<PlayerSearchDialog> {
       if(accel!='all' && p.accel!=accel) return false;
       if(body!='all' && p.body!=body) return false;
       if(play!='all' && !mergedPlayStyles(p).contains(play)) return false;
+      if(wr!='all' && !(p.attWr==wr || p.defWr==wr)) return false;
       if(p.ovr < ovrRange.start.round() || p.ovr > ovrRange.end.round()) return false;
+      if(p.height < hRange.start.round() || p.height > hRange.end.round()) return false;
+      if(p.weight < wRange.start.round() || p.weight > wRange.end.round()) return false;
       if((p.s['pac']??0) < minPace.round()) return false;
       if((p.s['phy']??0) < minPhy.round()) return false;
+      if((p.s['dri']??0) < minDri.round()) return false;
+      if((p.s['def']??0) < minDef.round()) return false;
       if(query.isNotEmpty && !('${p.id} ${p.name} ${p.team} ${p.pos} ${p.ovr} ${p.playstyles.join(' ')} ${p.body} ${p.accel}').toLowerCase().contains(query)) return false;
       return true;
     }).take(250).toList();
-    return AlertDialog(
-      title: const Text('Choisir joueur'),
-      content: SizedBox(width: double.maxFinite, height: 560, child: Column(children: [
-        TextField(decoration: const InputDecoration(prefixIcon: Icon(Icons.search), hintText:'Nom, équipe, poste...'), onChanged:(v)=>setState(()=>q=v)),
-        const SizedBox(height: 8),
-        Row(children: [
-          Expanded(child: DropdownButtonFormField<String>(value: team, isExpanded: true, items: teams.map((t)=>DropdownMenuItem(value:t, child: Text(t, overflow: TextOverflow.ellipsis))).toList(), onChanged:(v)=>setState(()=>team=v!), decoration: const InputDecoration(labelText:'Équipe'))),
-          const SizedBox(width: 8),
-          Expanded(child: DropdownButtonFormField<String>(value: pos, items: ['all','ST','CF','LW','RW','CAM','CM','CDM','LM','RM','LB','RB','CB','GK'].map((t)=>DropdownMenuItem(value:t, child: Text(t))).toList(), onChanged:(v)=>setState(()=>pos=v!), decoration: const InputDecoration(labelText:'Poste'))),
+    final activeFilters = [team,pos,foot,accel,body,play,wr].where((x)=>x!='all').length + (onlyNamed?1:0) + (showWomen?1:0) + (showSoccerAid?1:0) + (ovrRange.start.round()>40 || ovrRange.end.round()<99 ? 1:0) + (hRange.start.round()>150 || hRange.end.round()<210 ? 1:0) + (wRange.start.round()>45 || wRange.end.round()<115 ? 1:0) + (minPace>0?1:0) + (minPhy>0?1:0) + (minDri>0?1:0) + (minDef>0?1:0);
+    return DraggableScrollableSheet(
+      initialChildSize: .92,
+      minChildSize: .55,
+      maxChildSize: .98,
+      expand: false,
+      builder: (context, scrollController) => Container(
+        margin: const EdgeInsets.symmetric(horizontal: 8),
+        decoration: const BoxDecoration(color: Color(0xFF061426), borderRadius: BorderRadius.vertical(top: Radius.circular(30))),
+        child: Column(children: [
+          const SizedBox(height: 10),
+          Container(width: 46, height: 5, decoration: BoxDecoration(color: Color(0xFF46627F), borderRadius: BorderRadius.circular(99))),
+          Padding(padding: const EdgeInsets.fromLTRB(16, 12, 10, 8), child: Row(children: [
+            const Expanded(child: Text('Choisir joueur', style: TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.w900))),
+            IconButton(onPressed:()=>Navigator.pop(context), icon: const Icon(Icons.close_rounded)),
+          ])),
+          Padding(padding: const EdgeInsets.symmetric(horizontal: 16), child: Row(children:[
+            Expanded(child: TextField(autofocus:true, decoration: const InputDecoration(prefixIcon: Icon(Icons.search), hintText:'Rechercher nom, équipe, poste...'), onChanged:(v)=>setState(()=>q=v))),
+            const SizedBox(width: 10),
+            IconButton.filledTonal(tooltip:'Filtres', onPressed:(){}, icon: const Icon(Icons.tune_rounded)),
+          ])),
+          const SizedBox(height: 8),
+          Expanded(child: ListView(controller: scrollController, padding: const EdgeInsets.fromLTRB(16, 0, 16, 16), children:[
+            Theme(data: Theme.of(context).copyWith(dividerColor: Colors.transparent), child: ExpansionTile(
+              initiallyExpanded: false,
+              tilePadding: EdgeInsets.zero,
+              title: Text('Filtres ($activeFilters actifs)', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900)),
+              subtitle: const Text('Cachés par défaut pour gagner de la place', style: TextStyle(color: Color(0xFF9FB2CC))),
+              children: [
+                LayoutBuilder(builder:(context,c){
+                  Widget gap = const SizedBox(height: 8);
+                  Widget row(Widget a, Widget b)=> c.maxWidth < 440 ? Column(children:[a,gap,b]) : Row(children:[Expanded(child:a), const SizedBox(width:8), Expanded(child:b)]);
+                  return Column(children:[
+                    row(DropdownButtonFormField<String>(value: team, isExpanded: true, items: teams.map((t)=>DropdownMenuItem(value:t, child: Text(t, overflow: TextOverflow.ellipsis))).toList(), onChanged:(v)=>setState(()=>team=v!), decoration: const InputDecoration(labelText:'Équipe')), DropdownButtonFormField<String>(value: pos, isExpanded:true, items: ['all','ST','CF','LW','RW','CAM','CM','CDM','LM','RM','LWB','RWB','LB','RB','CB','GK'].map((t)=>DropdownMenuItem(value:t, child: Text(t))).toList(), onChanged:(v)=>setState(()=>pos=v!), decoration: const InputDecoration(labelText:'Poste'))),
+                    gap,
+                    row(DropdownButtonFormField<String>(value: foot, items: ['all','Right','Left'].map((t)=>DropdownMenuItem(value:t, child: Text(t))).toList(), onChanged:(v)=>setState(()=>foot=v!), decoration: const InputDecoration(labelText:'Pied')), DropdownButtonFormField<String>(value: accel, isExpanded:true, items: ['all','Controlled','Explosive','Mostly Explosive','Controlled Lengthy','Lengthy'].map((t)=>DropdownMenuItem(value:t, child: Text(t, overflow:TextOverflow.ellipsis))).toList(), onChanged:(v)=>setState(()=>accel=v!), decoration: const InputDecoration(labelText:'AcceleRATE'))),
+                    gap,
+                    row(DropdownButtonFormField<String>(value: body, isExpanded:true, items: ['all','Lean','Average','Stocky','High & Lean','High & Average','High & Stocky','Unique'].map((t)=>DropdownMenuItem(value:t, child: Text(t, overflow:TextOverflow.ellipsis))).toList(), onChanged:(v)=>setState(()=>body=v!), decoration: const InputDecoration(labelText:'Body Type')), DropdownButtonFormField<String>(value: play, isExpanded:true, items: plays.map((t)=>DropdownMenuItem(value:t, child: Text(t, overflow:TextOverflow.ellipsis))).toList(), onChanged:(v)=>setState(()=>play=v!), decoration: const InputDecoration(labelText:'PlayStyle / trait'))),
+                    gap,
+                    DropdownButtonFormField<String>(value: wr, isExpanded:true, items: ['all','Low','Medium','High'].map((t)=>DropdownMenuItem(value:t, child: Text(t))).toList(), onChanged:(v)=>setState(()=>wr=v!), decoration: const InputDecoration(labelText:'Work rate attaque ou défense')),
+                    const SizedBox(height: 8),
+                    Row(children:[Text('OVR ${ovrRange.start.round()}-${ovrRange.end.round()}'), Expanded(child:RangeSlider(values:ovrRange,min:1,max:99,divisions:98,onChanged:(v)=>setState(()=>ovrRange=v)))]),
+                    Row(children:[Text('Taille ${hRange.start.round()}-${hRange.end.round()}cm'), Expanded(child:RangeSlider(values:hRange,min:150,max:210,divisions:60,onChanged:(v)=>setState(()=>hRange=v)))]),
+                    Row(children:[Text('Poids ${wRange.start.round()}-${wRange.end.round()}kg'), Expanded(child:RangeSlider(values:wRange,min:45,max:115,divisions:70,onChanged:(v)=>setState(()=>wRange=v)))]),
+                    Row(children:[Expanded(child:Slider(value:minPace,min:0,max:99,divisions:99,label:'PAC ${minPace.round()}',onChanged:(v)=>setState(()=>minPace=v))), Expanded(child:Slider(value:minDri,min:0,max:99,divisions:99,label:'DRI ${minDri.round()}',onChanged:(v)=>setState(()=>minDri=v)))]),
+                    Row(children:[Expanded(child:Slider(value:minPhy,min:0,max:99,divisions:99,label:'PHY ${minPhy.round()}',onChanged:(v)=>setState(()=>minPhy=v))), Expanded(child:Slider(value:minDef,min:0,max:99,divisions:99,label:'DEF ${minDef.round()}',onChanged:(v)=>setState(()=>minDef=v)))]),
+                    Wrap(spacing:8, runSpacing:8, children:[FilterChip(label:const Text('Vrais noms'), selected:onlyNamed, onSelected:(v)=>setState(()=>onlyNamed=v)), FilterChip(label:const Text('Afficher Female'), selected:showWomen, onSelected:(v)=>setState(()=>showWomen=v)), FilterChip(label:const Text('Afficher Soccer Aid'), selected:showSoccerAid, onSelected:(v)=>setState(()=>showSoccerAid=v)), ActionChip(label:const Text('Effacer filtres'), avatar:const Icon(Icons.refresh), onPressed:()=>setState((){team=pos=foot=accel=body=play=wr='all'; onlyNamed=showWomen=showSoccerAid=false; ovrRange=const RangeValues(40,99); hRange=const RangeValues(150,210); wRange=const RangeValues(45,115); minPace=minPhy=minDri=minDef=0;}))]),
+                  ]);
+                }),
+              ],
+            )),
+            Padding(padding: const EdgeInsets.only(bottom: 8), child: Text('${res.length} résultats', style: const TextStyle(color: Color(0xFF9FB2CC), fontWeight: FontWeight.w800))),
+            ...res.map((p)=>PlayerTile(p:p, onTap:()=>Navigator.pop(context,p))),
+          ])),
         ]),
-        const SizedBox(height: 8),
-        Row(children: [
-          Expanded(child: DropdownButtonFormField<String>(value: foot, items: ['all','Right','Left'].map((t)=>DropdownMenuItem(value:t, child: Text(t))).toList(), onChanged:(v)=>setState(()=>foot=v!), decoration: const InputDecoration(labelText:'Pied'))),
-          const SizedBox(width: 8),
-          Expanded(child: DropdownButtonFormField<String>(value: accel, isExpanded:true, items: ['all','Controlled','Explosive','Mostly Explosive','Controlled Lengthy','Lengthy'].map((t)=>DropdownMenuItem(value:t, child: Text(t, overflow:TextOverflow.ellipsis))).toList(), onChanged:(v)=>setState(()=>accel=v!), decoration: const InputDecoration(labelText:'AcceleRATE'))),
-        ]),
-        const SizedBox(height: 8),
-        Row(children: [
-          Expanded(child: DropdownButtonFormField<String>(value: body, isExpanded:true, items: ['all','Lean','Average','Stocky','High & Lean','High & Average','High & Stocky','Unique'].map((t)=>DropdownMenuItem(value:t, child: Text(t, overflow:TextOverflow.ellipsis))).toList(), onChanged:(v)=>setState(()=>body=v!), decoration: const InputDecoration(labelText:'Body'))),
-          const SizedBox(width: 8),
-          Expanded(child: DropdownButtonFormField<String>(value: play, isExpanded:true, items: plays.map((t)=>DropdownMenuItem(value:t, child: Text(t, overflow:TextOverflow.ellipsis))).toList(), onChanged:(v)=>setState(()=>play=v!), decoration: const InputDecoration(labelText:'PlayStyle / trait'))),
-        ]),
-        Row(children:[Text('OVR ${ovrRange.start.round()}-${ovrRange.end.round()}'), Expanded(child:RangeSlider(values:ovrRange,min:1,max:99,divisions:98,onChanged:(v)=>setState(()=>ovrRange=v)))]),
-        Row(children:[Expanded(child:Slider(value:minPace,min:0,max:99,divisions:99,label:'PAC ${minPace.round()}',onChanged:(v)=>setState(()=>minPace=v))), Expanded(child:Slider(value:minPhy,min:0,max:99,divisions:99,label:'PHY ${minPhy.round()}',onChanged:(v)=>setState(()=>minPhy=v)))]),
-        Wrap(spacing:8, children:[FilterChip(label:const Text('Vrais noms'), selected:onlyNamed, onSelected:(v)=>setState(()=>onlyNamed=v)), FilterChip(label:const Text('Afficher Female'), selected:showWomen, onSelected:(v)=>setState(()=>showWomen=v)), FilterChip(label:const Text('Afficher Soccer Aid'), selected:showSoccerAid, onSelected:(v)=>setState(()=>showSoccerAid=v))]),
-        const SizedBox(height: 8),
-        Expanded(child: ListView.builder(itemCount: res.length, itemBuilder: (_,i)=>PlayerTile(p:res[i], onTap:()=>Navigator.pop(context,res[i])))),
-      ])),
-      actions: [TextButton(onPressed: ()=>Navigator.pop(context), child: const Text('Fermer'))],
+      ),
     );
   }
 }
@@ -2182,6 +2255,8 @@ class _TeamVsTeamPageState extends State<TeamVsTeamPage> {
         const SizedBox(height:12),
         _TeamPhaseCard(a:ta,b:tb),
         const SizedBox(height:12),
+        TeamVsTeamTacticalMap(a:ta,b:tb,players:widget.players,scenario:scenario),
+        const SizedBox(height:12),
         _TeamCoachPlanCard(a:ta,b:tb,players:widget.players,scenario:scenario),
         const SizedBox(height:12),
         _TeamWeakLinksCard(a:ta,b:tb,players:widget.players),
@@ -2216,6 +2291,31 @@ class _TeamPhaseCard extends StatelessWidget { final TeamInfo a,b; const _TeamPh
     _line('Pressing / récupération', a.midfield+a.attack, b.midfield+b.defense),
   ]));
   Widget _line(String label,int av,int bv){ final total=max(1,av+bv); final pa=(av/total*100).round(); final diff=av-bv; return Padding(padding:const EdgeInsets.only(bottom:14), child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[Row(children:[Expanded(child:Text(label,style:const TextStyle(fontWeight:FontWeight.w900))), Text('${diff>=0?'+':''}$diff',style:TextStyle(fontWeight:FontWeight.w900,color:diff>=0?AppTheme.green:Colors.redAccent))]), const SizedBox(height:6), ClipRRect(borderRadius:BorderRadius.circular(99),child:SizedBox(height:9,child:Row(children:[Expanded(flex:max(1,pa),child:Container(color:AppTheme.green)), Expanded(flex:max(1,100-pa),child:Container(color:AppTheme.line))]))) ])); }
+}
+
+
+class TeamVsTeamTacticalMap extends StatelessWidget { final TeamInfo a,b; final List<Player> players; final String scenario; const TeamVsTeamTacticalMap({super.key,required this.a,required this.b,required this.players,required this.scenario});
+  @override Widget build(BuildContext context){ final pa=_teamSquad(a, cleanPlayerList(players)).take(11).toList(); final pb=_teamSquad(b, cleanPlayerList(players)).take(11).toList(); final weak=[...pb]..sort((x,y)=>((x.s['pac']??0)+(x.s['def']??0)+(x.s['phy']??0)).compareTo((y.s['pac']??0)+(y.s['def']??0)+(y.s['phy']??0))); final danger=[...pb]..sort((x,y)=>y.ovr.compareTo(x.ovr));
+    return ProBox(title:'Terrain tactique + duels proches', subtitle:'Zones à attaquer, pressing, risques et comparaisons poste proche', icon:Icons.map_rounded, child:Column(crossAxisAlignment:CrossAxisAlignment.start, children:[
+      SizedBox(height:360, child:Stack(children:[
+        Positioned.fill(child:TeamPitchView(players:pa)),
+        Positioned(left:22, top:26, child:_zone('Attaquer côté faible', AppTheme.green)),
+        Positioned(right:18, top:116, child:_zone('Presser relance', AppTheme.blue)),
+        Positioned(right:18, bottom:44, child:_zone('Risque contre', Colors.redAccent)),
+      ])),
+      const SizedBox(height:12),
+      const Text('Duels clés proches', style:TextStyle(fontWeight:FontWeight.w900, fontSize:16)),
+      const SizedBox(height:8),
+      ...List.generate(min(4, min(pa.length,pb.length)), (i){ final x=pa[i], y=pb[min(i,pb.length-1)]; final m=modesForMatchup(autoMatchupFromPositions(x,y)).first; final sx=score(x,m).total, sy=score(y,m).total; return ListTile(contentPadding:EdgeInsets.zero, leading:PlayerAvatar(p:x,size:38), title:Text('${x.pos} ${x.name}  vs  ${y.pos} ${y.name}', maxLines:1, overflow:TextOverflow.ellipsis), subtitle:Text('${m.label} • $sx - $sy'), trailing:PlayerAvatar(p:y,size:38), onTap:()=>showModalBottomSheet(context:context,isScrollControlled:true,backgroundColor:Colors.transparent,builder:(_)=>_ModeDetailSheet(a:x,b:y,mode:m))); }),
+      const Divider(),
+      Wrap(spacing:8, runSpacing:8, children:[
+        Chip(label:Text('Cible: ${weak.isEmpty?b.name:weak.first.name}')),
+        Chip(label:Text('Danger: ${danger.isEmpty?b.name:danger.first.name}')),
+        Chip(label:Text(scenario=='strong'?'Bloc médian + transitions':'Pressing + largeur')),
+      ]),
+    ]));
+  }
+  Widget _zone(String t, Color c)=>Container(padding:const EdgeInsets.symmetric(horizontal:10,vertical:7), decoration:BoxDecoration(color:c.withOpacity(.82), borderRadius:BorderRadius.circular(999), boxShadow:[BoxShadow(color:Colors.black.withOpacity(.25), blurRadius:10)]), child:Text(t, style:const TextStyle(color:Colors.white, fontWeight:FontWeight.w900, fontSize:12)));
 }
 
 class _TeamCoachPlanCard extends StatelessWidget { final TeamInfo a,b; final List<Player> players; final String scenario; const _TeamCoachPlanCard({required this.a,required this.b,required this.players,required this.scenario});
