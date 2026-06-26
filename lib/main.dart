@@ -2786,7 +2786,7 @@ class OffDefMetricDetailSheet extends StatelessWidget{
       ])),
       const SizedBox(height:10),
       FilledButton.icon(onPressed:()=>showModalBottomSheet(context:context,isScrollControlled:true,backgroundColor:Colors.transparent,builder:(_)=>FaceDuelModesSheet(a:a,b:b,modes:_duelModesForFace(a,b))), icon:const Icon(Icons.compare_arrows_rounded), label:const Text('Ouvrir comparaison complète')),
-    ]));
+    ])));
   }
   Widget _playerScore(Player p,String stat,int value,Color c)=>Container(padding:const EdgeInsets.all(12), decoration:BoxDecoration(color:c.withOpacity(.10), borderRadius:BorderRadius.circular(18), border:Border.all(color:c.withOpacity(.35))), child:Column(crossAxisAlignment:CrossAxisAlignment.start, children:[PlayerAvatar(p:p,size:46), const SizedBox(height:8), Text(p.name,maxLines:1,overflow:TextOverflow.ellipsis,style:const TextStyle(fontWeight:FontWeight.w900)), Text('${p.pos} • $stat',style:const TextStyle(color:AppTheme.muted,fontWeight:FontWeight.w700)), const SizedBox(height:6), Text('$value',style:TextStyle(color:c,fontSize:26,fontWeight:FontWeight.w900))]));
 }
