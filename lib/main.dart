@@ -1042,6 +1042,11 @@ class _AppShellState extends State<AppShell> {
       }),
       TeamAnalyzerPage(teams: customTeams, players: customPlayers),
       TeamVsTeamPage(teams: customTeams, players: customPlayers),
+      ManagersCoachPage(teams: customTeams, players: customPlayers),
+      FormationCounterEnginePage(teams: customTeams, players: customPlayers),
+      SituationsCoachPage(players: customPlayers),
+      StatsEncyclopediaPage(),
+      DuelVisualsCrudPage(players: customPlayers),
       MatchupFinderPage(players: customPlayers),
       TacticalIdeasPage(players: customPlayers, ideas: tacticalIdeas, onSave: (ideas) async { setState(()=>tacticalIdeas = ideas); await LocalStore.saveIdeas(ideas); }),
       TacticalPage(a: a!, b: b!, mode: mode),
@@ -1075,8 +1080,8 @@ class _AppShellState extends State<AppShell> {
           : AnimatedSwitcher(duration: const Duration(milliseconds: 260), child: pages[tab]),
       ),
       bottomNavigationBar: loaded == null ? null : NavigationBar(
-        selectedIndex: [0,1,3,7,11].contains(tab) ? [0,1,3,7,11].indexOf(tab) : 0,
-        onDestinationSelected: (i)=>setState(()=>tab = [0,1,3,7,11][i]),
+        selectedIndex: [0,1,3,8,16].contains(tab) ? [0,1,3,8,16].indexOf(tab) : 0,
+        onDestinationSelected: (i)=>setState(()=>tab = [0,1,3,8,16][i]),
         destinations: const [
           NavigationDestination(icon: Icon(Icons.home_filled), label: 'Home'),
           NavigationDestination(icon: Icon(Icons.compare_arrows_rounded), label: 'Compare'),
@@ -1104,17 +1109,22 @@ class AppDrawer extends StatelessWidget {
       (6, Icons.add_business_rounded, 'CRUD Teams'),
       (7, Icons.analytics_rounded, 'Team Analyzer'),
       (8, Icons.compare_rounded, 'Team vs Team'),
-      (9, Icons.hub_rounded, 'Matchup Finder'),
-      (10, Icons.auto_awesome_motion_rounded, 'Banque tactique'),
-      (11, Icons.sports_soccer_rounded, 'Tactical Lab'),
-      (12, Icons.grid_on_rounded, 'Formation Builder'),
-      (13, Icons.history_rounded, 'Historique'),
-      (14, Icons.bolt_rounded, 'Détection PlayStyles'),
-      (15, Icons.edit_note_rounded, 'Carnet entraîneur'),
-      (16, Icons.import_export_rounded, 'Export / Import'),
-      (17, Icons.menu_book_rounded, 'Guide modes'),
-      (18, Icons.auto_awesome_rounded, 'IA Simulator Pro'),
-      (19, Icons.animation_rounded, 'Tactic Board Studio'),
+      (9, Icons.manage_accounts_rounded, 'Managers Coach'),
+      (10, Icons.account_tree_rounded, 'Formation Counter'),
+      (11, Icons.sports_soccer_rounded, 'Situations Coach'),
+      (12, Icons.school_rounded, 'Stats Encyclopedia'),
+      (13, Icons.polyline_rounded, 'Duel Visuals CRUD'),
+      (14, Icons.hub_rounded, 'Matchup Finder'),
+      (15, Icons.auto_awesome_motion_rounded, 'Banque tactique'),
+      (16, Icons.sports_soccer_rounded, 'Tactical Lab'),
+      (17, Icons.grid_on_rounded, 'Formation Builder'),
+      (18, Icons.history_rounded, 'Historique'),
+      (19, Icons.bolt_rounded, 'Détection PlayStyles'),
+      (20, Icons.edit_note_rounded, 'Carnet entraîneur'),
+      (21, Icons.import_export_rounded, 'Export / Import'),
+      (22, Icons.menu_book_rounded, 'Guide modes'),
+      (23, Icons.auto_awesome_rounded, 'IA Simulator Pro'),
+      (24, Icons.animation_rounded, 'Tactic Board Studio'),
     ];
     return Drawer(
       backgroundColor: AppTheme.dark,
@@ -2257,6 +2267,8 @@ class _TeamVsTeamPageState extends State<TeamVsTeamPage> {
         const SizedBox(height:12),
         TeamVsTeamTacticalMap(a:ta,b:tb,players:widget.players,scenario:scenario),
         const SizedBox(height:12),
+        _PlayerAvoidanceCard(a:ta,b:tb,players:widget.players),
+        const SizedBox(height:12),
         _TeamCoachPlanCard(a:ta,b:tb,players:widget.players,scenario:scenario),
         const SizedBox(height:12),
         _TeamWeakLinksCard(a:ta,b:tb,players:widget.players),
@@ -2337,6 +2349,137 @@ class _TeamWeakLinksCard extends StatelessWidget { final TeamInfo a,b; final Lis
 class _TeamLineupCompare extends StatelessWidget { final TeamInfo a,b; final List<Player> players; const _TeamLineupCompare({required this.a,required this.b,required this.players});
   @override Widget build(BuildContext context){ final pa=_teamSquad(a,cleanPlayerList(players)).take(11).toList(); final pb=_teamSquad(b,cleanPlayerList(players)).take(11).toList(); return ProBox(title:'XI clés comparés', subtitle:'Clique joueur pour détail', icon:Icons.groups_rounded, child:Column(children:List.generate(max(pa.length,pb.length),(i){ final x=i<pa.length?pa[i]:null, y=i<pb.length?pb[i]:null; return Padding(padding:const EdgeInsets.only(bottom:8), child:Row(children:[Expanded(child:x==null?const SizedBox():_miniPlayer(context,x)), const SizedBox(width:8), Expanded(child:y==null?const SizedBox():_miniPlayer(context,y))])); }))); }
   Widget _miniPlayer(BuildContext context, Player p)=>InkWell(onTap:()=>openPlayer(context,p), child:Container(padding:const EdgeInsets.all(8), decoration:BoxDecoration(color:AppTheme.surface,borderRadius:BorderRadius.circular(16),border:Border.all(color:AppTheme.line)), child:Row(children:[PlayerAvatar(p:p,size:32),const SizedBox(width:6),Expanded(child:Text(p.name,maxLines:1,overflow:TextOverflow.ellipsis,style:const TextStyle(fontWeight:FontWeight.w800))),Text('${p.ovr}',style:const TextStyle(fontWeight:FontWeight.w900))])));
+}
+
+
+class _PlayerAvoidanceCard extends StatelessWidget {
+  final TeamInfo a,b; final List<Player> players;
+  const _PlayerAvoidanceCard({required this.a, required this.b, required this.players});
+  @override Widget build(BuildContext context){
+    final mine=_teamSquad(a, cleanPlayerList(players)).take(11).toList();
+    final opp=_teamSquad(b, cleanPlayerList(players)).take(11).toList();
+    final rows=<Widget>[];
+    for (var i=0; i<min(mine.length, opp.length); i++) {
+      final x=mine[i], y=opp[i];
+      final m=modesForMatchup(autoMatchupFromPositions(x,y)).first;
+      final sx=score(x,m).total, sy=score(y,m).total;
+      rows.add(_avoidTile(context, x, y, m, sx, sy));
+    }
+    return ProBox(title:'À éviter joueur par joueur', subtitle:'Basé sur les duels proches : physique, vitesse, dribble, défense, aérien', icon:Icons.warning_amber_rounded, child:Column(children:rows.take(8).toList()));
+  }
+  Widget _avoidTile(BuildContext context, Player x, Player y, Mode m, int sx, int sy){
+    final txt=_avoidAdvice(x,y,m,sx,sy);
+    final danger=sy>sx;
+    return Container(margin:const EdgeInsets.only(bottom:9), padding:const EdgeInsets.all(10), decoration:BoxDecoration(color:danger?Colors.redAccent.withOpacity(.10):AppTheme.surface, borderRadius:BorderRadius.circular(18), border:Border.all(color:danger?Colors.redAccent.withOpacity(.45):AppTheme.line)), child:Row(crossAxisAlignment:CrossAxisAlignment.start, children:[
+      PlayerAvatar(p:x,size:38), const SizedBox(width:8),
+      Expanded(child:Column(crossAxisAlignment:CrossAxisAlignment.start, children:[
+        Text('${x.name} vs ${y.name}', maxLines:1, overflow:TextOverflow.ellipsis, style:const TextStyle(fontWeight:FontWeight.w900)),
+        Text('Évite : $txt', style:const TextStyle(color:AppTheme.muted, height:1.28, fontWeight:FontWeight.w700)),
+        const SizedBox(height:5), Wrap(spacing:6, runSpacing:4, children:[Chip(label:Text(m.label)), Chip(label:Text('$sx - $sy'))]),
+      ])),
+      const SizedBox(width:6), PlayerAvatar(p:y,size:38),
+    ]));
+  }
+  String _avoidAdvice(Player me, Player op, Mode m, int sm, int so){
+    int v(Player p,String k)=>p.s[k]??0;
+    final tips=<String>[];
+    if ((v(op,'str')+v(op,'phy')+op.weight) > (v(me,'str')+v(me,'phy')+me.weight+15)) tips.add('duels physiques/épaule contre épaule');
+    if ((v(op,'sprint')+v(op,'acc')) > (v(me,'sprint')+v(me,'acc')+10)) tips.add('courses longues dans son couloir');
+    if ((v(op,'agi')+v(op,'drib')+v(op,'ball')) > (v(me,'agi')+v(me,'drib')+v(me,'ball')+14)) tips.add('1v1 sans couverture, il peut crocheter');
+    if ((v(op,'tackle')+v(op,'defaw')+v(op,'inter')) > (v(me,'drib')+v(me,'ball')+v(me,'comp')+8)) tips.add('conduite trop longue près de lui');
+    if ((v(op,'jump')+v(op,'head')+op.height) > (v(me,'jump')+v(me,'head')+me.height+15)) tips.add('centres aériens sur sa zone');
+    if (so > sm+8) tips.add('duel direct ${m.label.toLowerCase()}');
+    if (tips.isEmpty) return 'rien de critique, mais varie rythme/pied fort et cherche le 2v1';
+    return tips.take(3).join(' • ');
+  }
+}
+
+class ManagersCoachPage extends StatelessWidget {
+  final List<TeamInfo> teams; final List<Player> players;
+  const ManagersCoachPage({super.key, required this.teams, required this.players});
+  @override Widget build(BuildContext context){
+    final list=cleanTeamList(teams).take(60).toList();
+    return ListView(padding:const EdgeInsets.all(14), children:[
+      Header('Managers Coach', 'Style manager, système probable, hidden context et plan contre'),
+      ...list.map((t)=>ProBox(title:t.manager.isEmpty?'Manager inconnu':t.manager, subtitle:t.name, icon:Icons.manage_accounts_rounded, child:Column(crossAxisAlignment:CrossAxisAlignment.start, children:[
+        Wrap(spacing:8, runSpacing:8, children:[Chip(label:Text(_managerStyle(t))), Chip(label:Text(_systemFor(t))), Chip(label:Text('OVR ${t.overall}'))]),
+        const SizedBox(height:8),
+        Text(_managerReport(t, players), style:const TextStyle(height:1.42, fontWeight:FontWeight.w700)),
+      ]))).toList(),
+    ]);
+  }
+  String _managerStyle(TeamInfo t)=> t.attack>=t.defense+4?'Attaque / pressing':t.defense>=t.attack+4?'Bloc solide':'Équilibré';
+  String _systemFor(TeamInfo t)=> t.attack>=82?'4-3-3 / 4-2-3-1':t.defense>=82?'5-3-2 / 4-4-2 compact':'4-2-3-1 équilibré';
+  String _managerReport(TeamInfo t,List<Player> players){
+    final squad=_teamSquad(t, cleanPlayerList(players)).take(11).toList();
+    final fast=squad.where((p)=>(p.s['pac']??0)>=84).length;
+    final strong=squad.where((p)=>(p.s['phy']??0)>=80).length;
+    return 'Style probable : ${_managerStyle(t)}. Système conseillé : ${_systemFor(t)}. Hidden context : ${fast>=4?'danger profondeur/couloirs':'rythme plus lent'}, ${strong>=4?'gros impact physique':'moins dominant au contact'}. Plan contre : presse le relanceur faible, ferme l’axe, puis attaque le côté où le latéral a le moins de vitesse.';
+  }
+}
+
+class FormationCounterEnginePage extends StatefulWidget { final List<TeamInfo> teams; final List<Player> players; const FormationCounterEnginePage({super.key, required this.teams, required this.players}); @override State<FormationCounterEnginePage> createState()=>_FormationCounterEnginePageState(); }
+class _FormationCounterEnginePageState extends State<FormationCounterEnginePage>{
+  String formation='5-3-2';
+  final counters={
+    '5-3-2':['3-4-1-2','4-2-3-1 Large','4-3-3(4)'],
+    '4-3-3':['4-2-3-1','4-4-2 compact','3-5-2'],
+    '4-2-3-1':['4-3-3(4)','4-1-2-1-2 étroit','3-4-2-1'],
+    '4-4-2':['4-2-3-1','4-3-3','3-5-2'],
+    '3-5-2':['4-3-3 Large','4-2-3-1','5-2-3'],
+  };
+  @override Widget build(BuildContext context)=>ListView(padding:const EdgeInsets.all(14), children:[
+    Header('Formation Counter Engine', 'Quelle formation utiliser, où attaquer, quoi éviter'),
+    ProBox(title:'Formation adverse', subtitle:'Choisis le système à contrer', icon:Icons.account_tree_rounded, child:DropdownButtonFormField<String>(value:formation, decoration:const InputDecoration(labelText:'Système'), items:counters.keys.map((f)=>DropdownMenuItem(value:f, child:Text(f))).toList(), onChanged:(v)=>setState(()=>formation=v!))),
+    ProBox(title:'Counters recommandés', subtitle:'Plan attaque/défense généré', icon:Icons.bolt_rounded, child:Column(crossAxisAlignment:CrossAxisAlignment.start, children:[
+      Wrap(spacing:8, runSpacing:8, children:counters[formation]!.map((x)=>Chip(label:Text(x))).toList()), const SizedBox(height:10), Text(_counterText(formation), style:const TextStyle(height:1.45, fontWeight:FontWeight.w700)),
+    ])),
+  ]);
+  String _counterText(String f){
+    if(f=='5-3-2') return 'Attaque les half-spaces derrière les pistons, évite les centres forcés si les CB sont grands, utilise renversement rapide + cutback. Défense : bloque les 2 ST avec CDM devant les CB.';
+    if(f=='4-3-3') return 'Ferme les ailes puis sors vite côté opposé. Attaque l’espace entre latéral et CB. Évite de perdre le ballon axe si les ailiers sont rapides.';
+    if(f=='4-2-3-1') return 'Attire les 2 CDM puis joue dans le dos. Utilise un CAM mobile. Défense : empêche la passe verticale vers CAM.';
+    if(f=='4-4-2') return 'Crée supériorité au milieu avec CAM/CDM. Évite longs ballons sur leurs deux ST si tes CB sont lents.';
+    return 'Écarte le jeu, attaque les côtés derrière les milieux excentrés, mais protège tes transitions.';
+  }
+}
+
+class SituationsCoachPage extends StatelessWidget { final List<Player> players; const SituationsCoachPage({super.key, required this.players});
+  @override Widget build(BuildContext context){
+    final items=[
+      ('Espace LB-CB / RB-CB','Appel ST ou ailier intérieur dans le dos du latéral. Cherche passe laser ou une-deux. Évite si le CB est très rapide/Lengthy.'),
+      ('Cutback','Gagne la ligne, temporise, passe en retrait penalty spot. Évite centre aérien si ton ST est plus petit.'),
+      ('Bloc bas','Patience, renversement, frappe de loin seulement si Power Shot/Finesse. Évite dribbles axe sans soutien.'),
+      ('Pressing haut','Déclenche sur mauvais contrôle, GK faible ou CB lent. Évite pressing seul avec un ST fatigué.'),
+      ('Milieux qui montent trop','Attaque la zone devant les CB. Mets CDM rester derrière pour éviter contre.'),
+      ('Erreur FC24 fréquente','Ne va pas face au joueur : coupe d’abord la ligne de passe et oriente vers côté faible.'),
+    ];
+    return ListView(padding:const EdgeInsets.all(14), children:[Header('Situations Coach', 'Banque de problèmes FC24 + solution rapide'), ...items.map((e)=>ProBox(title:e.$1, subtitle:'Situation tactique', icon:Icons.sports_soccer_rounded, child:Text(e.$2, style:const TextStyle(height:1.45, fontWeight:FontWeight.w700))))]);
+  }
+}
+
+class StatsEncyclopediaPage extends StatelessWidget { const StatsEncyclopediaPage({super.key});
+  @override Widget build(BuildContext context){
+    final rows=[
+      ('Acceleration','Départ 0-10m : important pour crochet, pressing, premier appel.'),('Sprint Speed','Course longue : profondeur, retours défensifs, contre-attaques.'),('Agility','Tourner vite, changer direction, défendre en jockey.'),('Balance','Résister après contact et garder le ballon.'),('Strength','Épaule contre épaule, protection, duel CB/ST.'),('Def. Awareness','Placement auto, fermeture angle, ligne défensive.'),('Interceptions','Couper passes, surtout CDM/CB contre CAM.'),('Standing Tackle','Gagner le ballon sans faute.'),('Composure','Finition/passe sous pression.'),('Reactions','Répondre aux ballons libres et rebonds.'),('Positioning','Appels offensifs et présence surface.'),('Heading/Jumping','Duel aérien, corners, centres.'),
+    ];
+    return ListView(padding:const EdgeInsets.all(14), children:[Header('Stats Encyclopedia', 'Quelle stat compte selon chaque duel'), ...rows.map((r)=>ListTile(leading:const Icon(Icons.info_outline_rounded), title:Text(r.$1, style:const TextStyle(fontWeight:FontWeight.w900)), subtitle:Text(r.$2))) ]);
+  }
+}
+
+class DuelVisualsCrudPage extends StatefulWidget { final List<Player> players; const DuelVisualsCrudPage({super.key, required this.players}); @override State<DuelVisualsCrudPage> createState()=>_DuelVisualsCrudPageState(); }
+class _DuelVisualsCrudPageState extends State<DuelVisualsCrudPage>{
+  final templates=<Map<String,String>>[
+    {'name':'Ailier vs latéral crochet intérieur','mode':'dribble_wing','note':'LW/RW reçoit large, fixe, crochet intérieur ou cutback.'},
+    {'name':'ST vs CB profondeur','mode':'speed_long','note':'Appel entre CB et latéral, timing passe en profondeur.'},
+    {'name':'CAM vs CDM entre lignes','mode':'pass_break','note':'Réception dos au jeu, contrôle orienté, passe cassante.'},
+  ];
+  final name=TextEditingController(), note=TextEditingController(); String mode='dribble_wing';
+  @override Widget build(BuildContext context)=>ListView(padding:const EdgeInsets.all(14), children:[
+    Header('Duel Visuals CRUD', 'Créer/modifier des scénarios de duel et templates'),
+    ProBox(title:'Nouveau template', subtitle:'Sauvegarde locale écran', icon:Icons.add_rounded, child:Column(children:[TextField(controller:name, decoration:const InputDecoration(labelText:'Nom scénario')), const SizedBox(height:8), DropdownButtonFormField<String>(value:mode, items:modes.map((m)=>DropdownMenuItem(value:m.key, child:Text(m.label))).toList(), onChanged:(v)=>setState(()=>mode=v!), decoration:const InputDecoration(labelText:'Mode duel')), const SizedBox(height:8), TextField(controller:note, decoration:const InputDecoration(labelText:'Notes / animation')), const SizedBox(height:10), FilledButton.icon(onPressed:(){setState(()=>templates.insert(0, {'name':name.text.trim().isEmpty?'Nouveau duel':name.text.trim(),'mode':mode,'note':note.text.trim()})); name.clear(); note.clear();}, icon:const Icon(Icons.save), label:const Text('Ajouter'))])),
+    ...templates.map((t)=>ProBox(title:t['name']!, subtitle:t['mode']!, icon:Icons.polyline_rounded, child:Row(children:[Expanded(child:Text(t['note']!, style:const TextStyle(height:1.35, fontWeight:FontWeight.w700))), IconButton(onPressed:()=>setState(()=>templates.remove(t)), icon:const Icon(Icons.delete_outline_rounded))]))),
+  ]);
 }
 
 
