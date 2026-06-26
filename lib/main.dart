@@ -470,6 +470,21 @@ class LocalStore {
       return raw.map((e)=>Map<String,dynamic>.from(e)).toList();
     } catch (_) { return []; }
   }
+
+
+  static Future<void> saveFavoritePlayerIds(Set<String> ids) async {
+    final f = await _file('favorites_players.json');
+    await f.writeAsString(jsonEncode(ids.toList()));
+  }
+
+  static Future<Set<String>> loadFavoritePlayerIds() async {
+    try {
+      final f = await _file('favorites_players.json');
+      if (!f.existsSync()) return <String>{};
+      final raw = jsonDecode(await f.readAsString()) as List;
+      return raw.map((e)=>e.toString()).toSet();
+    } catch (_) { return <String>{}; }
+  }
 }
 
 class PlayerAvatar extends StatelessWidget {
@@ -588,10 +603,33 @@ class UxTabSection extends StatelessWidget {
       const SizedBox(height: 10),
       SizedBox(
         height: height,
-        child: TabBarView(children: children.map((w)=>SingleChildScrollView(child:w)).toList()),
+        child: TabBarView(
+          physics: const BouncingScrollPhysics(),
+          children: children.map((w)=>SingleChildScrollView(
+            key: PageStorageKey<String>('ux_tab_${w.runtimeType}_${w.hashCode}'),
+            primary: false,
+            physics: const ClampingScrollPhysics(),
+            child: w,
+          )).toList(),
+        ),
       ),
     ]),
   );
+}
+
+class LazyTabChild extends StatefulWidget {
+  final WidgetBuilder builder;
+  const LazyTabChild({super.key, required this.builder});
+  @override State<LazyTabChild> createState()=>_LazyTabChildState();
+}
+class _LazyTabChildState extends State<LazyTabChild> with AutomaticKeepAliveClientMixin {
+  Widget? _child;
+  @override bool get wantKeepAlive => true;
+  @override Widget build(BuildContext context) {
+    super.build(context);
+    _child ??= widget.builder(context);
+    return _child!;
+  }
 }
 
 class QuickSearchHeader extends StatelessWidget {
@@ -677,13 +715,34 @@ List<PlayStyleDetection> detectFc24PlayStyles(Player p) {
   return out.take(12).toList();
 }
 
-List<String> mergedPlayStyles(Player p) {
-  final existing = p.playstyles.toSet();
+bool isKnownTraitName(String x) {
+  final y = x.toLowerCase().trim();
+  if (y.isEmpty) return false;
+  if (y.contains('trait')) return true;
+  const traitWords = ['injury free','injury prone','solid player','team player','leadership','one club','flair','play maker','playmaker','pushes up','comes for crosses','cautious with crosses','rushes out','saves with feet','stutter penalty','giant throw','long throw-in'];
+  return traitWords.any((t)=>y.contains(t));
+}
+
+List<String> actualPlayerTraits(Player p) {
+  return p.playstyles
+      .map((x)=>x.trim())
+      .where((x)=>x.isNotEmpty && isKnownTraitName(x))
+      .toSet()
+      .toList();
+}
+
+List<String> actualPlayerPlayStyles(Player p) {
+  final existing = p.playstyles
+      .map((x)=>x.trim())
+      .where((x)=>x.isNotEmpty && !isKnownTraitName(x))
+      .toSet();
   for (final d in detectFc24PlayStyles(p).where((x)=>x.confidence >= 82)) {
     existing.add(d.name);
   }
   return existing.toList();
 }
+
+List<String> mergedPlayStyles(Player p) => actualPlayerPlayStyles(p);
 
 class FormationPreset {
   final String name;
@@ -1132,6 +1191,7 @@ class _AppShellState extends State<AppShell> {
       final savedTeams = await LocalStore.loadCustomTeams();
       final savedIdeas = await LocalStore.loadIdeas();
       final savedHistory = await LocalStore.loadHistory();
+      final savedFavorites = await LocalStore.loadFavoritePlayerIds();
 
       final mergedPlayers = List<Player>.from(loaded.players);
       final mergedTeams = List<TeamInfo>.from(loaded.teams);
@@ -1159,6 +1219,9 @@ class _AppShellState extends State<AppShell> {
         customTeams = mergedTeams;
         tacticalIdeas = savedIdeas;
         history = savedHistory;
+        favoritePlayerIds
+          ..clear()
+          ..addAll(savedFavorites);
         a = customPlayers.firstWhere((p)=>p.name.toLowerCase().contains('mbapp'), orElse: ()=>customPlayers.first);
         b = customPlayers.firstWhere((p)=>p.name.toLowerCase().contains('walker'), orElse: ()=>customPlayers.skip(1).first);
       });
@@ -1175,9 +1238,13 @@ class _AppShellState extends State<AppShell> {
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Édition chargée : ${p.name}')));
   }
 
-  void addFavoritePlayer(Player p) {
-    setState(() => favoritePlayerIds.add(p.id));
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('${p.name} ajouté aux favoris')));
+  Future<void> addFavoritePlayer(Player p) async {
+    final added = !favoritePlayerIds.contains(p.id);
+    setState(() {
+      if (added) { favoritePlayerIds.add(p.id); } else { favoritePlayerIds.remove(p.id); }
+    });
+    await LocalStore.saveFavoritePlayerIds(favoritePlayerIds);
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(added ? '${p.name} ajouté aux favoris' : '${p.name} retiré des favoris')));
   }
 
   void compareFromDetails(Player p) {
@@ -2328,15 +2395,15 @@ class PlayerDetailsSheet extends StatelessWidget {
             tabs: const ['Overview','Stats','PlayStyles','Traits','Analyse IA','Duels','Counters','Similar','History'],
             height: 720,
             children: [
-              _overview(context),
-              _statsHub(context),
-              _playStylesHub(context),
-              _traitsHub(context),
-              _analysisHub(context),
-              _duelsHub(context),
-              _countersHub(context),
-              _similarHub(context),
-              _historyHub(context),
+              LazyTabChild(builder:_overview),
+              LazyTabChild(builder:_statsHub),
+              LazyTabChild(builder:_playStylesHub),
+              LazyTabChild(builder:_traitsHub),
+              LazyTabChild(builder:_analysisHub),
+              LazyTabChild(builder:_duelsHub),
+              LazyTabChild(builder:_countersHub),
+              LazyTabChild(builder:_similarHub),
+              LazyTabChild(builder:_historyHub),
             ],
           ),
         ]),
@@ -2401,8 +2468,8 @@ class PlayerDetailsSheet extends StatelessWidget {
   )).toList()));
 
   Widget _playStylesHub(BuildContext context){
-    final raw=p.playstyles.where((x)=>x.trim().isNotEmpty).toSet().toList();
-    final inferred=detectFc24PlayStyles(p).where((x)=>x.confidence>=82).map((x)=>x.name).where((x)=>!raw.contains(x)).toList();
+    final raw=actualPlayerPlayStyles(p).where((x)=>x.trim().isNotEmpty).toSet().toList();
+    final inferred=detectFc24PlayStyles(p).where((x)=>x.confidence>=82).map((x)=>x.name).where((x)=>!raw.contains(x)).toSet().toList();
     final ps=[...raw, ...inferred].toSet().toList();
     return UxTabSection(tabs:const ['Joueur','Déduits','Offensif','Passing','Défensif','Physical','GK'], height:610, children:[
       _playList(context, raw, title:'PlayStyles du joueur'),
@@ -2418,11 +2485,13 @@ class PlayerDetailsSheet extends StatelessWidget {
   Widget _playList(BuildContext context,List<String> ps,{String title='PlayStyles'})=>ProBox(title:title, subtitle:'Impact gameplay + situations idéales + contres', icon:Icons.auto_awesome_rounded, child: ps.isEmpty ? const Text('Aucun PlayStyle détecté dans cette catégorie.') : Column(children:ps.map((x)=>ListTile(contentPadding:EdgeInsets.zero, leading:const Icon(Icons.bolt_rounded,color:AppTheme.green), title:Text(x,style:const TextStyle(fontWeight:FontWeight.w900)), subtitle:Text(_playImpact(x), maxLines:2, overflow:TextOverflow.ellipsis), onTap:()=>_showPlayDetail(context,x))).toList()));
 
   Widget _traitsHub(BuildContext context){
-    final actual=p.playstyles.where((x)=>x.trim().isNotEmpty).toList();
-    return UxTabSection(tabs:const ['Traits joueur','Spécialités','Impact'], height:420, children:[
-      ProBox(title:'Traits / PlayStyles DB', subtitle:'Ce qui est réellement attaché au joueur', icon:Icons.extension_rounded, child:Wrap(spacing:8,runSpacing:8, children:actual.isEmpty?[const Chip(label:Text('Aucun trait DB'))]:actual.map((x)=>ActionChip(label:Text(x), onPressed:()=>_showPlayDetail(context,x))).toList())),
-      ProBox(title:'Spécialités probables', subtitle:'Lecture depuis stats + rôle', icon:Icons.stars_rounded, child:Wrap(spacing:8,runSpacing:8, children:_topStats(p).map((x)=>Chip(label:Text(x))).toList())),
-      ProBox(title:'Impact traits', subtitle:'Comment les lire', icon:Icons.psychology_rounded, child:const Text('Les traits et PlayStyles influencent animations, choix IA, réussite des gestes et comportement sans ballon. Pour décider, croise toujours avec les stats et le type de duel.', style:TextStyle(height:1.45,fontWeight:FontWeight.w700))),
+    final actual=actualPlayerTraits(p);
+    final traits = actual.isEmpty ? p.playstyles.where((x)=>isKnownTraitName(x)).toList() : actual;
+    return UxTabSection(tabs:const ['Traits joueur','Fort','Faible','Impact'], height:460, children:[
+      ProBox(title:'Traits DB réels', subtitle:'Traits décodés du joueur, séparés des PlayStyles', icon:Icons.extension_rounded, child:Wrap(spacing:8,runSpacing:8, children:traits.isEmpty?[const Chip(label:Text('Aucun trait DB détecté'))]:traits.map((x)=>ActionChip(label:Text(x), onPressed:()=>_showPlayDetail(context,x))).toList())),
+      ProBox(title:'Traits forts', subtitle:'Ce qui aide ce joueur', icon:Icons.trending_up_rounded, child:Wrap(spacing:8,runSpacing:8, children:(traits.isEmpty?['Stats fortes: ${_topStats(p).take(3).join(', ')}']:traits.take(8)).map((x)=>Chip(label:Text(x))).toList())),
+      ProBox(title:'Traits faibles / à surveiller', subtitle:'Ce qu’il faut éviter avec ce joueur', icon:Icons.warning_amber_rounded, child:Text(_avoidText(), style:const TextStyle(height:1.45,fontWeight:FontWeight.w800))),
+      ProBox(title:'Impact traits', subtitle:'Comment les lire', icon:Icons.psychology_rounded, child:const Text('Les traits influencent animations, choix IA, comportement sans ballon et réussite contextuelle. Croise toujours trait + stat + type de duel.', style:TextStyle(height:1.45,fontWeight:FontWeight.w700))),
     ]);
   }
 
@@ -2476,7 +2545,8 @@ class PlayerDetailsSheet extends StatelessWidget {
   ]);
 
   List<Player> _similarPlayers(){
-    final src=allPlayers.where((x)=>x.id!=p.id && x.gender==p.gender).toList();
+    final pool = allPlayers.isEmpty ? <Player>[p] : allPlayers;
+    final src=pool.where((x)=>x.id!=p.id && x.gender==p.gender).toList();
     src.sort((a,b)=>_similarity(b).compareTo(_similarity(a)));
     return src.where((x)=>_similarity(x)>=42).toList();
   }
@@ -2489,7 +2559,8 @@ class PlayerDetailsSheet extends StatelessWidget {
     return score.clamp(0,100);
   }
   List<Player> _counterPlayers(){
-    final src=allPlayers.where((x)=>x.id!=p.id && x.gender==p.gender).toList();
+    final pool = allPlayers.isEmpty ? <Player>[p] : allPlayers;
+    final src=pool.where((x)=>x.id!=p.id && x.gender==p.gender).toList();
     src.sort((a,b)=>_counterScore(b).compareTo(_counterScore(a)));
     return src.where((x)=>_counterScore(x)>=58).toList();
   }
@@ -4426,7 +4497,12 @@ class TeamDetailsSheet extends StatelessWidget{
     ]));
   }
   Widget _teamBadge(String l,int v)=>Container(padding:const EdgeInsets.all(10), decoration:BoxDecoration(color:Colors.white.withOpacity(.15), borderRadius:BorderRadius.circular(16)), child:Column(children:[Text('$v', style:const TextStyle(color:Colors.white, fontSize:18, fontWeight:FontWeight.w900)), Text(l, style:const TextStyle(color:Colors.white70, fontSize:11))]));
-  Widget _traitsTeamBox()=>ProBox(title:'Traits tactiques équipe', subtitle:'Fort / faible / égal', icon:Icons.psychology_rounded, child:Column(crossAxisAlignment:CrossAxisAlignment.start, children:[_traitLine('Fort',team.strongTraits,AppTheme.green), const SizedBox(height:8), _traitLine('Faible',team.weakTraits,AppTheme.danger), const SizedBox(height:8), _traitLine('Égal',team.equalTraits,AppTheme.orange)]));
+  Widget _traitsTeamBox()=>UxTabSection(tabs: const ['Fort','Faible','Égal','Lecture'], height:360, children:[
+    ProBox(title:'Traits forts', subtitle:'À utiliser dans le plan de jeu', icon:Icons.trending_up_rounded, child:_traitLine('Fort',team.strongTraits,AppTheme.green)),
+    ProBox(title:'Traits faibles', subtitle:'À cibler / à protéger', icon:Icons.warning_amber_rounded, child:_traitLine('Faible',team.weakTraits,AppTheme.danger)),
+    ProBox(title:'Traits égaux', subtitle:'Duels équilibrés', icon:Icons.balance_rounded, child:_traitLine('Égal',team.equalTraits,AppTheme.orange)),
+    ProBox(title:'Lecture coach', subtitle:'Impact tactique', icon:Icons.psychology_rounded, child:Text('Fort : exploite ces zones. Faible : évite de créer ces duels si c’est ton équipe, ou cible-les si c’est l’adversaire. Égal : décide par forme, joueur proche et mode de duel.', style:const TextStyle(height:1.45,fontWeight:FontWeight.w800))),
+  ]);
   Widget _traitLine(String title,List<String> xs,Color c)=>Column(crossAxisAlignment:CrossAxisAlignment.start, children:[Text(title,style:TextStyle(color:c,fontWeight:FontWeight.w900)),Wrap(spacing:8,runSpacing:8,children:(xs.isEmpty?['—']:xs).map((x)=>Chip(label:Text(x))).toList())]);
   Widget _tacticsTeamBox()=>ProBox(title:'Tactics / style équipe', subtitle:'Lecture utile pour Team vs Team', icon:Icons.account_tree_rounded, child:Column(crossAxisAlignment:CrossAxisAlignment.start, children:[Text('Build-up : ${team.midfield>=82?'construction forte, sortie propre':'construction fragile, presser les relais'}',style:const TextStyle(fontWeight:FontWeight.w800)),Text('Attaque : ${team.attack>=82?'danger élevé dans les 30m':'attaque à isoler et forcer loin du but'}',style:const TextStyle(fontWeight:FontWeight.w800)),Text('Défense : ${team.defense>=82?'duels directs difficiles':'attaquer profondeur et cutback'}',style:const TextStyle(fontWeight:FontWeight.w800))]));
   String _coachTip(TeamInfo t){ if(t.defense<78) return 'Plan : attaque la profondeur et vise les espaces LB-CB / RB-CB.'; if(t.midfield<78) return 'Plan : surcharge le milieu avec triangles courts puis renverse vite.'; if(t.attack<78) return 'Plan : bloc medium, ferme l’axe et force les centres faibles.'; return 'Plan : varie tempo, cutbacks et appels dans le dos après fixation.'; }
@@ -5285,8 +5361,8 @@ class _V42TeamVsTeamProPageState extends State<V42TeamVsTeamProPage>{
       const SizedBox(height:10),
       TextField(decoration:const InputDecoration(prefixIcon:Icon(Icons.search),hintText:'Filtrer joueur, poste, duel, conseil...'),onChanged:(v)=>setState(()=>q=v.toLowerCase())),
       const SizedBox(height:12),
-      UxTabSection(tabs:const ['Overview','Terrain','Duels','Attack','Defense','Midfield','Pressing','Counters','Advice','Bench'],height:680,children:[
-        _overview(aPlayers,bPlayers), _terrain(aPlayers,bPlayers), _duels(aPlayers,bPlayers), _phase('Attack',aPlayers,bPlayers), _phase('Defense',aPlayers,bPlayers), _phase('Midfield',aPlayers,bPlayers), _phase('Pressing',aPlayers,bPlayers), _counters(), _advice(aPlayers,bPlayers), _bench(aPlayers,bPlayers),
+      UxTabSection(tabs:const ['Overview','Terrain','Duels','Attack','Defense','Midfield','Pressing','Traits','Counters','Advice','Bench'],height:680,children:[
+        _overview(aPlayers,bPlayers), _terrain(aPlayers,bPlayers), _duels(aPlayers,bPlayers), _phase('Attack',aPlayers,bPlayers), _phase('Defense',aPlayers,bPlayers), _phase('Midfield',aPlayers,bPlayers), _phase('Pressing',aPlayers,bPlayers), _traitsVsTab(), _counters(), _advice(aPlayers,bPlayers), _bench(aPlayers,bPlayers),
       ]),
     ]);
   }
@@ -5300,6 +5376,13 @@ class _V42TeamVsTeamProPageState extends State<V42TeamVsTeamProPage>{
     _traitBox('Traits équipe A',ta), _traitBox('Traits équipe B',tb),
   ]);
   Widget _traitBox(String title,TeamInfo? t)=>ProBox(title:title,subtitle:t?.manager??'Manager',icon:Icons.psychology_rounded,child:Wrap(spacing:8,runSpacing:8,children:[...(t?.strongTraits??[]).map((x)=>Chip(label:Text('Fort $x'))),...(t?.weakTraits??[]).map((x)=>Chip(label:Text('Faible $x'))),...(t?.equalTraits??[]).map((x)=>Chip(label:Text('Égal $x')))]));
+  Widget _traitsVsTab()=>UxTabSection(tabs: const ['A forts','A faibles','B forts','B faibles','Égal'], height:500, children:[
+    _traitBox('Traits forts ${ta?.name ?? 'A'}', ta),
+    ProBox(title:'Faiblesses ${ta?.name ?? 'A'}', subtitle:'À protéger si c’est ton équipe', icon:Icons.warning_amber_rounded, child:Wrap(spacing:8,runSpacing:8,children:(ta?.weakTraits.isEmpty??true?[const Chip(label:Text('Aucune'))]:(ta!.weakTraits.map((x)=>Chip(label:Text(x))).toList())))),
+    _traitBox('Traits forts ${tb?.name ?? 'B'}', tb),
+    ProBox(title:'Faiblesses ${tb?.name ?? 'B'}', subtitle:'À cibler si c’est l’adversaire', icon:Icons.warning_amber_rounded, child:Wrap(spacing:8,runSpacing:8,children:(tb?.weakTraits.isEmpty??true?[const Chip(label:Text('Aucune'))]:(tb!.weakTraits.map((x)=>Chip(label:Text(x))).toList())))),
+    ProBox(title:'Traits égaux', subtitle:'Les duels se décident par joueurs proches', icon:Icons.balance_rounded, child:Wrap(spacing:8,runSpacing:8,children:[...(ta?.equalTraits??[]),...(tb?.equalTraits??[])].toSet().map((x)=>Chip(label:Text(x))).toList())),
+  ]);
   Widget _terrain(List<Player>a,List<Player>b)=>ProBox(title:'Terrain + sélection duel',subtitle:'Clique un joueur pour détail / comparaison rapide',icon:Icons.map_rounded,child:Column(children:[
     AspectRatio(aspectRatio:1.35,child:CustomPaint(painter:V42TeamPitchPainter(a.take(11).toList(),b.take(11).toList()))),
     const SizedBox(height:8),Wrap(spacing:8,runSpacing:8,children:[...a.take(11).map((p)=>ActionChip(label:Text('${p.pos} ${p.name}'),onPressed:()=>showPlayerDetails(context,p))),...b.take(11).map((p)=>ActionChip(label:Text('${p.pos} ${p.name}'),onPressed:()=>showPlayerDetails(context,p)))]),
