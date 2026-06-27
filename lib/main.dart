@@ -2,8 +2,14 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:math';
 import 'dart:io';
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:pdf/pdf.dart';
+import 'package:pdf/widgets.dart' as pw;
+import 'package:printing/printing.dart';
+import 'package:image/image.dart' as img;
+import 'package:share_plus/share_plus.dart';
 
 
 class AppTheme {
@@ -1330,7 +1336,7 @@ class _AppShellState extends State<AppShell> {
       SettingsPage(players: customPlayers, teams: customTeams, ideas: tacticalIdeas, history: history),
       V42ProfessionalWorkflowPage(players: customPlayers, teams: customTeams, onGo:(i)=>setState(()=>tab=i), onOpenPlayer:(p)=>showPlayerDetails(context,p)),
       V48VipFinalCenterPage(players: customPlayers, teams: customTeams, ideas: tacticalIdeas, history: history, favoritePlayerIds: favoritePlayerIds, onGo:(i)=>setState(()=>tab=i), onOpenPlayer:(p)=>showPlayerDetails(context,p), onFavorite:(p)=>addFavoritePlayer(p)),
-      V48ReportsQaPage(players: customPlayers, teams: customTeams, ideas: tacticalIdeas, history: history, favoritePlayerIds: favoritePlayerIds),
+      V50ReportsExportStudioPage(players: customPlayers, teams: customTeams, ideas: tacticalIdeas, history: history, favoritePlayerIds: favoritePlayerIds),
     ];
 
     return Scaffold(
@@ -1409,7 +1415,7 @@ class AppDrawer extends StatelessWidget {
       (27, Icons.settings_rounded, 'Paramètres / Backup'),
       (28, Icons.manage_search_rounded, 'Command Center Pro'),
       (29, Icons.workspace_premium_rounded, 'VIP Final Polish'),
-      (30, Icons.fact_check_rounded, 'Reports / QA'),
+      (30, Icons.picture_as_pdf_rounded, 'Reports PDF / Export'),
     ];
     return Drawer(
       backgroundColor: AppTheme.dark,
@@ -5564,10 +5570,12 @@ class _V42TeamVsTeamProPageState extends State<V42TeamVsTeamProPage>{
     ProBox(title:'Faiblesses ${tb?.name ?? 'B'}', subtitle:'À cibler si c’est l’adversaire', icon:Icons.warning_amber_rounded, child:Wrap(spacing:8,runSpacing:8,children:(tb?.weakTraits.isEmpty??true?[const Chip(label:Text('Aucune'))]:(tb!.weakTraits.map((x)=>Chip(label:Text(x))).toList())))),
     ProBox(title:'Traits égaux', subtitle:'Les duels se décident par joueurs proches', icon:Icons.balance_rounded, child:Wrap(spacing:8,runSpacing:8,children:[...(ta?.equalTraits??[]),...(tb?.equalTraits??[])].toSet().map((x)=>Chip(label:Text(x))).toList())),
   ]);
-  Widget _terrain(List<Player>a,List<Player>b)=>ProBox(title:'Terrain + sélection duel',subtitle:'Clique un joueur pour détail / comparaison rapide',icon:Icons.map_rounded,child:Column(children:[
-    AspectRatio(aspectRatio:1.35,child:CustomPaint(painter:V42TeamPitchPainter(a.take(11).toList(),b.take(11).toList()))),
-    const SizedBox(height:8),Wrap(spacing:8,runSpacing:8,children:[...a.take(11).map((p)=>ActionChip(label:Text('${p.pos} ${p.name}'),onPressed:()=>showPlayerDetails(context,p))),...b.take(11).map((p)=>ActionChip(label:Text('${p.pos} ${p.name}'),onPressed:()=>showPlayerDetails(context,p)))]),
-  ]));
+  Widget _terrain(List<Player>a,List<Player>b)=>V51TeamVsTeamTerrain(
+    teamA: ta?.name ?? 'Équipe A',
+    teamB: tb?.name ?? 'Équipe B',
+    a: a,
+    b: b,
+  );
   Widget _duels(List<Player>a,List<Player>b){ final rows=_smartPairs(a,b); return Column(children:[
     ProBox(title:'Duels qui se font vraiment face',subtitle:'Pas seulement poste vs poste : couloir, axe, ligne et mode adapté',icon:Icons.hub_rounded,child:Column(children:rows.take(12).map((e)=>_duelTile(e.$1,e.$2,e.$3)).toList())),
   ]);}
@@ -5602,18 +5610,332 @@ class _V42TeamVsTeamProPageState extends State<V42TeamVsTeamProPage>{
   ]));
 }
 
-class V42TeamPitchPainter extends CustomPainter{
-  final List<Player> a,b; V42TeamPitchPainter(this.a,this.b);
-  @override void paint(Canvas c,Size s){
-    final bg=Paint()..shader=const LinearGradient(begin:Alignment.topLeft,end:Alignment.bottomRight,colors:[Color(0xFF08743E),Color(0xFF04111F)]).createShader(Offset.zero&s);
-    final line=Paint()..color=Colors.white.withOpacity(.55)..style=PaintingStyle.stroke..strokeWidth=2;
-    c.drawRRect(RRect.fromRectAndRadius(Offset.zero&s,const Radius.circular(28)),bg); c.drawRRect(RRect.fromRectAndRadius(Rect.fromLTWH(18,18,s.width-36,s.height-36),const Radius.circular(18)),line); c.drawLine(Offset(s.width/2,18),Offset(s.width/2,s.height-18),line); c.drawCircle(Offset(s.width/2,s.height/2),44,line);
-    for(int i=0;i<a.length;i++){_p(c,Offset(s.width*(.18+(.18*(i%4))),s.height*(.18+(.18*(i~/4)))),a[i].pos,const Color(0xFF24C6DC));}
-    for(int i=0;i<b.length;i++){_p(c,Offset(s.width*(.82-(.18*(i%4))),s.height*(.18+(.18*(i~/4)))),b[i].pos,const Color(0xFFFF5573));}
-  }
-  void _p(Canvas c,Offset o,String t,Color col){c.drawCircle(o,18,Paint()..color=col); final tp=TextPainter(text:TextSpan(text:t.length>3?t.substring(0,3):t,style:const TextStyle(color:Colors.white,fontSize:10,fontWeight:FontWeight.w900)),textDirection:TextDirection.ltr)..layout(); tp.paint(c,o-Offset(tp.width/2,tp.height/2));}
-  @override bool shouldRepaint(covariant CustomPainter oldDelegate)=>true;
+
+class V51PitchToken {
+  final Player player;
+  final bool teamA;
+  final Offset pos;
+  const V51PitchToken(this.player, this.teamA, this.pos);
 }
+
+class V51TeamVsTeamTerrain extends StatefulWidget {
+  final String teamA, teamB;
+  final List<Player> a, b;
+  const V51TeamVsTeamTerrain({super.key, required this.teamA, required this.teamB, required this.a, required this.b});
+  @override State<V51TeamVsTeamTerrain> createState()=>_V51TeamVsTeamTerrainState();
+}
+
+class _V51TeamVsTeamTerrainState extends State<V51TeamVsTeamTerrain> {
+  Player? selected;
+  bool selectedFromA=true;
+  String compareMode='face';
+
+  List<Player> get xiA => widget.a.take(11).toList();
+  List<Player> get xiB => widget.b.take(11).toList();
+  List<Player> get benchA => widget.a.skip(11).take(12).toList();
+  List<Player> get benchB => widget.b.skip(11).take(12).toList();
+
+  List<V51PitchToken> get tokens => [
+    ...v51BuildPitchTokens(xiA, true),
+    ...v51BuildPitchTokens(xiB, false),
+  ];
+
+  @override Widget build(BuildContext context){
+    final pairs=v51BuildDuelPairs(xiA, xiB, compareMode:selected==null?'all':compareMode, selected:selected, selectedFromA:selectedFromA);
+    return ProBox(
+      title:'Terrain Team vs Team — moteur stable',
+      subtitle:'Formation réelle • joueurs séparés • remplaçants • duels face-à-face / plus proche / même poste',
+      icon:Icons.map_rounded,
+      child:Column(crossAxisAlignment:CrossAxisAlignment.start, children:[
+        _legend(),
+        const SizedBox(height:10),
+        AspectRatio(
+          aspectRatio: .72,
+          child:LayoutBuilder(builder:(context,c){
+            final size=Size(c.maxWidth,c.maxHeight);
+            return Stack(children:[
+              Positioned.fill(child:CustomPaint(painter:V51TeamPitchPainter(tokens, pairs))),
+              for(final t in tokens) _tokenWidget(t,size),
+            ]);
+          }),
+        ),
+        const SizedBox(height:12),
+        _selectionPanel(pairs),
+        const SizedBox(height:12),
+        _benchPanel('Remplaçants ${widget.teamA}', benchA, true),
+        const SizedBox(height:8),
+        _benchPanel('Remplaçants ${widget.teamB}', benchB, false),
+        const SizedBox(height:12),
+        _duelMatrix(pairs),
+      ]),
+    );
+  }
+
+  Widget _legend()=>Wrap(spacing:8,runSpacing:8,children:[
+    Chip(label:Text(widget.teamA), avatar:const CircleAvatar(backgroundColor:Color(0xFF24C6DC),radius:8)),
+    Chip(label:Text(widget.teamB), avatar:const CircleAvatar(backgroundColor:Color(0xFFFF5573),radius:8)),
+    const Chip(label:Text('Lignes = duels calculés')),
+    const Chip(label:Text('Clique joueur = sélection')),
+  ]);
+
+  Widget _tokenWidget(V51PitchToken t, Size size){
+    final x=(t.pos.dx*size.width).clamp(18.0, size.width-18.0).toDouble();
+    final y=(t.pos.dy*size.height).clamp(18.0, size.height-18.0).toDouble();
+    final isSel=selected?.id==t.player.id;
+    return Positioned(
+      left:x-22, top:y-22, width:44, height:52,
+      child:GestureDetector(
+        onTap:(){
+          setState((){selected=t.player; selectedFromA=t.teamA;});
+          final opp=v51FindOpponent(t.player, t.teamA, xiA, xiB, mode:compareMode);
+          if(opp!=null){_openDuel(t.player, opp);} else {showPlayerDetails(context,t.player);} 
+        },
+        onLongPress:()=>showPlayerDetails(context,t.player),
+        child:Column(mainAxisSize:MainAxisSize.min,children:[
+          Container(
+            width:38,height:38,alignment:Alignment.center,
+            decoration:BoxDecoration(
+              shape:BoxShape.circle,
+              color:t.teamA?const Color(0xFF24C6DC):const Color(0xFFFF5573),
+              border:Border.all(color:isSel?AppTheme.orange:Colors.white.withOpacity(.65),width:isSel?3:1.5),
+              boxShadow:[BoxShadow(color:Colors.black.withOpacity(.35),blurRadius:8,offset:const Offset(0,3))],
+            ),
+            child:Text(t.player.pos.length>3?t.player.pos.substring(0,3):t.player.pos,style:const TextStyle(color:Colors.white,fontSize:10,fontWeight:FontWeight.w900)),
+          ),
+          const SizedBox(height:2),
+          Container(
+            padding:const EdgeInsets.symmetric(horizontal:3,vertical:1),
+            decoration:BoxDecoration(color:AppTheme.dark.withOpacity(.82),borderRadius:BorderRadius.circular(7)),
+            child:Text(t.player.name.split(' ').first,overflow:TextOverflow.ellipsis,maxLines:1,style:const TextStyle(fontSize:8,fontWeight:FontWeight.w800)),
+          ),
+        ]),
+      ),
+    );
+  }
+
+  Widget _selectionPanel(List<(Player,Player,Mode)> pairs){
+    final opp=selected==null?null:v51FindOpponent(selected!, selectedFromA, xiA, xiB, mode:compareMode);
+    return ProBox(title:'Sélection + comparaison joueur proche', subtitle:selected==null?'Sélectionne un joueur sur le terrain':'${selected!.name} → ${opp?.name ?? 'aucun adversaire'}', icon:Icons.compare_arrows_rounded, child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
+      Wrap(spacing:8,runSpacing:8,children:[
+        ChoiceChip(label:const Text('Joueur en face'),selected:compareMode=='face',onSelected:(_)=>setState(()=>compareMode='face')),
+        ChoiceChip(label:const Text('Plus proche'),selected:compareMode=='nearest',onSelected:(_)=>setState(()=>compareMode='nearest')),
+        ChoiceChip(label:const Text('Même poste/rôle'),selected:compareMode=='role',onSelected:(_)=>setState(()=>compareMode='role')),
+        ChoiceChip(label:const Text('Tous les duels'),selected:compareMode=='all',onSelected:(_)=>setState(()=>compareMode='all')),
+      ]),
+      const SizedBox(height:8),
+      if(selected!=null) Row(children:[
+        Expanded(child:MiniScore(selected!.name, selected!.ovr, selected!.pos)),
+        const SizedBox(width:8),
+        Expanded(child:MiniScore(opp?.name??'—', opp?.ovr??0, opp?.pos??'Adversaire')),
+      ]),
+      const SizedBox(height:8),
+      Wrap(spacing:8,runSpacing:8,children:[
+        if(selected!=null) ActionChip(label:const Text('Détail joueur'),avatar:const Icon(Icons.person_search_rounded),onPressed:()=>showPlayerDetails(context,selected!)),
+        if(selected!=null && opp!=null) ActionChip(label:const Text('Ouvrir duel complet'),avatar:const Icon(Icons.analytics_rounded),onPressed:()=>_openDuel(selected!,opp)),
+        ActionChip(label:const Text('Comparer tous les plus proches'),avatar:const Icon(Icons.hub_rounded),onPressed:()=>_openAllNearest(pairs)),
+      ]),
+    ]));
+  }
+
+  Widget _benchPanel(String title,List<Player> bench,bool teamA){
+    return ProBox(title:title, subtitle:'Clique pour détail ou comparer avec joueur sélectionné', icon:Icons.chair_rounded, child:SizedBox(height:116, child:bench.isEmpty?const Center(child:Text('Aucun remplaçant détecté')):ListView.separated(
+      scrollDirection:Axis.horizontal,
+      itemCount:bench.length,
+      separatorBuilder:(_,__)=>const SizedBox(width:8),
+      itemBuilder:(context,i){final p=bench[i]; return InkWell(
+        onTap:(){
+          if(selected!=null && selectedFromA!=teamA){_openDuel(selected!,p);} else {showPlayerDetails(context,p);} 
+        },
+        child:Container(width:138,padding:const EdgeInsets.all(10),decoration:BoxDecoration(color:AppTheme.surface,borderRadius:BorderRadius.circular(16),border:Border.all(color:AppTheme.line)),child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
+          Row(children:[PlayerAvatar(p:p,size:30),const SizedBox(width:6),Expanded(child:Text(p.name,overflow:TextOverflow.ellipsis,style:const TextStyle(fontWeight:FontWeight.w900,fontSize:12)))]),
+          const Spacer(),
+          Text('${p.pos} • OVR ${p.ovr}',style:const TextStyle(color:AppTheme.muted,fontWeight:FontWeight.w800)),
+          Text('Tap: détail/duel',style:TextStyle(color:Colors.white.withOpacity(.7),fontSize:11)),
+        ])),
+      );},
+    )));
+  }
+
+  Widget _duelMatrix(List<(Player,Player,Mode)> pairs)=>ProBox(title:'Matrice des duels terrain', subtitle:'Duel calculé avec le bon mode selon rôle/couloir', icon:Icons.view_list_rounded, child:Column(children:pairs.take(14).map((e){
+    final sa=score(e.$1,e.$3), sb=score(e.$2,e.$3);
+    return ListTile(
+      dense:true,
+      leading:Icon(sa.total>=sb.total?Icons.trending_up_rounded:Icons.warning_amber_rounded,color:sa.total>=sb.total?AppTheme.green:AppTheme.orange),
+      title:Text('${e.$1.pos} ${e.$1.name}  vs  ${e.$2.pos} ${e.$2.name}',style:const TextStyle(fontWeight:FontWeight.w900)),
+      subtitle:Text('${e.$3.label} • ${sa.total}-${sb.total}'),
+      onTap:()=>_openDuel(e.$1,e.$2,mode:e.$3),
+    );
+  }).toList()));
+
+  void _openDuel(Player p,Player o,{Mode? mode}){
+    final m=mode??v51ModeForPositions(p,o);
+    final sp=score(p,m), so=score(o,m);
+    showUxDetailModal(context,'${p.name} vs ${o.name}',[
+      ScoreSummary(a:p,b:o,sa:sp,sb:so),
+      ProDuelBreakdown(a:p,b:o,mode:m),
+      ProBox(title:'Lecture terrain', subtitle:'Pourquoi ce duel est choisi', icon:Icons.map_rounded, child:Text(v51DuelExplanation(p,o,m,sp.total,so.total),style:const TextStyle(height:1.45,fontWeight:FontWeight.w700))),
+    ]);
+  }
+
+  void _openAllNearest(List<(Player,Player,Mode)> pairs){
+    showUxDetailModal(context,'Tous les duels proches',[
+      ProBox(title:'Top duels à jouer / éviter', subtitle:'Basé sur distance terrain + rôle', icon:Icons.hub_rounded, child:Column(children:pairs.take(10).map((e){
+        final sa=score(e.$1,e.$3), sb=score(e.$2,e.$3);
+        return ListTile(title:Text('${e.$1.name} vs ${e.$2.name}',style:const TextStyle(fontWeight:FontWeight.w900)),subtitle:Text('${e.$3.label} • ${sa.total}-${sb.total}'),onTap:()=>_openDuel(e.$1,e.$2,mode:e.$3));
+      }).toList())),
+    ]);
+  }
+}
+
+List<V51PitchToken> v51BuildPitchTokens(List<Player> players,bool teamA){
+  final xi=players.take(11).toList();
+  final gk=<Player>[], defs=<Player>[], mids=<Player>[], atts=<Player>[];
+  for(final p in xi){
+    final pos=p.pos.toUpperCase();
+    if(pos.contains('GK')) gk.add(p);
+    else if(pos.contains('CB')||pos.contains('LB')||pos.contains('RB')||pos.contains('LWB')||pos.contains('RWB')) defs.add(p);
+    else if(pos.contains('ST')||pos.contains('CF')||pos.contains('LW')||pos.contains('RW')) atts.add(p);
+    else mids.add(p);
+  }
+  // Fill empty lines so weird teams like Soccer Aid still have readable lines.
+  final leftovers=xi.where((p)=>!gk.contains(p)&&!defs.contains(p)&&!mids.contains(p)&&!atts.contains(p)).toList();
+  for(final p in leftovers){mids.add(p);} 
+  if(gk.isEmpty && xi.isNotEmpty){gk.add(xi.first);} 
+  final tokens=<V51PitchToken>[];
+  void addLine(List<Player> ps,double x){
+    final ys=v51YSlots(ps.length);
+    for(int i=0;i<ps.length;i++){
+      final nx=teamA?x:1-x;
+      tokens.add(V51PitchToken(ps[i], teamA, Offset(nx, ys[i])));
+    }
+  }
+  addLine(gk.take(1).toList(), .08);
+  addLine(defs.take(5).toList(), .24);
+  addLine(mids.take(5).toList(), .48);
+  addLine(atts.take(4).toList(), .73);
+  // If more than 11 by grouping issue, trim stable.
+  return tokens.take(11).toList();
+}
+
+List<double> v51YSlots(int n){
+  if(n<=0)return [];
+  if(n==1)return [.5];
+  const margin=.14;
+  final step=(1-2*margin)/(n-1);
+  return List.generate(n,(i)=>margin+i*step);
+}
+
+List<(Player,Player,Mode)> v51BuildDuelPairs(List<Player>a,List<Player>b,{String compareMode='face',Player? selected,bool selectedFromA=true}){
+  if(a.isEmpty||b.isEmpty)return [];
+  if(selected!=null && compareMode!='all'){
+    final op=v51FindOpponent(selected,selectedFromA,a,b,mode:compareMode);
+    if(op==null)return [];
+    return [(selected,op,v51ModeForPositions(selected,op))];
+  }
+  final out=<(Player,Player,Mode)>[];
+  final aTokens=v51BuildPitchTokens(a,true);
+  for(final t in aTokens){
+    final op=v51FindOpponent(t.player,true,a,b,mode:'face')??v51FindOpponent(t.player,true,a,b,mode:'nearest');
+    if(op!=null)out.add((t.player,op,v51ModeForPositions(t.player,op)));
+  }
+  final seen=<String>{};
+  return out.where((e)=>seen.add('${e.$1.id}-${e.$2.id}-${e.$3.key}')).toList();
+}
+
+Player? v51FindOpponent(Player p,bool fromA,List<Player>a,List<Player>b,{String mode='face'}){
+  final candidates=(fromA?b:a).take(11).toList();
+  if(candidates.isEmpty)return null;
+  final pTokList=v51BuildPitchTokens(fromA?a:b,fromA).where((t)=>t.player.id==p.id).toList();
+  final V51PitchToken? pTok=pTokList.isEmpty?null:pTokList.first;
+  final cTok=v51BuildPitchTokens(fromA?b:a,!fromA);
+  double roleBonus(Player x){
+    final pp=p.pos.toUpperCase(), op=x.pos.toUpperCase();
+    if((pp.contains('LW')||pp.contains('LM'))&&(op.contains('RB')||op.contains('RWB')))return -.30;
+    if((pp.contains('RW')||pp.contains('RM'))&&(op.contains('LB')||op.contains('LWB')))return -.30;
+    if((pp.contains('ST')||pp.contains('CF'))&&op.contains('CB'))return -.24;
+    if((pp.contains('CAM')||pp.contains('CM'))&&(op.contains('CDM')||op.contains('CM')))return -.18;
+    if(pp.contains('GK')&&(op.contains('ST')||op.contains('CF')))return -.18;
+    if(v51Role(pp)==v51Role(op))return -.08;
+    return 0;
+  }
+  double dist(Player x){
+    final otList=cTok.where((t)=>t.player.id==x.id).toList();
+    final V51PitchToken? ot=otList.isEmpty?null:otList.first;
+    if(pTok==null||ot==null)return (x.ovr-p.ovr).abs().toDouble();
+    final target = mode=='face' ? Offset(1-pTok.pos.dx,pTok.pos.dy) : pTok.pos;
+    return (ot.pos-target).distance + roleBonus(x);
+  }
+  if(mode=='role'){
+    final r=v51Role(p.pos.toUpperCase());
+    final same=candidates.where((x)=>v51Role(x.pos.toUpperCase())==r).toList();
+    if(same.isNotEmpty)return same.reduce((x,y)=>(x.ovr-p.ovr).abs()<(y.ovr-p.ovr).abs()?x:y);
+  }
+  candidates.sort((x,y)=>dist(x).compareTo(dist(y)));
+  return candidates.first;
+}
+
+String v51Role(String pos){
+  if(pos.contains('GK'))return 'GK';
+  if(pos.contains('CB')||pos.contains('LB')||pos.contains('RB')||pos.contains('WB'))return 'DEF';
+  if(pos.contains('ST')||pos.contains('CF')||pos.contains('LW')||pos.contains('RW'))return 'ATT';
+  return 'MID';
+}
+
+Mode v51ModeForPositions(Player p,Player o){
+  final pp=p.pos.toUpperCase(), op=o.pos.toUpperCase();
+  Mode byKey(String k)=>modes.firstWhere((m)=>m.key==k,orElse:()=>modes.first);
+  if((pp.contains('LW')||pp.contains('RW')||pp.contains('LM')||pp.contains('RM'))&&(op.contains('LB')||op.contains('RB')||op.contains('WB')))return byKey('dribble_wing');
+  if((pp.contains('ST')||pp.contains('CF'))&&op.contains('CB'))return byKey('finish_pressure');
+  if((pp.contains('CAM')||pp.contains('CM'))&&(op.contains('CDM')||op.contains('CM')))return byKey('pass_break');
+  if(op.contains('CB')||op.contains('LB')||op.contains('RB')||op.contains('CDM'))return byKey('physical');
+  return byKey('physical');
+}
+
+String v51DuelExplanation(Player p,Player o,Mode m,int sp,int so){
+  final diff=sp-so;
+  final base='Mode ${m.label}. ${p.pos} ${p.name} est comparé contre ${o.pos} ${o.name} car ils sont proches/en face sur le terrain.';
+  if(diff>=8)return '$base\nAvantage clair : tu peux chercher ce duel rapidement, surtout si la zone n’est pas couverte.';
+  if(diff>=0)return '$base\nDuel jouable mais pas gratuit : utilise soutien, feinte ou changement de rythme.';
+  return '$base\nÀ éviter : l’adversaire gagne ce type de confrontation. Renverse, joue en appui ou change le mode de duel.';
+}
+
+class V51TeamPitchPainter extends CustomPainter{
+  final List<V51PitchToken> tokens;
+  final List<(Player,Player,Mode)> pairs;
+  V51TeamPitchPainter(this.tokens,this.pairs);
+  @override void paint(Canvas c,Size s){
+    final rect=Offset.zero&s;
+    final bg=Paint()..shader=const LinearGradient(begin:Alignment.topLeft,end:Alignment.bottomRight,colors:[Color(0xFF08743E),Color(0xFF04111F)]).createShader(rect);
+    final line=Paint()..color=Colors.white.withOpacity(.58)..style=PaintingStyle.stroke..strokeWidth=2;
+    c.drawRRect(RRect.fromRectAndRadius(rect,const Radius.circular(28)),bg);
+    final inner=Rect.fromLTWH(16,16,s.width-32,s.height-32);
+    c.drawRRect(RRect.fromRectAndRadius(inner,const Radius.circular(18)),line);
+    c.drawLine(Offset(16,s.height/2),Offset(s.width-16,s.height/2),line);
+    c.drawCircle(Offset(s.width/2,s.height/2),s.width*.16,line);
+    c.drawRect(Rect.fromLTWH(16,s.height*.32,s.width*.16,s.height*.36),line);
+    c.drawRect(Rect.fromLTWH(s.width-16-s.width*.16,s.height*.32,s.width*.16,s.height*.36),line);
+    c.drawRect(Rect.fromLTWH(16,s.height*.42,s.width*.06,s.height*.16),line);
+    c.drawRect(Rect.fromLTWH(s.width-16-s.width*.06,s.height*.42,s.width*.06,s.height*.16),line);
+    final byId={for(final t in tokens)t.player.id:t};
+    for(final e in pairs.take(14)){
+      final a=byId[e.$1.id], b=byId[e.$2.id];
+      if(a==null||b==null)continue;
+      final pa=Offset(a.pos.dx*s.width,a.pos.dy*s.height);
+      final pb=Offset(b.pos.dx*s.width,b.pos.dy*s.height);
+      final sa=score(e.$1,e.$3).total, sb=score(e.$2,e.$3).total;
+      final col=sa>=sb?AppTheme.green:AppTheme.orange;
+      c.drawLine(pa,pb,Paint()..color=col.withOpacity(.45)..strokeWidth=1.8..style=PaintingStyle.stroke);
+    }
+    // soft lane guides
+    for(final x in [.24,.48,.73]){
+      final px=x*s.width;
+      c.drawLine(Offset(px,18),Offset(px,s.height-18),Paint()..color=Colors.white.withOpacity(.08)..strokeWidth=1);
+      c.drawLine(Offset((1-x)*s.width,18),Offset((1-x)*s.width,s.height-18),Paint()..color=Colors.white.withOpacity(.08)..strokeWidth=1);
+    }
+  }
+  @override bool shouldRepaint(covariant V51TeamPitchPainter oldDelegate)=>true;
+}
+
 
 
 // ======================= V45 FINAL VIP PREMIUM POLISH =======================
@@ -5915,6 +6237,8 @@ class _V48TacticalLabProPageState extends State<V48TacticalLabProPage> {
     ProBox(title:'Export scénario', subtitle:'Copie rapport texte/JSON', icon:Icons.description_rounded, child:Wrap(spacing:8,runSpacing:8,children:[
       ActionChip(label:const Text('Copier rapport'),avatar:const Icon(Icons.copy_rounded),onPressed:()=>_copy(_reportText())),
       ActionChip(label:const Text('Copier JSON'),avatar:const Icon(Icons.data_object_rounded),onPressed:()=>_copy(jsonEncode(_reportJson()))),
+      ActionChip(label:const Text('PDF réel'),avatar:const Icon(Icons.picture_as_pdf_rounded),onPressed:()=>V50ExportEngine.sharePdf(context, title:'Tactical Lab ${a.name} vs ${b.name}', subtitle:mode.label, sections:{'Résumé':_reportText(),'Timeline':timelineEvents.take(20).join('\n'),'Joueurs':tokens.map((t)=>'${t.player.name} • ${t.player.pos} • ${(t.pos.dx*100).round()} / ${(t.pos.dy*100).round()}').join('\n')})),
+      ActionChip(label:const Text('GIF réel'),avatar:const Icon(Icons.gif_box_rounded),onPressed:()=>V50ExportEngine.shareTacticalGif(context, tokens:tokens, title:'tactical_lab_${a.name}_${b.name}')),
       ActionChip(label:const Text('Modal rapport'),avatar:const Icon(Icons.open_in_new_rounded),onPressed:()=>showUxDetailModal(context,'Rapport Tactical Lab',[_reportBox()])),
     ])),
     _reportBox(),
@@ -6023,4 +6347,247 @@ class VipPitchPainter extends CustomPainter {
     canvas.drawCircle(Offset(size.width*.55,size.height*.72),70,p2);
   }
   @override bool shouldRepaint(covariant VipPitchPainter oldDelegate)=>oldDelegate.strong!=strong;
+}
+
+
+/* === V50 REAL PDF / GIF EXPORTS + SAVED REPORTS + PRECISION HEATMAPS === */
+
+class CoachSavedReport {
+  final String id;
+  final String title;
+  final String type;
+  final String body;
+  final Map<String, dynamic> data;
+  final String createdAt;
+  const CoachSavedReport({required this.id, required this.title, required this.type, required this.body, required this.data, required this.createdAt});
+  Map<String,dynamic> toJson()=>{'id':id,'title':title,'type':type,'body':body,'data':data,'createdAt':createdAt};
+  static CoachSavedReport fromJson(Map<String,dynamic> j)=>CoachSavedReport(id:'${j['id']}',title:'${j['title']}',type:'${j['type']}',body:'${j['body']}',data:Map<String,dynamic>.from(j['data']??{}),createdAt:'${j['createdAt']}');
+}
+
+class V50ReportStore {
+  static Future<File> _file() async {
+    final dir = Directory('${Directory.systemTemp.path}/fc24_coach_ai_store');
+    if (!dir.existsSync()) dir.createSync(recursive:true);
+    return File('${dir.path}/saved_reports_v50.json');
+  }
+  static Future<List<CoachSavedReport>> load() async {
+    try { final f=await _file(); if(!f.existsSync()) return []; final raw=jsonDecode(await f.readAsString()) as List; return raw.map((e)=>CoachSavedReport.fromJson(Map<String,dynamic>.from(e))).toList(); } catch(_){ return []; }
+  }
+  static Future<void> save(List<CoachSavedReport> reports) async { final f=await _file(); await f.writeAsString(jsonEncode(reports.map((e)=>e.toJson()).toList())); }
+  static Future<String> exportJson(List<CoachSavedReport> reports) async => jsonEncode({'version':'reports_v50','date':DateTime.now().toIso8601String(),'reports':reports.map((e)=>e.toJson()).toList()});
+  static List<CoachSavedReport> importJson(String raw){ final m=jsonDecode(raw); final list=(m is Map ? m['reports'] : m) as List; return list.map((e)=>CoachSavedReport.fromJson(Map<String,dynamic>.from(e))).toList(); }
+}
+
+class V50ExportEngine {
+  static pw.Widget _pdfHeader(String title, String subtitle) => pw.Container(
+    padding: const pw.EdgeInsets.all(18),
+    decoration: pw.BoxDecoration(color: PdfColor.fromHex('#071225'), borderRadius: pw.BorderRadius.circular(16)),
+    child: pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.start, children:[
+      pw.Text(title, style: pw.TextStyle(color: PdfColors.white, fontSize: 24, fontWeight: pw.FontWeight.bold)),
+      pw.SizedBox(height:6),
+      pw.Text(subtitle, style: const pw.TextStyle(color: PdfColors.grey300, fontSize: 12)),
+    ]),
+  );
+
+  static Future<Uint8List> buildPdfBytes({required String title, required String subtitle, required Map<String,String> sections}) async {
+    final doc = pw.Document();
+    doc.addPage(pw.MultiPage(
+      pageFormat: PdfPageFormat.a4,
+      margin: const pw.EdgeInsets.all(28),
+      build: (context)=>[
+        _pdfHeader(title, subtitle),
+        pw.SizedBox(height:18),
+        ...sections.entries.map((e)=>pw.Container(
+          margin: const pw.EdgeInsets.only(bottom:14),
+          padding: const pw.EdgeInsets.all(14),
+          decoration: pw.BoxDecoration(border: pw.Border.all(color: PdfColors.grey500), borderRadius: pw.BorderRadius.circular(12)),
+          child: pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.start, children:[
+            pw.Text(e.key, style: pw.TextStyle(fontSize:16, fontWeight:pw.FontWeight.bold, color:PdfColor.fromHex('#14B881'))),
+            pw.SizedBox(height:8),
+            pw.Text(e.value, style: const pw.TextStyle(fontSize:10, lineSpacing:3)),
+          ]),
+        )),
+        pw.SizedBox(height:16),
+        pw.Text('FC24 Coach AI Pro • Export PDF réel • ${DateTime.now().toIso8601String()}', style: const pw.TextStyle(fontSize:8, color:PdfColors.grey600)),
+      ],
+    ));
+    return doc.save();
+  }
+
+  static Future<void> sharePdf(BuildContext context,{required String title, required String subtitle, required Map<String,String> sections}) async {
+    try {
+      final bytes = await buildPdfBytes(title:title, subtitle:subtitle, sections:sections);
+      await Printing.sharePdf(bytes: bytes, filename: '${_safe(title)}.pdf');
+      if(context.mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content:Text('PDF réel généré')));
+    } catch(e) {
+      if(context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content:Text('Erreur PDF: $e')));
+    }
+  }
+
+  static String _safe(String s)=>s.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]+'),'_').replaceAll(RegExp(r'_+'),'_');
+
+  static Future<Uint8List> buildTacticalGif({required List<_LabToken> tokens, int frames=18}) async {
+    final encoder = img.GifEncoder(repeat:0, samplingFactor:10);
+    for(int f=0; f<frames; f++){
+      final im = img.Image(width:420, height:620);
+      img.fill(im, color: img.ColorRgb8(8,115,66));
+      _line(im, 18,18,402,18); _line(im,402,18,402,602); _line(im,402,602,18,602); _line(im,18,602,18,18);
+      _line(im,18,310,402,310); img.drawCircle(im, x:210, y:310, radius:38, color: img.ColorRgb8(230,230,230));
+      img.drawRect(im, x1:120, y1:18, x2:300, y2:92, color: img.ColorRgb8(230,230,230));
+      img.drawRect(im, x1:120, y1:528, x2:300, y2:602, color: img.ColorRgb8(230,230,230));
+      for(final t in tokens){
+        final wiggle = sin((f/frames)*pi*2) * .018;
+        final x=(t.pos.dx*420 + (t.selected?wiggle*420:0)).round().clamp(20,400).toInt();
+        final y=(t.pos.dy*620 + (t.selected?wiggle*210:0)).round().clamp(20,600).toInt();
+        img.fillCircle(im, x:x, y:y, radius:18, color: t.selected?img.ColorRgb8(255,200,87):img.ColorRgb8(47,128,255));
+        img.drawCircle(im, x:x, y:y, radius:18, color: img.ColorRgb8(255,255,255));
+      }
+      encoder.addFrame(im, duration:8);
+    }
+    return Uint8List.fromList(encoder.finish()!);
+  }
+
+  static void _line(img.Image im,int x1,int y1,int x2,int y2)=>img.drawLine(im, x1:x1, y1:y1, x2:x2, y2:y2, color: img.ColorRgb8(230,230,230));
+
+  static Future<void> shareTacticalGif(BuildContext context,{required List<_LabToken> tokens, required String title}) async {
+    try {
+      final bytes=await buildTacticalGif(tokens:tokens);
+      final file=File('${Directory.systemTemp.path}/${_safe(title)}.gif');
+      await file.writeAsBytes(bytes);
+      await Share.shareXFiles([XFile(file.path)], text:'Tactical Lab GIF • FC24 Coach AI');
+      if(context.mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content:Text('GIF réel généré')));
+    } catch(e) { if(context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content:Text('Erreur GIF: $e'))); }
+  }
+
+  static Future<void> shareVideoStoryboard(BuildContext context,{required String title, required List<_LabToken> tokens}) async {
+    // Sans FFmpeg natif, on exporte un vrai fichier GIF animé + storyboard JSON importable.
+    final gif=await buildTacticalGif(tokens:tokens, frames:24);
+    final base='${Directory.systemTemp.path}/${_safe(title)}';
+    final gifFile=File('$base.gif')..writeAsBytesSync(gif);
+    final jsonFile=File('$base.storyboard.json')..writeAsStringSync(jsonEncode({'title':title,'type':'video_storyboard','players':tokens.map((t)=>{'name':t.player.name,'pos':t.player.pos,'x':t.pos.dx,'y':t.pos.dy}).toList()}));
+    await Share.shareXFiles([XFile(gifFile.path), XFile(jsonFile.path)], text:'Export vidéo storyboard + GIF animé');
+  }
+}
+
+class V50ReportsExportStudioPage extends StatefulWidget {
+  final List<Player> players; final List<TeamInfo> teams; final List<TacticalIdea> ideas; final List<Map<String,dynamic>> history; final Set<String> favoritePlayerIds;
+  const V50ReportsExportStudioPage({super.key,required this.players,required this.teams,required this.ideas,required this.history,required this.favoritePlayerIds});
+  @override State<V50ReportsExportStudioPage> createState()=>_V50ReportsExportStudioPageState();
+}
+
+class _V50ReportsExportStudioPageState extends State<V50ReportsExportStudioPage>{
+  final importCtrl=TextEditingController();
+  List<CoachSavedReport> reports=[];
+  bool loading=true;
+  @override void initState(){super.initState(); _load();}
+  Future<void> _load() async { final r=await V50ReportStore.load(); if(mounted)setState((){reports=r;loading=false;}); }
+  Future<void> _save() async { await V50ReportStore.save(reports); if(mounted)ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content:Text('Rapports sauvegardés'))); }
+
+  @override Widget build(BuildContext context){
+    return ListView(padding:const EdgeInsets.all(14),children:[
+      Header('Reports Studio V50','PDF réel • GIF animé • vidéo storyboard • heatmaps précises • rapports sauvegardés/importables'),
+      UxTabSection(tabs:const ['PDF réel','GIF / Vidéo','Heatmaps','Rapports sauvés','Import / Export','QA'],height:760,children:[
+        _pdfTab(), _gifVideoTab(), _heatmapTab(), _savedTab(), _importExportTab(), _qaTab(),
+      ]),
+    ]);
+  }
+
+  Widget _pdfTab()=>Column(children:[
+    ProBox(title:'Export PDF réel',subtitle:'Utilise package pdf + printing',icon:Icons.picture_as_pdf_rounded,child:Wrap(spacing:8,runSpacing:8,children:[
+      ActionChip(label:const Text('PDF Joueur'),avatar:const Icon(Icons.person),onPressed:()=>_exportPlayerPdf()),
+      ActionChip(label:const Text('PDF Team vs Team'),avatar:const Icon(Icons.compare),onPressed:()=>_exportTeamPdf()),
+      ActionChip(label:const Text('PDF Tactical Lab'),avatar:const Icon(Icons.sports_soccer),onPressed:()=>_exportTacticalPdf()),
+      ActionChip(label:const Text('Sauver rapport global'),avatar:const Icon(Icons.save),onPressed:()=>_addReport('Rapport global','Global',_globalText(),{'players':widget.players.length,'teams':widget.teams.length})),
+    ])),
+    _previewBox('Aperçu PDF', _globalText()),
+  ]);
+
+  Widget _gifVideoTab(){
+    final tokens=_sampleTokens();
+    return Column(children:[
+      ProBox(title:'Export GIF réel Tactical Lab',subtitle:'Fichier .gif animé partageable',icon:Icons.gif_box_rounded,child:Wrap(spacing:8,runSpacing:8,children:[
+        ActionChip(label:const Text('Générer GIF'),avatar:const Icon(Icons.gif),onPressed:()=>V50ExportEngine.shareTacticalGif(context,tokens:tokens,title:'tactical_lab_demo')),
+        ActionChip(label:const Text('Export vidéo storyboard'),avatar:const Icon(Icons.video_file),onPressed:()=>V50ExportEngine.shareVideoStoryboard(context,title:'tactical_lab_video_storyboard',tokens:tokens)),
+        ActionChip(label:const Text('Sauver scénario'),avatar:const Icon(Icons.save),onPressed:()=>_addReport('Tactical GIF scenario','Tactical', 'Scénario GIF avec ${tokens.length} joueurs et positions terrain.', {'tokens':tokens.map((t)=>{'name':t.player.name,'x':t.pos.dx,'y':t.pos.dy}).toList()})),
+      ])),
+      ProBox(title:'Note vidéo',subtitle:'Export propre sans dépendance FFmpeg',icon:Icons.info_rounded,child:const Text('L’app génère un vrai GIF animé + un storyboard JSON importable. Pour MP4 natif réel, il faudra ajouter plus tard un encodeur vidéo/FFmpeg Android, plus lourd.',style:TextStyle(height:1.45,fontWeight:FontWeight.w700))),
+    ]);
+  }
+
+  Widget _heatmapTab(){
+    final team=widget.teams.isNotEmpty?widget.teams.first:null;
+    final squad=team==null?widget.players.take(11).toList():widget.players.where((p)=>p.teamId==team.id || p.team==team.name).take(11).toList();
+    return Column(children:[
+      ProBox(title:'Heatmap terrain précise',subtitle:'Basée sur poste + rating + type action',icon:Icons.local_fire_department_rounded,child:SizedBox(height:520,child:CustomPaint(painter:V50PrecisionHeatmapPainter(players:squad),child:Container()))),
+      ProBox(title:'Lecture coach',subtitle:'Zones fortes/faibles',icon:Icons.psychology_rounded,child:Text(_heatmapText(squad),style:const TextStyle(height:1.45,fontWeight:FontWeight.w700))),
+    ]);
+  }
+
+  Widget _savedTab()=>Column(children:[
+    ProBox(title:'Rapports sauvegardés',subtitle:'Persistés localement et réimportables',icon:Icons.folder_copy_rounded,child:Column(children:loading?[const LinearProgressIndicator()]:reports.isEmpty?[const ListTile(title:Text('Aucun rapport sauvegardé'),subtitle:Text('Crée un rapport PDF ou tactical puis clique sauver.'))]:reports.map((r)=>ListTile(leading:const Icon(Icons.description_rounded,color:AppTheme.green),title:Text(r.title,style:const TextStyle(fontWeight:FontWeight.w900)),subtitle:Text('${r.type} • ${r.createdAt}',maxLines:1,overflow:TextOverflow.ellipsis),trailing:IconButton(icon:const Icon(Icons.picture_as_pdf),onPressed:()=>V50ExportEngine.sharePdf(context,title:r.title,subtitle:r.type,sections:{'Rapport':r.body,'Données':jsonEncode(r.data)})),onTap:()=>showUxDetailModal(context,r.title,[ProBox(title:r.title,subtitle:r.type,icon:Icons.description,child:SelectableText(r.body))])) .toList())),
+    Wrap(spacing:8,runSpacing:8,children:[ActionChip(label:const Text('Sauvegarder'),avatar:const Icon(Icons.save),onPressed:_save),ActionChip(label:const Text('Vider'),avatar:const Icon(Icons.delete),onPressed:()=>setState(()=>reports.clear()))]),
+  ]);
+
+  Widget _importExportTab()=>Column(children:[
+    ProBox(title:'Export rapports JSON',subtitle:'Copier pour sauvegarder hors app',icon:Icons.ios_share_rounded,child:Wrap(spacing:8,runSpacing:8,children:[
+      ActionChip(label:const Text('Copier JSON rapports'),avatar:const Icon(Icons.copy),onPressed:()async{final raw=await V50ReportStore.exportJson(reports);await Clipboard.setData(ClipboardData(text:raw));if(mounted)ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content:Text('Export rapports copié')));}),
+      ActionChip(label:const Text('Copier DB complète'),avatar:const Icon(Icons.backup),onPressed:()=>_copyDb()),
+    ])),
+    ProBox(title:'Importer rapports',subtitle:'Coller JSON exporté puis importer',icon:Icons.download_rounded,child:Column(children:[
+      TextField(controller:importCtrl,minLines:4,maxLines:10,decoration:const InputDecoration(labelText:'JSON rapports')),const SizedBox(height:8),
+      FilledButton.icon(onPressed:(){try{final imported=V50ReportStore.importJson(importCtrl.text);setState(()=>reports=[...imported,...reports]);_save();}catch(e){ScaffoldMessenger.of(context).showSnackBar(SnackBar(content:Text('Import impossible: $e')));}},icon:const Icon(Icons.download_done),label:const Text('Importer')),
+    ])),
+  ]);
+
+  Widget _qaTab()=>Column(children:[
+    _qa('PDF réel','PDF généré avec package pdf/printing, partageable.'),
+    _qa('GIF réel','GIF animé généré image par image avec package image.'),
+    _qa('Vidéo','Storyboard vidéo exporté + GIF animé. MP4 natif demande FFmpeg/encodeur Android.'),
+    _qa('Heatmaps','Calcul par position terrain + rating, pas seulement décor.'),
+    _qa('Rapports','Sauvegarde locale + import/export JSON.'),
+    _qa('À tester APK','Ouvrir Team vs Team, Player Hub, Tactical Lab, puis exporter un PDF et un GIF.'),
+  ]);
+
+  Widget _qa(String t,String s)=>ProBox(title:t,subtitle:'QA V50',icon:Icons.verified_rounded,child:Text(s,style:const TextStyle(height:1.45,fontWeight:FontWeight.w700)));
+  Widget _previewBox(String t,String body)=>ProBox(title:t,subtitle:'Contenu exporté',icon:Icons.preview_rounded,child:SelectableText(body,style:const TextStyle(height:1.45,fontWeight:FontWeight.w700)));
+
+  List<_LabToken> _sampleTokens(){ final ps=widget.players.take(8).toList(); if(ps.isEmpty)return []; return [for(int i=0;i<ps.length;i++) _LabToken(ps[i], Offset(.18+(i%4)*.2,.22+(i~/4)*.35), selected:i==0)]; }
+  Future<void> _addReport(String title,String type,String body,Map<String,dynamic> data) async { setState(()=>reports.insert(0,CoachSavedReport(id:'r_${DateTime.now().millisecondsSinceEpoch}',title:title,type:type,body:body,data:data,createdAt:DateTime.now().toIso8601String()))); await _save(); }
+  String _globalText()=> 'FC24 Coach AI V50\nJoueurs: ${widget.players.length}\nÉquipes: ${widget.teams.length}\nTactiques: ${widget.ideas.length}\nHistorique: ${widget.history.length}\nFavoris: ${widget.favoritePlayerIds.length}\n\nModules couverts: PDF réel, GIF Tactical Lab, heatmaps terrain, rapports sauvegardés/importables.';
+  String _playerText(Player p)=> '${p.name}\n${p.team} • ${p.pos} • OVR ${p.ovr}\nPace ${p.pace} • Shooting ${p.shooting} • Passing ${p.passing}\nDribbling ${p.dribbling} • Defending ${p.defending} • Physical ${p.physical}\nPlayStyles: ${mergedPlayStyles(p).join(', ')}\nTraits: ${actualPlayerTraits(p).join(', ')}';
+  String _teamText(TeamInfo t)=> '${t.name}\nManager: ${t.manager}\nOVR ${t.overall} • ATT ${t.attack} MID ${t.midfield} DEF ${t.defense}\nForts: ${t.strongTraits.join(', ')}\nFaibles: ${t.weakTraits.join(', ')}\nÉgal: ${t.equalTraits.join(', ')}';
+  Future<void> _exportPlayerPdf() async { final p=widget.players.isNotEmpty?widget.players.first:null; if(p==null)return; await V50ExportEngine.sharePdf(context,title:'Rapport joueur ${p.name}',subtitle:'Player Hub PDF',sections:{'Résumé':_playerText(p),'Analyse':'Forces, faiblesses, playstyles, traits et utilisation coach.','Counters':'À compléter depuis Player Hub / Team vs Team selon adversaire.'}); await _addReport('Rapport joueur ${p.name}','Player',_playerText(p),p.toLocalJson()); }
+  Future<void> _exportTeamPdf() async { if(widget.teams.length<2)return; final a=widget.teams[0],b=widget.teams[1]; final body='${_teamText(a)}\n\nVS\n\n${_teamText(b)}'; await V50ExportEngine.sharePdf(context,title:'Team vs Team ${a.name} vs ${b.name}',subtitle:'Comparaison équipe PDF',sections:{'Résumé':body,'Duels':'Ailier vs latéral • ST vs CB • CAM/CM vs CDM/CM • couloirs/axe.','Conseils':'Exploiter traits forts, protéger traits faibles, ajuster selon score.'}); await _addReport('Team vs Team ${a.name} vs ${b.name}','TeamVsTeam',body,{'a':a.toLocalJson(),'b':b.toLocalJson()}); }
+  Future<void> _exportTacticalPdf() async { final tokens=_sampleTokens(); final body='Scénario tactical lab\n${tokens.map((t)=>'${t.player.name} ${t.player.pos}: ${(t.pos.dx*100).round()} / ${(t.pos.dy*100).round()}').join('\n')}'; await V50ExportEngine.sharePdf(context,title:'Rapport Tactical Lab',subtitle:'Positions terrain + scénario',sections:{'Terrain':body,'Timeline':'0s situation créée\n10s passe\n20s course\n30s duel','Conseil':'Utiliser le GIF pour revoir le mouvement puis ajuster le duel.'}); await _addReport('Rapport Tactical Lab','Tactical',body,{'tokens':tokens.map((t)=>{'id':t.player.id,'x':t.pos.dx,'y':t.pos.dy}).toList()}); }
+  void _copyDb() { final data={'players':widget.players.map((p)=>p.toLocalJson()).toList(),'teams':widget.teams.map((t)=>t.toLocalJson()).toList(),'ideas':widget.ideas.map((i)=>i.toJson()).toList(),'history':widget.history,'favorites':widget.favoritePlayerIds.toList(),'reports':reports.map((r)=>r.toJson()).toList()}; Clipboard.setData(ClipboardData(text:jsonEncode(data))); ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content:Text('DB complète copiée'))); }
+  String _heatmapText(List<Player> ps){ if(ps.isEmpty)return 'Aucune donnée joueur.'; final best=ps.reduce((a,b)=>a.ovr>=b.ovr?a:b); return 'Zone forte principale autour de ${best.name} (${best.pos}). Les zones sont calculées par poste, OVR et profils joueur. Utilise les zones fortes pour créer les duels et les zones faibles pour couvrir les transitions.'; }
+}
+
+class V50PrecisionHeatmapPainter extends CustomPainter {
+  final List<Player> players;
+  V50PrecisionHeatmapPainter({required this.players});
+  @override void paint(Canvas c, Size s){
+    final bg=Paint()..color=AppTheme.pitch;
+    c.drawRRect(RRect.fromRectAndRadius(Offset.zero & s, const Radius.circular(22)), bg);
+    final line=Paint()..color=Colors.white.withOpacity(.45)..style=PaintingStyle.stroke..strokeWidth=1.2;
+    c.drawRect(Rect.fromLTWH(12,12,s.width-24,s.height-24),line);
+    c.drawLine(Offset(12,s.height/2),Offset(s.width-12,s.height/2),line); c.drawCircle(Offset(s.width/2,s.height/2),36,line);
+    c.drawRect(Rect.fromLTWH(s.width*.2,12,s.width*.6,s.height*.14),line); c.drawRect(Rect.fromLTWH(s.width*.2,s.height*.86-12,s.width*.6,s.height*.14),line);
+    final sorted=List<Player>.from(players)..sort((a,b)=>b.ovr.compareTo(a.ovr));
+    for(final p in sorted.take(11)){
+      final pos=_pos(p.pos,s);
+      final radius=(38.0+(((p.ovr.clamp(50,95) as num)-50)/45)*44).toDouble();
+      final col=(p.ovr>=85?AppTheme.green:(p.ovr>=78?AppTheme.orange:AppTheme.danger));
+      final heat=Paint()..shader=RadialGradient(colors:[col.withOpacity(.50), col.withOpacity(.18), Colors.transparent],stops:const [.0,.42,1]).createShader(Rect.fromCircle(center:pos,radius:radius));
+      c.drawCircle(pos,radius,heat);
+      final dot=Paint()..color=Colors.white.withOpacity(.85);
+      c.drawCircle(pos,3,dot);
+    }
+  }
+  Offset _pos(String raw, Size s){
+    final p=raw.toUpperCase(); double x=.5,y=.5;
+    if(p.contains('GK')){y=.92;} else if(p.contains('CB')){y=.76; x=p.contains('R')?.62:p.contains('L')?.38:.5;} else if(p.contains('RB')||p.contains('RWB')){x=.82;y=.70;} else if(p.contains('LB')||p.contains('LWB')){x=.18;y=.70;} else if(p.contains('CDM')){y=.60;} else if(p.contains('CM')){y=.50; x=p.contains('R')?.62:p.contains('L')?.38:.5;} else if(p.contains('CAM')){y=.38;} else if(p.contains('RW')||p.contains('RM')){x=.82;y=.30;} else if(p.contains('LW')||p.contains('LM')){x=.18;y=.30;} else if(p.contains('ST')||p.contains('CF')){y=.18;} 
+    return Offset(x*s.width,y*s.height);
+  }
+  @override bool shouldRepaint(covariant V50PrecisionHeatmapPainter oldDelegate)=>oldDelegate.players!=players;
 }
