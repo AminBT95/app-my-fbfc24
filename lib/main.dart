@@ -2685,7 +2685,7 @@ class _TransferPlayerPageState extends State<TransferPlayerPage>{
         const SizedBox(height:10),
         DropdownButtonFormField<String>(isExpanded:true, value:selected?.id, decoration:const InputDecoration(labelText:'Joueur à transférer'), items:players.map((p)=>DropdownMenuItem(value:p.id, child:Text('${p.name} • ${p.team} • ${p.pos}', overflow:TextOverflow.ellipsis))).toList(), onChanged:(id)=>setState(()=>selected=widget.players.firstWhere((p)=>p.id==id))),
         const SizedBox(height:8),
-        DropdownButtonFormField<String>(isExpanded:true, value:target?.id, decoration:const InputDecoration(labelText:'Nouvelle équipe'), items:teams.map((t)=>DropdownMenuItem(value:t.id, child:Text('${t.name} • OVR ${t.overall}', overflow:TextOverflow.ellipsis))).toList(), onChanged:(id)=>setState(()=>target=teams.firstWhere((t)=>t.id==id))),
+        TeamAutocomplete(teams:teams, value:target==null?'': '${target!.name}  • ID ${target!.id}${target!.gender==1?' • F':' • H'}', label:'Nouvelle équipe — autocomplete + ID', onSelected:(name){ final m=findTeamByAutocomplete(teams,name); if(m!=null) setState(()=>target=m); }),
         SwitchListTile(value:addToXI, onChanged:(v)=>setState(()=>addToXI=v), title:const Text('Ajouter directement au XI de départ'), subtitle:const Text('Si le XI a déjà 11 joueurs, le moins bien noté du même groupe/poste sort en remplaçant.')),
         const SizedBox(height:8),
         FilledButton.icon(onPressed:selected==null||target==null?null:()=>_transfer(context), icon:const Icon(Icons.check_rounded), label:const Text('Valider transfert')),
@@ -2916,7 +2916,7 @@ class _TeamVersusHero extends StatelessWidget {
     _dual('Défense vs Attaque', a.defense, b.attack),
     _dual('Overall', a.overall, b.overall),
   ]));
-  Widget _team(TeamInfo t, Color color, {bool right=false})=>Column(crossAxisAlignment:right?CrossAxisAlignment.end:CrossAxisAlignment.start, children:[Container(width:54,height:54,alignment:Alignment.center,decoration:BoxDecoration(shape:BoxShape.circle,color:color.withOpacity(.25),border:Border.all(color:color,width:2)),child:Text(t.name.substring(0,1).toUpperCase(),style:TextStyle(color:color,fontWeight:FontWeight.w900,fontSize:24))), const SizedBox(height:8), Text(t.name,maxLines:2,overflow:TextOverflow.ellipsis,textAlign:right?TextAlign.right:TextAlign.left,style:const TextStyle(color:Colors.white,fontWeight:FontWeight.w900,fontSize:20)), Text('OVR ${t.overall} • ${t.manager}',maxLines:1,overflow:TextOverflow.ellipsis,style:const TextStyle(color:Color(0xFFB7C9E8)))]);
+  Widget _team(TeamInfo t, Color color, {bool right=false})=>Column(crossAxisAlignment:right?CrossAxisAlignment.end:CrossAxisAlignment.start, children:[Container(width:54,height:54,alignment:Alignment.center,decoration:BoxDecoration(shape:BoxShape.circle,color:color.withOpacity(.25),border:Border.all(color:color,width:2)),child:Text(t.name.substring(0,1).toUpperCase(),style:TextStyle(color:color,fontWeight:FontWeight.w900,fontSize:24))), const SizedBox(height:8), Text(t.name,maxLines:2,overflow:TextOverflow.ellipsis,textAlign:right?TextAlign.right:TextAlign.left,style:const TextStyle(color:Colors.white,fontWeight:FontWeight.w900,fontSize:20)), Text('ID ${t.id} • OVR ${t.overall} • ${t.manager}',maxLines:1,overflow:TextOverflow.ellipsis,style:const TextStyle(color:Color(0xFFB7C9E8)))]);
   Widget _dual(String label, int av, int bv){ final total=max(1,av+bv); final pa=(av/total*100).round(); return Padding(padding:const EdgeInsets.only(top:10), child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[Row(children:[Expanded(child:Text(label,style:const TextStyle(color:Colors.white70,fontWeight:FontWeight.w800))), Text('$av - $bv',style:const TextStyle(color:Colors.white,fontWeight:FontWeight.w900))]), const SizedBox(height:5), ClipRRect(borderRadius:BorderRadius.circular(99), child:SizedBox(height:8, child:Row(children:[Expanded(flex:max(1,pa),child:Container(color:Colors.redAccent)), Expanded(flex:max(1,100-pa),child:Container(color:const Color(0xFF2F80FF)))]))) ])); }
 }
 
@@ -4945,7 +4945,7 @@ class TeamAutocomplete extends StatelessWidget{
   @override Widget build(BuildContext context){
     final counts=<String,int>{};
     for(final t in teams){ counts[t.name]=(counts[t.name]??0)+1; }
-    String labelOf(TeamInfo t)=> (counts[t.name]??0)>1 ? '${t.name}  • ID ${t.id}' : t.name;
+    String labelOf(TeamInfo t)=> '${t.name}  • ID ${t.id}${t.gender==1?' • F':' • H'}';
     final opts=teams.map(labelOf).toList();
     return Autocomplete<String>(
       initialValue: TextEditingValue(text:value),
@@ -4957,7 +4957,7 @@ class TeamAutocomplete extends StatelessWidget{
 }
 
 TeamInfo? findTeamByAutocomplete(List<TeamInfo> teams, String value){
-  final idMatch=RegExp(r'ID\s+([^\s]+)').firstMatch(value);
+  final idMatch=RegExp(r'ID\s+([^•\s]+)').firstMatch(value);
   if(idMatch!=null){
     final id=idMatch.group(1)!;
     for(final t in teams){ if(t.id==id) return t; }
