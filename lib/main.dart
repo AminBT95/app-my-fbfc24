@@ -6524,7 +6524,37 @@ class _V50ReportsExportStudioPageState extends State<V50ReportsExportStudioPage>
   }
 
   Widget _savedTab()=>Column(children:[
-    ProBox(title:'Rapports sauvegardés',subtitle:'Persistés localement et réimportables',icon:Icons.folder_copy_rounded,child:Column(children:loading?[const LinearProgressIndicator()]:reports.isEmpty?[const ListTile(title:Text('Aucun rapport sauvegardé'),subtitle:Text('Crée un rapport PDF ou tactical puis clique sauver.'))]:reports.map((r)=>ListTile(leading:const Icon(Icons.description_rounded,color:AppTheme.green),title:Text(r.title,style:const TextStyle(fontWeight:FontWeight.w900)),subtitle:Text('${r.type} • ${r.createdAt}',maxLines:1,overflow:TextOverflow.ellipsis),trailing:IconButton(icon:const Icon(Icons.picture_as_pdf),onPressed:()=>V50ExportEngine.sharePdf(context,title:r.title,subtitle:r.type,sections:{'Rapport':r.body,'Données':jsonEncode(r.data)})),onTap:()=>showUxDetailModal(context,r.title,[ProBox(title:r.title,subtitle:r.type,icon:Icons.description,child:SelectableText(r.body))])) .toList())),
+    ProBox(
+      title:'Rapports sauvegardés',
+      subtitle:'Persistés localement et réimportables',
+      icon:Icons.folder_copy_rounded,
+      child: Column(
+        children: loading
+            ? [const LinearProgressIndicator()]
+            : reports.isEmpty
+                ? [const ListTile(
+                    title: Text('Aucun rapport sauvegardé'),
+                    subtitle: Text('Crée un rapport PDF ou tactical puis clique sauver.'),
+                  )]
+                : reports.map((r) => ListTile(
+                    leading: const Icon(Icons.description_rounded, color: AppTheme.green),
+                    title: Text(r.title, style: const TextStyle(fontWeight: FontWeight.w900)),
+                    subtitle: Text('${r.type} • ${r.createdAt}', maxLines: 1, overflow: TextOverflow.ellipsis),
+                    trailing: IconButton(
+                      icon: const Icon(Icons.picture_as_pdf),
+                      onPressed: () => V50ExportEngine.sharePdf(
+                        context,
+                        title: r.title,
+                        subtitle: r.type,
+                        sections: {'Rapport': r.body, 'Données': jsonEncode(r.data)},
+                      ),
+                    ),
+                    onTap: () => showUxDetailModal(context, r.title, [
+                      ProBox(title: r.title, subtitle: r.type, icon: Icons.description, child: SelectableText(r.body)),
+                    ]),
+                  )).toList(),
+      ),
+    ),
     Wrap(spacing:8,runSpacing:8,children:[ActionChip(label:const Text('Sauvegarder'),avatar:const Icon(Icons.save),onPressed:_save),ActionChip(label:const Text('Vider'),avatar:const Icon(Icons.delete),onPressed:()=>setState(()=>reports.clear()))]),
   ]);
 
@@ -6554,7 +6584,7 @@ class _V50ReportsExportStudioPageState extends State<V50ReportsExportStudioPage>
   List<_LabToken> _sampleTokens(){ final ps=widget.players.take(8).toList(); if(ps.isEmpty)return []; return [for(int i=0;i<ps.length;i++) _LabToken(ps[i], Offset(.18+(i%4)*.2,.22+(i~/4)*.35), selected:i==0)]; }
   Future<void> _addReport(String title,String type,String body,Map<String,dynamic> data) async { setState(()=>reports.insert(0,CoachSavedReport(id:'r_${DateTime.now().millisecondsSinceEpoch}',title:title,type:type,body:body,data:data,createdAt:DateTime.now().toIso8601String()))); await _save(); }
   String _globalText()=> 'FC24 Coach AI V50\nJoueurs: ${widget.players.length}\nÉquipes: ${widget.teams.length}\nTactiques: ${widget.ideas.length}\nHistorique: ${widget.history.length}\nFavoris: ${widget.favoritePlayerIds.length}\n\nModules couverts: PDF réel, GIF Tactical Lab, heatmaps terrain, rapports sauvegardés/importables.';
-  String _playerText(Player p)=> '${p.name}\n${p.team} • ${p.pos} • OVR ${p.ovr}\nPace ${p.pace} • Shooting ${p.shooting} • Passing ${p.passing}\nDribbling ${p.dribbling} • Defending ${p.defending} • Physical ${p.physical}\nPlayStyles: ${mergedPlayStyles(p).join(', ')}\nTraits: ${actualPlayerTraits(p).join(', ')}';
+  String _playerText(Player p)=> '${p.name}\n${p.team} • ${p.pos} • OVR ${p.ovr}\nPace ${p.s['pac'] ?? 0} • Shooting ${p.s['sho'] ?? 0} • Passing ${p.s['pas'] ?? 0}\nDribbling ${p.s['dri'] ?? 0} • Defending ${p.s['def'] ?? 0} • Physical ${p.s['phy'] ?? 0}\nPlayStyles: ${mergedPlayStyles(p).join(', ')}\nTraits: ${actualPlayerTraits(p).join(', ')}';
   String _teamText(TeamInfo t)=> '${t.name}\nManager: ${t.manager}\nOVR ${t.overall} • ATT ${t.attack} MID ${t.midfield} DEF ${t.defense}\nForts: ${t.strongTraits.join(', ')}\nFaibles: ${t.weakTraits.join(', ')}\nÉgal: ${t.equalTraits.join(', ')}';
   Future<void> _exportPlayerPdf() async { final p=widget.players.isNotEmpty?widget.players.first:null; if(p==null)return; await V50ExportEngine.sharePdf(context,title:'Rapport joueur ${p.name}',subtitle:'Player Hub PDF',sections:{'Résumé':_playerText(p),'Analyse':'Forces, faiblesses, playstyles, traits et utilisation coach.','Counters':'À compléter depuis Player Hub / Team vs Team selon adversaire.'}); await _addReport('Rapport joueur ${p.name}','Player',_playerText(p),p.toLocalJson()); }
   Future<void> _exportTeamPdf() async { if(widget.teams.length<2)return; final a=widget.teams[0],b=widget.teams[1]; final body='${_teamText(a)}\n\nVS\n\n${_teamText(b)}'; await V50ExportEngine.sharePdf(context,title:'Team vs Team ${a.name} vs ${b.name}',subtitle:'Comparaison équipe PDF',sections:{'Résumé':body,'Duels':'Ailier vs latéral • ST vs CB • CAM/CM vs CDM/CM • couloirs/axe.','Conseils':'Exploiter traits forts, protéger traits faibles, ajuster selon score.'}); await _addReport('Team vs Team ${a.name} vs ${b.name}','TeamVsTeam',body,{'a':a.toLocalJson(),'b':b.toLocalJson()}); }
@@ -6586,7 +6616,7 @@ class V50PrecisionHeatmapPainter extends CustomPainter {
   }
   Offset _pos(String raw, Size s){
     final p=raw.toUpperCase(); double x=.5,y=.5;
-    if(p.contains('GK')){y=.92;} else if(p.contains('CB')){y=.76; x=p.contains('R')?.62:p.contains('L')?.38:.5;} else if(p.contains('RB')||p.contains('RWB')){x=.82;y=.70;} else if(p.contains('LB')||p.contains('LWB')){x=.18;y=.70;} else if(p.contains('CDM')){y=.60;} else if(p.contains('CM')){y=.50; x=p.contains('R')?.62:p.contains('L')?.38:.5;} else if(p.contains('CAM')){y=.38;} else if(p.contains('RW')||p.contains('RM')){x=.82;y=.30;} else if(p.contains('LW')||p.contains('LM')){x=.18;y=.30;} else if(p.contains('ST')||p.contains('CF')){y=.18;} 
+    if(p.contains('GK')){y=.92;} else if(p.contains('CB')){y=.76; x=p.contains('R') ? .62 : (p.contains('L') ? .38 : .5);} else if(p.contains('RB')||p.contains('RWB')){x=.82;y=.70;} else if(p.contains('LB')||p.contains('LWB')){x=.18;y=.70;} else if(p.contains('CDM')){y=.60;} else if(p.contains('CM')){y=.50; x=p.contains('R') ? .62 : (p.contains('L') ? .38 : .5);} else if(p.contains('CAM')){y=.38;} else if(p.contains('RW')||p.contains('RM')){x=.82;y=.30;} else if(p.contains('LW')||p.contains('LM')){x=.18;y=.30;} else if(p.contains('ST')||p.contains('CF')){y=.18;} 
     return Offset(x*s.width,y*s.height);
   }
   @override bool shouldRepaint(covariant V50PrecisionHeatmapPainter oldDelegate)=>oldDelegate.players!=players;

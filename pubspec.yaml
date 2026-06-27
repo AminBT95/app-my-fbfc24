@@ -1,7 +1,7 @@
 name: fc24_coach_ai
 description: FC24 Coach AI Pro mobile app
 publish_to: "none"
-version: 1.0.51+51
+version: 1.0.512+512
 
 environment:
   sdk: ">=3.5.0 <4.0.0"
