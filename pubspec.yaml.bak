@@ -1,7 +1,7 @@
 name: fc24_coach_ai
 description: FC24 Coach AI Pro mobile app
 publish_to: "none"
-version: 1.0.51+51
+version: 1.0.50+50
 
 environment:
   sdk: ">=3.5.0 <4.0.0"
@@ -13,7 +13,6 @@ dependencies:
   printing: ^5.13.4
   image: ^4.3.0
   share_plus: ^10.1.2
-  shared_preferences: ^2.3.3
 
 flutter:
   uses-material-design: true
