@@ -808,7 +808,7 @@ final formationPresets = <FormationPreset>[
 
 class TeamInfo {
   final String id, name, manager;
-  final int overall, attack, midfield, defense, citylikeScore;
+  final int overall, attack, midfield, defense, citylikeScore, gender;
   final List<String> weakTraits, equalTraits, strongTraits;
   final List<String> xi;
 
@@ -821,6 +821,7 @@ class TeamInfo {
     required this.midfield,
     required this.defense,
     required this.citylikeScore,
+    this.gender = 0,
     required this.weakTraits,
     required this.equalTraits,
     required this.strongTraits,
@@ -842,6 +843,7 @@ class TeamInfo {
       midfield: Player.n(j['midfield']),
       defense: Player.n(j['defense']),
       citylikeScore: Player.n(j['citylikeScore']),
+      gender: Player.n(j['gender'], 0),
       weakTraits: split(j['weakTraits']),
       equalTraits: split(j['equalTraits']),
       strongTraits: split(j['strongTraits']),
