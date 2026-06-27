@@ -2860,7 +2860,7 @@ class _TeamVsTeamPageState extends State<TeamVsTeamPage> {
         _TeamVersusHero(a:ta,b:tb),
         const SizedBox(height:12),
         UxTabSection(
-          height: 640,
+          height: 820,
           tabs: const ['Setup','Terrain','Duels','Attack','Defense','Counters','Advice'],
           children: [
             Column(children:[
@@ -2988,21 +2988,73 @@ List<_PitchPlayer> _assignToFormation(List<Player> squad, FormationPreset f, {re
 extension _FirstOrNull<T> on List<T> { T? get firstOrNull => isEmpty ? null : first; }
 
 List<(_PitchPlayer, _PitchPlayer, double)> _facePairs(List<_PitchPlayer> mine, List<_PitchPlayer> opp){
+  // v49: pairing corrigé. On compare d'abord les joueurs qui se font VRAIMENT face
+  // par rôle + couloir, puis seulement après par distance terrain.
   final available=[...opp];
   final pairs=<(_PitchPlayer,_PitchPlayer,double)>[];
-  for(final m in mine){
+
+  final ordered=[...mine]..sort((a,b){
+    int pr(_PitchPlayer x){
+      final p=x.p.pos.toUpperCase();
+      if(p.contains('LW')||p.contains('RW')||p.contains('LM')||p.contains('RM')||p.contains('ST')||p.contains('CF')) return 0;
+      if(p.contains('CAM')||p.contains('CM')||p.contains('CDM')) return 1;
+      if(p.contains('LB')||p.contains('RB')||p.contains('CB')||p.contains('LWB')||p.contains('RWB')) return 2;
+      return 3;
+    }
+    return pr(a).compareTo(pr(b));
+  });
+
+  for(final m in ordered){
     if(available.isEmpty) break;
     available.sort((a,b){
-      double da=(a.spot-m.spot).distance, db=(b.spot-m.spot).distance;
-      final na=_isNaturalOpponent(m.p,a.p)?0:0.35;
-      final nb=_isNaturalOpponent(m.p,b.p)?0:0.35;
-      return (da+na).compareTo(db+nb);
+      final sa=_faceScore(m,a);
+      final sb=_faceScore(m,b);
+      return sa.compareTo(sb);
     });
     final o=available.removeAt(0);
     pairs.add((m,o,(o.spot-m.spot).distance));
   }
-  pairs.sort((a,b)=>a.$3.compareTo(b.$3));
+
+  pairs.sort((a,b){
+    final qa=_faceScore(a.$1,a.$2);
+    final qb=_faceScore(b.$1,b.$2);
+    return qa.compareTo(qb);
+  });
   return pairs;
+}
+
+double _faceScore(_PitchPlayer mine, _PitchPlayer opp){
+  final rolePenalty=_faceRolePenalty(mine.p, opp.p);
+  final lanePenalty=(mine.spot.dx-opp.spot.dx).abs()*1.2;
+  final verticalPenalty=(mine.spot.dy-opp.spot.dy).abs()*.35;
+  return rolePenalty + lanePenalty + verticalPenalty;
+}
+
+double _faceRolePenalty(Player a, Player b){
+  final ap=a.pos.toUpperCase(), bp=b.pos.toUpperCase();
+  bool has(String src, List<String> xs)=>xs.any((x)=>src.contains(x));
+
+  // Ailiers vs latéraux opposés
+  if(has(ap,['LW','LM','LF']) && has(bp,['RB','RWB','RM'])) return 0;
+  if(has(ap,['RW','RM','RF']) && has(bp,['LB','LWB','LM'])) return 0;
+  if(has(ap,['LB','LWB']) && has(bp,['RW','RM','RF'])) return 0;
+  if(has(ap,['RB','RWB']) && has(bp,['LW','LM','LF'])) return 0;
+
+  // Buteur vs centraux, centraux vs buteur
+  if(has(ap,['ST','CF']) && has(bp,['CB'])) return 0;
+  if(has(ap,['CB']) && has(bp,['ST','CF'])) return 0;
+
+  // Créateur vs récupérateur / milieu vs milieu
+  if(has(ap,['CAM']) && has(bp,['CDM','CM'])) return .05;
+  if(has(ap,['CDM']) && has(bp,['CAM','CM'])) return .05;
+  if(has(ap,['CM']) && has(bp,['CM','CDM','CAM'])) return .08;
+
+  // GK : seulement en dernier recours, sinon il pollue les duels clés
+  if(has(ap,['GK']) || has(bp,['GK'])) return .85;
+
+  if(_isNaturalOpponent(a,b)) return .18;
+  if(_roleGroup(a)==_roleGroup(b)) return .45;
+  return .65;
 }
 
 List<Mode> _duelModesForFace(Player x, Player y) {
@@ -3037,7 +3089,9 @@ class TeamVsTeamTacticalMap extends StatelessWidget { final TeamInfo a,b; final 
     return ProBox(title:'Terrain tactique — formations face-à-face', subtitle:'Ton XI + formation adverse sur le même terrain, duels réels par proximité', icon:Icons.map_rounded, child:Column(crossAxisAlignment:CrossAxisAlignment.start, children:[
       Wrap(spacing:8, runSpacing:8, children:[Chip(label:Text('${a.name}: ${fa.name}')), Chip(label:Text('${b.name}: ${fb.name}')), Chip(label:Text('Duels face-à-face: ${pairs.length}'))]),
       const SizedBox(height:10),
-      TeamPitchCompareView(mine:mine, opp:opp, pairs:pairs.take(6).toList()),
+      TeamPitchCompareView(mine:mine, opp:opp, pairs:pairs.take(9).toList()),
+      const SizedBox(height:12),
+      TeamPitchDuelMatrix(pairs:pairs.take(11).toList()),
       const SizedBox(height:12),
       TerrainPlayerVsPlayerSelector(mine:fullA, opp:fullB),
       const SizedBox(height:12),
@@ -3067,6 +3121,37 @@ class TeamVsTeamTacticalMap extends StatelessWidget { final TeamInfo a,b; final 
       subtitle:Wrap(spacing:6, runSpacing:4, children:ms.take(4).map((m)=>Chip(label:Text('${m.label} ${score(x,m).total}-${score(y,m).total}', style:const TextStyle(fontSize:11)))).toList()),
       onTap:()=>showModalBottomSheet(context:context,isScrollControlled:true,backgroundColor:Colors.transparent,builder:(_)=>FaceDuelModesSheet(a:x,b:y,modes:ms)),
     ));
+  }
+}
+
+
+class TeamPitchDuelMatrix extends StatelessWidget{
+  final List<(_PitchPlayer,_PitchPlayer,double)> pairs;
+  const TeamPitchDuelMatrix({super.key, required this.pairs});
+  @override Widget build(BuildContext context){
+    if(pairs.isEmpty) return const SizedBox.shrink();
+    return Container(padding:const EdgeInsets.all(12), decoration:BoxDecoration(color:AppTheme.surface,borderRadius:BorderRadius.circular(20),border:Border.all(color:AppTheme.line)), child:Column(crossAxisAlignment:CrossAxisAlignment.start, children:[
+      const Text('Matrice des duels terrain', style:TextStyle(fontWeight:FontWeight.w900,fontSize:16)),
+      const SizedBox(height:4),
+      const Text('Comparaisons corrigées : ailier vs latéral, ST vs CB, CAM/CM vs CDM/CM, latéral vs ailier.', style:TextStyle(color:AppTheme.muted,fontWeight:FontWeight.w700,fontSize:12,height:1.25)),
+      const SizedBox(height:10),
+      ...pairs.map((e){
+        final a=e.$1.p,b=e.$2.p;
+        final ms=_duelModesForFace(a,b);
+        final m=ms.first;
+        final sa=score(a,m).total, sb=score(b,m).total;
+        final good=sa>=sb;
+        return InkWell(
+          borderRadius:BorderRadius.circular(16),
+          onTap:()=>showModalBottomSheet(context:context,isScrollControlled:true,backgroundColor:Colors.transparent,builder:(_)=>FaceDuelModesSheet(a:a,b:b,modes:ms)),
+          child:Container(margin:const EdgeInsets.only(bottom:8), padding:const EdgeInsets.all(10), decoration:BoxDecoration(color:good?AppTheme.green.withOpacity(.07):AppTheme.danger.withOpacity(.07),borderRadius:BorderRadius.circular(16),border:Border.all(color:(good?AppTheme.green:AppTheme.danger).withOpacity(.25))), child:Column(crossAxisAlignment:CrossAxisAlignment.start, children:[
+            Row(children:[Expanded(child:Text('${e.$1.role} ${a.name}',maxLines:1,overflow:TextOverflow.ellipsis,style:const TextStyle(fontWeight:FontWeight.w900))), const Padding(padding:EdgeInsets.symmetric(horizontal:6),child:Text('vs',style:TextStyle(color:AppTheme.muted,fontWeight:FontWeight.w900))), Expanded(child:Text('${e.$2.role} ${b.name}',maxLines:1,overflow:TextOverflow.ellipsis,textAlign:TextAlign.right,style:const TextStyle(fontWeight:FontWeight.w900)))]),
+            const SizedBox(height:6),
+            Wrap(spacing:6, runSpacing:4, children:ms.take(5).map((x)=>Chip(label:Text('${x.label} ${score(a,x).total}-${score(b,x).total}', style:const TextStyle(fontSize:10,fontWeight:FontWeight.w800)))).toList()),
+          ])),
+        );
+      }),
+    ]));
   }
 }
 
@@ -3191,20 +3276,80 @@ class TeamPitchCompareView extends StatelessWidget {
   }
 
   @override Widget build(BuildContext context)=>LayoutBuilder(builder:(context,c){
-    return Container(height:390, decoration:BoxDecoration(borderRadius:BorderRadius.circular(26), gradient:const LinearGradient(begin:Alignment.topCenter,end:Alignment.bottomCenter,colors:[Color(0xFF14532D), Color(0xFF15803D)])), child:Stack(children:[
-      Positioned.fill(child:CustomPaint(painter:_PitchLines())),
-      ...pairs.map((e)=>CustomPaint(size:Size(c.maxWidth,390), painter:_PairLinePainter(e.$1.spot,e.$2.spot))),
-      for(final pp in opp) Positioned(left:pp.spot.dx*c.maxWidth-23, top:pp.spot.dy*390-23, child:_dot(pp, Colors.redAccent, context)),
-      for(final pp in mine) Positioned(left:pp.spot.dx*c.maxWidth-23, top:pp.spot.dy*390-23, child:_dot(pp, AppTheme.blue, context)),
-      Positioned(left:12, top:12, child:_tag('Ton équipe', AppTheme.blue)),
-      Positioned(right:12, top:12, child:_tag('Adversaire', Colors.redAccent)),
-      Positioned(left:12, bottom:12, right:12, child:Container(padding:const EdgeInsets.all(8), decoration:BoxDecoration(color:Colors.black.withOpacity(.45), borderRadius:BorderRadius.circular(14)), child:const Text('Clique un joueur sur le terrain : ouverture directe du duel face-à-face le plus proche.', textAlign:TextAlign.center, style:TextStyle(color:Colors.white, fontWeight:FontWeight.w800, fontSize:12)))),
-    ]));
+    final w=c.maxWidth;
+    final h=(w*1.34).clamp(430.0, 560.0);
+    final keyPairs=pairs.take(9).toList();
+    return Container(
+      height:h,
+      clipBehavior:Clip.antiAlias,
+      decoration:BoxDecoration(
+        borderRadius:BorderRadius.circular(28),
+        gradient:const LinearGradient(begin:Alignment.topCenter,end:Alignment.bottomCenter,colors:[Color(0xFF0B3D1E), Color(0xFF15803D), Color(0xFF0B3D1E)]),
+        border:Border.all(color:Colors.white.withOpacity(.14)),
+        boxShadow:[BoxShadow(color:Colors.black.withOpacity(.22), blurRadius:24, offset:const Offset(0,10))],
+      ),
+      child:Stack(children:[
+        Positioned.fill(child:CustomPaint(painter:_PitchLinesPro())),
+        _tacticalZone(w,h, const Offset(.18,.50), 'Press side', AppTheme.blue),
+        _tacticalZone(w,h, const Offset(.82,.50), 'Switch side', AppTheme.green),
+        for(final e in keyPairs) Positioned.fill(child:CustomPaint(painter:_PairLinePainter(e.$1.spot,e.$2.spot))),
+        for(final pp in opp) _positionedDot(pp, Colors.redAccent, context, w, h),
+        for(final pp in mine) _positionedDot(pp, AppTheme.blue, context, w, h),
+        Positioned(left:12, top:12, child:_tag('Ton XI', AppTheme.blue)),
+        Positioned(right:12, top:12, child:_tag('Adversaire', Colors.redAccent)),
+        Positioned(left:12, bottom:12, right:12, child:Container(
+          padding:const EdgeInsets.all(9),
+          decoration:BoxDecoration(color:Colors.black.withOpacity(.50), borderRadius:BorderRadius.circular(16), border:Border.all(color:Colors.white.withOpacity(.10))),
+          child:Text('Terrain corrigé v49 : formations face-à-face + duels par rôle/couloir. Clique un joueur pour ouvrir la comparaison complète.', textAlign:TextAlign.center, style:const TextStyle(color:Colors.white, fontWeight:FontWeight.w800, fontSize:12)),
+        )),
+      ]),
+    );
   });
-  Widget _dot(_PitchPlayer pp, Color c, BuildContext context)=>InkWell(onTap:()=>_openFromPitch(context, pp), child:Column(children:[Container(width:46,height:46,alignment:Alignment.center, decoration:BoxDecoration(shape:BoxShape.circle,color:c.withOpacity(.92),border:Border.all(color:Colors.white,width:2),boxShadow:[BoxShadow(color:Colors.black.withOpacity(.25), blurRadius:10)]), child:Text(pp.role.replaceAll(RegExp(r'[0-9]'),''), style:const TextStyle(color:Colors.white,fontWeight:FontWeight.w900,fontSize:10))), Container(constraints:const BoxConstraints(maxWidth:78), padding:const EdgeInsets.symmetric(horizontal:5,vertical:2), decoration:BoxDecoration(color:Colors.black.withOpacity(.55), borderRadius:BorderRadius.circular(8)), child:Text(pp.p.name.replaceFirst('Player ', '#'), maxLines:1, overflow:TextOverflow.ellipsis, style:const TextStyle(color:Colors.white,fontSize:10,fontWeight:FontWeight.w800)))]));
-  Widget _tag(String t, Color c)=>Container(padding:const EdgeInsets.symmetric(horizontal:10,vertical:6), decoration:BoxDecoration(color:c.withOpacity(.88), borderRadius:BorderRadius.circular(99)), child:Text(t, style:const TextStyle(color:Colors.white,fontWeight:FontWeight.w900,fontSize:12)));
+
+  Widget _positionedDot(_PitchPlayer pp, Color c, BuildContext context, double w, double h){
+    final left=(pp.spot.dx*w-24).clamp(4.0, w-52.0);
+    final top=(pp.spot.dy*h-24).clamp(34.0, h-78.0);
+    return Positioned(left:left, top:top, child:_dot(pp,c,context));
+  }
+
+  Widget _dot(_PitchPlayer pp, Color c, BuildContext context){
+    final other=_pairedFor(pp);
+    final role=pp.role.replaceAll(RegExp(r'[0-9]'),'');
+    final mode=other==null?modes.first:_duelModesForFace(pp.opponent?other.p:pp.p, pp.opponent?pp.p:other.p).first;
+    final diff=other==null?0:score(pp.p,mode).total-score(other.p,mode).total;
+    final border=diff>=0?AppTheme.green:AppTheme.danger;
+    return InkWell(
+      onTap:()=>_openFromPitch(context, pp),
+      child:Column(children:[
+        Container(width:48,height:48,alignment:Alignment.center, decoration:BoxDecoration(shape:BoxShape.circle,color:c.withOpacity(.94),border:Border.all(color:border,width:2.5),boxShadow:[BoxShadow(color:Colors.black.withOpacity(.28), blurRadius:10)]), child:Text(role, style:const TextStyle(color:Colors.white,fontWeight:FontWeight.w900,fontSize:10))),
+        Container(constraints:const BoxConstraints(maxWidth:82), padding:const EdgeInsets.symmetric(horizontal:5,vertical:2), decoration:BoxDecoration(color:Colors.black.withOpacity(.60), borderRadius:BorderRadius.circular(8)), child:Text(pp.p.name.replaceFirst('Player ', '#'), maxLines:1, overflow:TextOverflow.ellipsis, style:const TextStyle(color:Colors.white,fontSize:10,fontWeight:FontWeight.w800))),
+      ]),
+    );
+  }
+  Widget _tag(String t, Color c)=>Container(padding:const EdgeInsets.symmetric(horizontal:10,vertical:6), decoration:BoxDecoration(color:c.withOpacity(.90), borderRadius:BorderRadius.circular(99), boxShadow:[BoxShadow(color:Colors.black.withOpacity(.18), blurRadius:10)]), child:Text(t, style:const TextStyle(color:Colors.white,fontWeight:FontWeight.w900,fontSize:12)));
+  Widget _tacticalZone(double w,double h,Offset o,String text,Color c)=>Positioned(left:o.dx*w-58, top:o.dy*h-28, child:Container(width:116,height:56, alignment:Alignment.center, decoration:BoxDecoration(color:c.withOpacity(.13), borderRadius:BorderRadius.circular(18), border:Border.all(color:c.withOpacity(.35), style:BorderStyle.solid)), child:Text(text,textAlign:TextAlign.center,style:TextStyle(color:Colors.white.withOpacity(.86),fontWeight:FontWeight.w900,fontSize:11))));
 }
 
+class _PitchLinesPro extends CustomPainter{
+  @override void paint(Canvas c, Size s){
+    final line=Paint()..color=Colors.white.withOpacity(.22)..style=PaintingStyle.stroke..strokeWidth=2;
+    final thin=Paint()..color=Colors.white.withOpacity(.12)..style=PaintingStyle.stroke..strokeWidth=1;
+    final stripe=Paint()..color=Colors.white.withOpacity(.035)..style=PaintingStyle.fill;
+    for(int i=0;i<6;i++){ if(i.isEven) c.drawRect(Rect.fromLTWH(0, i*s.height/6, s.width, s.height/6), stripe); }
+    final r=RRect.fromRectAndRadius(Rect.fromLTWH(8,8,s.width-16,s.height-16), const Radius.circular(24));
+    c.drawRRect(r,line);
+    c.drawLine(Offset(8,s.height/2), Offset(s.width-8,s.height/2), line);
+    c.drawCircle(Offset(s.width/2,s.height/2), min(s.width,s.height)*.13, line);
+    c.drawCircle(Offset(s.width/2,s.height/2), 3, Paint()..color=Colors.white.withOpacity(.55));
+    c.drawRect(Rect.fromCenter(center:Offset(s.width/2,8), width:s.width*.54, height:s.height*.16), line);
+    c.drawRect(Rect.fromCenter(center:Offset(s.width/2,s.height-8), width:s.width*.54, height:s.height*.16), line);
+    c.drawRect(Rect.fromCenter(center:Offset(s.width/2,8), width:s.width*.26, height:s.height*.07), thin);
+    c.drawRect(Rect.fromCenter(center:Offset(s.width/2,s.height-8), width:s.width*.26, height:s.height*.07), thin);
+    c.drawArc(Rect.fromCircle(center:Offset(s.width/2,s.height*.16), radius:s.width*.13), 0, pi, false, thin);
+    c.drawArc(Rect.fromCircle(center:Offset(s.width/2,s.height*.84), radius:s.width*.13), pi, pi, false, thin);
+  }
+  @override bool shouldRepaint(covariant CustomPainter oldDelegate)=>false;
+}
 
 class _PairLinePainter extends CustomPainter{
   final Offset a,b; _PairLinePainter(this.a,this.b);
